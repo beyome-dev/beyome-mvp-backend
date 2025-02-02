@@ -1,13 +1,13 @@
 {
-  "name": "express-mongodb-rest-api-boilerplate",
+  "name": "beyome-mvp-backend",
   "version": "1.0.3",
   "description": "A boilerplate for Node.js apps / Rest API / Authentication from scratch - express, mongodb (mongoose).",
   "main": "./src",
   "repository": {
     "type": "git",
-    "url": "https://github.com/watscho/express-mongodb-rest-api-boilerplate"
+    "url": ""
   },
-  "bugs": "https://github.com/watscho/express-mongodb-rest-api-boilerplate/issues",
+  "bugs": "/issues",
   "keywords": [
     "express",
     "mongodb",
@@ -34,7 +34,7 @@
     "prettier": "prettier \"**/*.+(js|jsx|json|css|md)\"",
     "prettier:write": "prettier --write \"**/*.+(js|jsx|json|css|md)\""
   },
-  "author": "Watscho Aiwasov",
+  "author": "Muhammed azhar",
   "license": "MIT",
   "devDependencies": {
     "@types/bcrypt": "5.0.0",

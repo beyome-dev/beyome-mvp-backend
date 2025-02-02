@@ -1,8 +1,8 @@
-# [express-mongodb-rest-api-typescript-boilerplate](https://github.com/watscho/express-mongodb-rest-api-boilerplate)
+# [Beyome MVP Backend](https://bitbucket.org/beyome/beyome-mvp-backend)
 
-[![](https://img.shields.io/badge/author-@watscho-blue.svg)](https://www.linkedin.com/in/watscho)
-[![](https://api.codacy.com/project/badge/Grade/f4ea86b0cf474e928d34f3723aed349e)](https://app.codacy.com/gh/watscho/express-mongodb-rest-api-boilerplate)
-[![GitHub license](https://img.shields.io/github/license/watscho/express-mongodb-rest-api-boilerplate)](https://github.com/watscho/express-mongodb-rest-api-boilerplate/blob/master/LICENSE)
+[![](https://img.shields.io/badge/author-@beyome-blue.svg)](https://www.linkedin.com/in/beyome)
+[![](https://api.codacy.com/project/badge/Grade/f4ea86b0cf474e928d34f3723aed349e)](https://app.codacy.com/gh/beyome/express-mongodb-rest-api-boilerplate)
+[![GitHub license](https://img.shields.io/github/license/beyome/express-mongodb-rest-api-boilerplate)](https://bitbucket.org/beyome/beyome-mvp-backend/express-mongodb-rest-api-boilerplate/blob/master/LICENSE)
 
 ## Authentication from scratch `TypeScript`
 
@@ -246,9 +246,3 @@ If you're looking for an easy-to-use tool to test your email SMTP functionality,
 ├── tsconfig.json
 └── yarn.lock
 ```
-
-**Note:** For any question [issues](https://github.com/watscho/express-mongodb-rest-api-boilerplate/issues)
-
-## License
-
-This project is an open-source with an [MIT License](https://github.com/watscho/express-mongodb-rest-api-boilerplate/blob/master/LICENSE)
