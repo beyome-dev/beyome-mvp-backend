@@ -1,248 +1,173 @@
 # [Beyome MVP Backend](https://bitbucket.org/beyome/beyome-mvp-backend)
 
 [![](https://img.shields.io/badge/author-@beyome-blue.svg)](https://www.linkedin.com/in/beyome)
-[![](https://api.codacy.com/project/badge/Grade/f4ea86b0cf474e928d34f3723aed349e)](https://app.codacy.com/gh/beyome/express-mongodb-rest-api-boilerplate)
-[![GitHub license](https://img.shields.io/github/license/beyome/express-mongodb-rest-api-boilerplate)](https://bitbucket.org/beyome/beyome-mvp-backend/express-mongodb-rest-api-boilerplate/blob/master/LICENSE)
+[![](https://api.codacy.com/project/badge/Grade/f4ea86b0cf474e928d34f3723aed349e)](https://app.codacy.com/bb/beyome/beyome-mvp-backend)
+[![GitHub license](https://img.shields.io/github/license/beyome/express-mongodb-rest-api-boilerplate)](https://bitbucket.org/beyome/beyome-mvp-backend/blob/master/LICENSE)
 
-## Authentication from scratch `TypeScript`
 
-- Sign In
-- Sign Up,
-- Reset Password
-- Update Profile
-- Update Password
-- Update Email
-- Update User Avatar
-- Delete Profile
-- Reset Password by E-mail
-- Verification Profile by E-mail
-- Signed Out Access Token blacklisting by Redis
-- Image Upload (public storage, Many-to-many relationships)
-- Multi language by i18Next
-- E-mail notifications
+Beyome mvp project with trancsription and summary generation api for doctors and patients.
 
-### Package list
+## Manual Installation
 
-| Package                 | Description                                                                                                                                                                                                                                                                                                                                                    |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ts-node                 | TypeScript execution and REPL for node.js, with source map and native ESM support.                                                                                                                                                                                                                                                                             |
-| ts-node-dev             | It restarts target node process when any of required files changes (as standard node-dev) but shares Typescript compilation process between restarts. This significantly increases speed of restarting comparing to node-dev -r ts-node/register ..., nodemon -x ts-node ... variations because there is no need to instantiate ts-node compilation each time. |
-| tsc-alias               | Replace alias paths with relative paths after typescript compilation. You can add aliases that reference other projects outside your tsconfig.json project by providing a relative path to the baseUrl.                                                                                                                                                        |
-| tsconfig-paths          | Use this to load modules whose location is specified in the paths section of tsconfig.json or jsconfig.json. Both loading at run-time and via API are supported.                                                                                                                                                                                               |
-| typescript              | TypeScript is a language for application-scale JavaScript. TypeScript adds optional types to JavaScript that support tools for large-scale JavaScript applications for any browser, for any host, on any OS                                                                                                                                                    |
-| cross-env               | Run scripts that set and use environment variables across platforms                                                                                                                                                                                                                                                                                            |
-| express                 | Fast, unopinionated, minimalist web framework for Node.js.                                                                                                                                                                                                                                                                                                     |
-| email-templates         | Create, preview (browser/iOS Simulator), and send custom email templates for Node.js. Made for Forward Email and Lad.                                                                                                                                                                                                                                          |
-| nodemailer              | Easy as cake e-mail sending from your Node.js applications                                                                                                                                                                                                                                                                                                     |
-| ejs                     | Embedded JavaScript templates                                                                                                                                                                                                                                                                                                                                  |
-| cors                    | CORS is a node.js package for providing a Connect/Express middleware that can be used to enable CORS with various options.                                                                                                                                                                                                                                     |
-| bcrypt                  | A library to help you hash passwords.                                                                                                                                                                                                                                                                                                                          |
-| dotenv                  | Dotenv is a zero-dependency module that loads environment variables from a .env file into process.env. Storing configuration in the environment separate from code is based on The Twelve-Factor App methodology.                                                                                                                                              |
-| http-status-codes       | Constants enumerating the HTTP status codes. Based on the Java Apache HttpStatus API.                                                                                                                                                                                                                                                                          |
-| i18next                 | i18next is a very popular internationalization framework for browser or any other javascript environment (eg. Node.js, Deno).                                                                                                                                                                                                                                  |
-| i18next-http-middleware | This is a middleware to be used with Node.js web frameworks like express or Fastify and also for Deno.                                                                                                                                                                                                                                                         |
-| jsonwebtoken            | An implementation of JSON Web Tokens.                                                                                                                                                                                                                                                                                                                          |
-| mongoose                | Mongoose is a MongoDB object modeling tool designed to work in an asynchronous environment. Mongoose supports Node.js and Deno (alpha).                                                                                                                                                                                                                        |
-| randomstring            | A module for generating random strings                                                                                                                                                                                                                                                                                                                         |
-| redis                   | A modern, high performance Redis client                                                                                                                                                                                                                                                                                                                        |
-| validator               | A library of string validators and sanitizers.                                                                                                                                                                                                                                                                                                                 |
-| winston                 | A logger for just about everything.                                                                                                                                                                                                                                                                                                                            |
-| eslint                  | An AST-based pattern checker for JavaScript.                                                                                                                                                                                                                                                                                                                   |
-| eslint-config-prettier  | Turns off all rules that are unnecessary or might conflict with Prettier.                                                                                                                                                                                                                                                                                      |
-| eslint-plugin-import    | This plugin intends to support linting of ES2015+ (ES6+) import/export syntax, and prevent issues with misspelling of file paths and import names. All the goodness that the ES2015+ static module syntax intends to provide, marked up in your editor.                                                                                                        |
-| eslint-plugin-prettier  | Runs Prettier as an ESLint rule and reports differences as individual ESLint issues.                                                                                                                                                                                                                                                                           |
-| eslint-plugin-unicorn   | More than 100 powerful ESLint rules                                                                                                                                                                                                                                                                                                                            |
-| prettier                | Prettier is an opinionated code formatter                                                                                                                                                                                                                                                                                                                      |
+If you would still prefer to do the installation manually, follow these steps:
 
-<hr/>
-
-### Redis
-
-Download Redis for Windows from the official [website](https://redis.io/docs/getting-started/installation/install-redis-on-windows/).
-
-_Mac (using [homebrew](http://brew.sh/)):_
+Clone the repo:
 
 ```bash
-brew install redis
+git clone https://bitbucket.org/beyome/beyome-mvp-backend
+cd node-express-boilerplate
 ```
 
-_Linux:_
+Install the dependencies:
 
 ```bash
-sudo apt-get install redis-server
+npm install
 ```
 
-### Setup
-
-You can install Node modules using either [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/), which are both package managers for Node.js.
+Set the environment variables:
 
 ```bash
-yarn install # or npm install
+touch .env
+
+# create .env and add the needed environment variables
 ```
 
-COPY .env.example to .env
+## Table of Contents
+
+- [Environment Variables](#environment-variables)
+- [Project Structure](#project-structure)
+- [Commands](#commands)
+- [Mailer Service](#mailer-service)
+- [Validation and Authentication middlewares](#validation)
+
+
+
+## Environment Variables
+
+The environment variables can be found and modified in the `.env` file. They come with these default values:
 
 ```bash
-cp .env.example .env
+PORT=5000
+
+# mongoDB
+MONGO_URI='mongodb uri'
+MONGO_DB_NAME='db name'
+
+# jwt 
+JWT_SECRET='your jwt secret'
+JWT_EMAIL_SECRET='your jwt email secret'
+JWT_MAX_AGE='1d' # or set it as you want
+
+# Google auth
+GOOGLE_CLIENT_ID='your google client id'
+GOOGLE_CLIENT_SECRET='your google client secret'
+
+# Facebook auth
+FACEBOOK_APP_ID='your facebook app id'
+FACEBOOK_APP_SECRET='your facebook app secret'
+
+# Mailer
+EMAIL_USER = 'your email for sending emails to your users'
+EMAIL_PASSWORD = 'your email password'
+EMAIL_SERVICE= 'email service name'
+
+# Client url
+CLIENT_URL='https://localhost:3000/' #example 
+CLIENT_RESET_URL='client url for reset password'
+CLIENT_OAUTH_REDIRECT_URL='client url for oauth redirect'
+CLIENT_CONFIRM_URL='client url for confirming email address'
 ```
 
-### API Start
+## Project Structure
+
+```
+config\         # Environment variables and passport configuration
+controllers\    # Route controllers (controller layer)
+middlewares\    # Custom express middlewares
+models\         # Mongoose models (data access layer)
+routes\         # Routes
+services\       # Business logic (service layer)
+validations\    # Request data validation schemas
+templates\      # Email templates 
+public\         # Public directory
+|--images\      # Images for email templates
+app.js          # Express app
+```
+
+
+## Commands
+
+Running in production:
 
 ```bash
-yarn start # or npm start
-yarn watch # or npm run watch - watch mode
-yarn build # or npm run build - production build
+npm start
 ```
 
-### ESlint Start
+Running locally:
 
 ```bash
-yarn lint # or npm run link
-yarn lint:write # or npm run lint:write - with prefix --fix
+npm run dev
 ```
 
-### Prettier Start
+### API Endpoints
 
-```bash
-yarn prettier # or npm run prettier
-yarn prettier:write # or npm run prettier:write - with prefix --fix
+List of available routes:
+
+**Auth routes**:\
+`POST /api/auth/register` - Register new user\
+`POST /api/auth/login` - Auth user & get token\
+`POST /api/auth/password-reset/get-code` - Reset password of user\
+`POST /api/auth/password-reset/verify/:token` - Verify and save new password of user\
+`GET /api/auth/google` - Login with google\
+`POST /api/auth/facebook` - Login with facebook\
+`GET /api/auth/google/callback` - Callback route for google auth to redirect to\
+`GET /api/auth/facebook/callback` - Callback route for facebook auth to redirect to
+
+**User routes**:\
+`POST /api/users` - Create a user (requires admin access)\
+`GET /api/users` - Get all users (requires admin access)\
+`GET /api/users/:id` - Get a user by id (requires admin access)\
+`PUT /api/users/:id` - Update a user (requires admin access)\
+`DELETE /api/users/:id` - Delete a user (requires admin access)\
+`GET /api/users/profile` - Get profile data\
+`PUT /api/users/profile` - Get update profile data\
+`GET /api/users/get-activation-email` - Resend confirmation email\
+`GET /api/users/confirmation/:token` - Confirm user's email
+
+
+## Mailer Service
+
+You can send emails to users with sendMail function that takes the data and the custom template name
+which is available in `templtaes` directory using [ejs](https://ejs.co/).
+
+for adding more email templates don't forget to define it in getAttachments() function.
+
+
+## Validation and Authentication middlewares
+
+Request data is validated using [Celebrate](https://github.com/arb/celebrate). Check their github [readme](github.com/arb/celebrate#readme) for more details on how to write Celebrate validation schemas.
+
+The validation schemas are defined in the `validations` directory and are used in the routes by providing them as parameters to the `celebrate` middleware.
+
+```javascript
+const { Router } = require('express');
+const { userController } = require('../controllers');
+const { celebrate } = require('celebrate');
+const { opts, userValidation } = require('../validations');
+const { authMiddleware } = require('../middlewares');
+const { requireAuth, isAdmin } = authMiddleware;
+
+const router = express.Router();
+
+router.route('/').post([
+        requireAuth,
+        isAdmin,
+        celebrate(userValidation.registerSchema, opts)
+    ], userController.createUser);
 ```
 
-## API Endpoints
+I wrote handleValidationError() as the error handler middleware for custom celebrate error messaging better than the format of the default errors() middlware
 
-- POST: <http://localhost:8000/auth/sign-in> Sign In
-- POST: <http://localhost:8000/auth/sign-up> Sign Up
-- GET: <http://localhost:8000/auth/sign-out> Sign Out
-- POST: <http://localhost:8000/auth/password/reset> Reset Password
-- POST: <http://localhost:8000/auth/password/new/:accessToken> New Password By Reset
-- GET: <http://localhost:8000/me> Get User
-- POST: <http://localhost:8000/user/verification/request> Verification Request
-- GET: <http://localhost:8000/user/verification/:accessToken> Verify
-- POST: <http://localhost:8000/user/update> Update User
-- POST: <http://localhost:8000/user/update/email> Update Email
-- POST: <http://localhost:8000/user/update/password> Update Password
-- POST: <http://localhost:8000/user/update/avatar> Update Avatar
-- POST: <http://localhost:8000/user/delete> Delete Profile
-- POST: <http://localhost:8000/media/image/upload> Image upload
+## License
 
-### Mailcatcher
-
-If you're looking for an easy-to-use tool to test your email SMTP functionality, I highly recommend using [Mailcatcher](https://mailcatcher.me/). Mailcatcher is a simple SMTP server that catches all your outgoing emails and displays them in a web interface for easy viewing.
-
-### To install [Prettier](https://prettier.io/) and [ESLint](https://eslint.org/) in [Visual Studio Code](https://code.visualstudio.com/), you can follow these steps:
-
-- Open Visual Studio Code and navigate to your project folder.
-- Press Ctrl + Shift + P (Windows) or Cmd + Shift + P (Mac) to open the Command Palette.
-- Type "Extensions: Install Extensions" and select the first option that appears.
-- In the search bar, type "Prettier" and select the first result that appears.
-- Click the "Install" button to install Prettier.
-- Repeat step 4 and 5 to install ESLint.
-
-### API Structure
-
-```bash
-.
-├── src
-│  ├── @types
-│  │  └── global.d.ts
-│  ├── constants
-│  │  └── index.ts
-│  ├── contracts
-│  │  ├── auth.ts
-│  │  ├── jwt.ts
-│  │  ├── media.ts
-│  │  ├── request.ts
-│  │  └── user.ts
-│  ├── controllers
-│  │  ├── authController.ts
-│  │  ├── index.ts
-│  │  ├── mediaController.ts
-│  │  └── userController.ts
-│  ├── dataSources
-│  │  ├── index.ts
-│  │  ├── mongoose.ts
-│  │  └── redis.ts
-│  ├── guards
-│  │  ├── authGuard.ts
-│  │  └── index.ts
-│  ├── i18n
-│  │  ├── index.ts
-│  │  └── translations
-│  │     ├── en.json
-│  │     └── ka.json
-│  ├── index.ts
-│  ├── infrastructure
-│  │  ├── image.ts
-│  │  ├── logger.ts
-│  │  └── upload.ts
-│  ├── mailer
-│  │  ├── index.ts
-│  │  ├── mailer.ts
-│  │  └── userMail.ts
-│  ├── middlewares
-│  │  ├── authMiddleware.ts
-│  │  ├── corsMiddleware.ts
-│  │  ├── index.ts
-│  │  ├── notFoundMiddleware.ts
-│  │  └── uploadSingleImageMiddleware.ts
-│  ├── models
-│  │  ├── index.ts
-│  │  ├── media.ts
-│  │  ├── resetPassword.ts
-│  │  ├── user.ts
-│  │  └── verification.ts
-│  ├── routes
-│  │  ├── auth.ts
-│  │  ├── index.ts
-│  │  ├── media.ts
-│  │  └── users.ts
-│  ├── services
-│  │  ├── index.ts
-│  │  ├── mediaService.ts
-│  │  ├── resetPasswordService.ts
-│  │  ├── userService.ts
-│  │  └── verificationService.ts
-│  ├── storage
-│  │  └── public
-│  ├── templates
-│  │  ├── resetPassword
-│  │  │  └── html.ejs
-│  │  ├── signUp
-│  │  │  └── html.ejs
-│  │  ├── successfullyDeleted
-│  │  │  └── html.ejs
-│  │  ├── successfullyUpdatedEmail
-│  │  │  └── html.ejs
-│  │  ├── successfullyUpdatedPassword
-│  │  │  └── html.ejs
-│  │  ├── successfullyUpdatedProfile
-│  │  │  └── html.ejs
-│  │  ├── successfullyVerified
-│  │  │  └── html.ejs
-│  │  └── verification
-│  │     └── html.ejs
-│  ├── utils
-│  │  ├── cryptoString.ts
-│  │  ├── dates.ts
-│  │  ├── hash.ts
-│  │  ├── headers.ts
-│  │  ├── jwt.ts
-│  │  ├── maths.ts
-│  │  └── paths.ts
-│  └── validations
-│     ├── authValidation.ts
-│     ├── index.ts
-│     └── userValidation.ts
-├── .env
-├── .env.example
-├── .eslintrc
-├── .gitignore
-├── .nvmrc
-├── .prettierrc
-├── api-logs.log
-├── LICENSE
-├── package.json
-├── README.md
-├── tsconfig.json
-└── yarn.lock
-```
+[MIT](LICENSE)

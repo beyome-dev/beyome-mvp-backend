@@ -40,7 +40,7 @@
     "no-sequences": "error",
     "quote-props": ["error", "as-needed"],
     "jsx-quotes": ["error", "prefer-double"],
-    "no-console": "error",
+    "no-console": "off",
     "no-multi-spaces": "error",
     "padded-blocks": ["error", "never"],
     "arrow-spacing": ["error", { "before": true, "after": true }],
