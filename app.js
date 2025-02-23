@@ -6,15 +6,25 @@ const compression = require('compression');
 const cors = require('cors');
 const helmet = require('helmet');
 const config = require('./config');
-const { validationMiddleware, rateLimiter } = require('./middlewares');
-
+const { validationMiddleware, rateLimiter, apiKeyMiddleware } = require('./middlewares');
+const { Server } = require('socket.io');
 const routes = require('./routes');
+const bodyParser = require('body-parser');
+const http = require('http');
+const path = require('path');
+const { noteController } = require('./controllers')
 
 // set up passport
 require('./config/passport-config');
 
 const app = express();
-
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+    }
+});
 
 // middlewares
 // set security HTTP headers
@@ -40,6 +50,18 @@ else {
 }
 
 
+// Socket.io connection
+io.on('connection', (socket) => {
+    console.log('Frontend connected:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('Frontend disconnected:', socket.id);
+    });
+});
+
+// Make io accessible to routes
+app.set('socketio', io);
+
 // set static folders
 app.use(express.static('templates'));
 
@@ -55,10 +77,20 @@ app.use(passport.initialize());
 // }, () => console.log('mongodb connected'));
 
 // set up routes
-app.use('/api', routes);
+// app.use(bodyParser.json({ limit: '10mb' }));
+// app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
+app.use('/api', routes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.post(
+    '/api/webhook/salad', 
+    express.json({ limit: '2000mb' }), // Increase as needed
+    express.urlencoded({ extended: true, limit: '2000mb' }),
+    noteController.saladWebhook
+);
 // handle celebrate errors and server errors
 app.use(validationMiddleware.handleValidationError);
+app.use(apiKeyMiddleware)
 
 // DB Connection
 async function connectDB() {

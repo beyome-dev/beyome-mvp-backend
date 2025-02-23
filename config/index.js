@@ -6,6 +6,7 @@ console.log("MongoDB URI:", process.env.MONGO_URI);
 module.exports = {
     PORT: process.env.PORT,
     APP_URL: process.env.APP_URL,
+    apiKey: process.env.API_KEY || 'your-secure-api-key',
     mongo: {
         url: process.env.MONGO_URI,
         dbName: process.env.MONGO_DB_NAME,
@@ -18,6 +19,8 @@ module.exports = {
     google: {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        apiKey: process.env.GOOGLE_API_KEY,
+        aiModel: process.env.GOOGLE_AI_MODEL,
     },
     facebook: {
         appID: process.env.FACEBOOK_APP_ID,
@@ -34,4 +37,7 @@ module.exports = {
         oauthRedirectUrl: process.env.CLIENT_OAUTH_REDIRECT_URL,
         confirmUrl: process.env.CLIENT_CONFIRM_URL,
     },
+    salad: {
+        apiKey: process.env.SALAD_API_KEY,
+    }
 };
