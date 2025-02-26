@@ -60,7 +60,7 @@ passport.use(
 passport.use(
     new GoogleStrategy({
         // options for strategy
-        callbackURL: config.APP_URL +'api/auth/google/callback',
+        callbackURL: config.APP_URL +'/api/auth/google/callback',
         clientID: config.google.clientID,
         clientSecret: config.google.clientSecret,
     },
@@ -86,7 +86,7 @@ passport.use(
 passport.use(new FacebookStrategy({
     clientID: config.facebook.appID,
     clientSecret: config.facebook.appSecret,
-    callbackURL: config.APP_URL +'api/auth/facebook/callback',
+    callbackURL: config.APP_URL +'/api/auth/facebook/callback',
     profileFields: ['id', 'emails', 'name'],
 },
     async (accessToken, refreshToken, profile, done) => {

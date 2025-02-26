@@ -85,8 +85,7 @@ const NoteSchema = new Schema({
         default: 'Pending'
     },// Eg. Completed, Failed, Processing
     saladJobId: {
-        type: String,
-        required: true
+        type: String
     }
 }, { timestamps: true });
 
