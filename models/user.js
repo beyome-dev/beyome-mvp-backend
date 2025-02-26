@@ -41,7 +41,7 @@ const UserSchema = new Schema({
     },
     isDoctor: {
         type: Boolean,
-        default: false,
+        default: true,
     },
     isAdmin: {
         type: Boolean,
@@ -54,6 +54,9 @@ const UserSchema = new Schema({
     hasActivePlan: {
         type: Boolean,
         default: false,
+    },
+    currentPlan: {
+        type: String,
     },
     twoFactorAuth: {
         type: Boolean,

@@ -9,12 +9,15 @@ module.exports.saveAudio = async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
-        
-        const result = await noteService.saveAudio(req.file);
+        if (!req.query.name) {
+            return res.status(400).json({ message: 'Require patient name' });
+        }
+        const result = await noteService.saveAudio(req.file,req.query.name);
         res.status(201).json({
             message: 'File uploaded successfully',
             fileUrl: result.fileUrl,
-            transcriptJobId: result.transcriptJobId
+            transcriptJobId: result.transcriptJobId,
+            noteID: result.noteId
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -22,28 +25,97 @@ module.exports.saveAudio = async (req, res) => {
 };
 
 // @desc Listen to Salad API webhook response
-// @route POST /api/webhook/salad
+// @route POST /api/webhook/salad?id=<note id>
 // @access Public
 module.exports.saladWebhook = async (req, res) => {
     try {
         const saladResponse = req.body;
-
+        const noteId = req.query.id
         // // Assuming the transcript text is available in saladResponse.transcript
         // const transcript = saladResponse.transcript;
 
-        if (!transcript) {
+        if (!saladResponse.output) {
             return res.status(400).json({ message: 'Transcript data is missing' });
         }
 
+        if (!noteId) {
+            return res.status(400).json({ message: 'Note data is missing' });
+        }
         // Get the Socket.io instance
         const io = req.app.get('socketio');
 
         // Generate SOAP note and emit to frontend
-        await noteService.generateSOAPNote(saladResponse, io);
+        const note = await noteService.generateSOAPNote(saladResponse, noteId, io);
 
-        res.status(200).json({ message: 'Webhook received and SOAP note generated' });
+        res.status(200).json({ 
+            message: 'Webhook received and SOAP note generated',
+            note: note,
+        });
     } catch (error) {
         console.error('Webhook Error:', error.message);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+module.exports.createNote = async(req, res) => {
+    try {
+      const note = await noteService.createNote(req.body);
+      res.status(201).json(note);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+};
+
+module.exports.getAllNotes = async(req, res) => {
+    try {
+        console.log("Entered controller func")
+      const notes = await noteService.getAllNotes(req.query);
+      res.status(200).json(notes);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+};
+
+module.exports.getAllNotesMinimal = async(req, res) => {
+    try {
+        console.log("Entered controller func")
+      const notes = await noteService.getAllNotesMinimal(req.query);
+      res.status(200).json(notes);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+};
+
+module.exports.getNoteById = async(req, res) => {
+    try {
+      if (req.params.id == 'minimal') {
+        const notes = await noteService.getAllNotesMinimal(req.query);
+        res.status(200).json(notes);
+      }
+      const note = await noteService.getNoteById(req.params.id);
+      if (!note) return res.status(404).json({ message: 'Note not found' });
+      res.status(200).json(note);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+};
+
+module.exports.updateNote = async(req, res) => {
+    try {
+      const updatedNote = await noteService.updateNote(req.params.id, req.body);
+      if (!updatedNote) return res.status(404).json({ message: 'Note not found' });
+      res.status(200).json(updatedNote);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+};
+
+module.exports.deleteNote = async(req, res) => {
+    try {
+      const deletedNote = await noteService.deleteNote(req.params.id);
+      if (!deletedNote) return res.status(404).json({ message: 'Note not found' });
+      res.status(200).json({ message: 'Note deleted successfully' });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
     }
 };

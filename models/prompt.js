@@ -14,7 +14,8 @@ const PromptSchema = new Schema({
     },
     notes: {
         type: Schema.Types.ObjectId,
-        ref: 'Note',
-        required: true
+        ref: 'Note'
     }
 }, { timestamps: true });
+
+module.exports = mongoose.model('Prompt', PromptSchema);
