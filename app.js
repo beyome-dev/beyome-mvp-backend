@@ -13,6 +13,7 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const path = require('path');
 const { noteController } = require('./controllers')
+const {saladCheck} = require('./cronJobs');
 
 // set up passport
 require('./config/passport-config');
@@ -81,7 +82,7 @@ app.use(passport.initialize());
 // set up routes
 // app.use(bodyParser.json({ limit: '10mb' }));
 // app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
-
+saladCheck(io)
 app.use('/api', routes);
 app.post(
     '/api/webhook/salad', 
