@@ -49,7 +49,6 @@ const getAllNotes = async(filter = {}) => {
 }
 
 const getAllNotesMinimal = async(filter = {}) => {
-    console.log("Entered service func")
     return await Note.find(filter,{ 
         "_id": 1,
         "patientName": 1,
@@ -77,12 +76,14 @@ const saveAudio = async (file,patientName, userId) => {
         const filePath = path.join(uploadDir, file.filename);
         const fileUrl = `${config.APP_URL}/files/${file.filename}`;
 
-        // Move file to uploads directory (if needed)
+        // Move file to uploads directory
         fs.renameSync(file.path, filePath);
 
-        const prompt = await Prompt.find({aiEngine: "Gemini"})
-        const note = {
-            patientName: patientName,
+        const prompt = await Prompt.findOne({ aiEngine: "Gemini" }); // Use findOne() to avoid array issues
+        if (!prompt) throw new Error("Prompt data not found");
+
+        const note = new Note({
+            patientName,
             title: `Clinical Note for ${patientName}`,
             visitType: "Follow up",
             visitDate: new Date(),
@@ -95,22 +96,30 @@ const saveAudio = async (file,patientName, userId) => {
             patientInstructions: "nil",
             noteFormat: "SOAP",
             tags: ["soap", patientName],
-            doctor: new mongoose.Types.ObjectId(userId), // FIX HERE
-            prompt: new mongoose.Types.ObjectId(prompt._id), // FIX HERE
+            doctor: new mongoose.Types.ObjectId(userId),
+            prompt: new mongoose.Types.ObjectId(prompt._id),
             status: "pending",
-            assessment: [], // Required array
-            plan: [] // Required array
-        };
-        const noteInstance = new Note(note);
-        const noteData = await noteInstance.save();
-        // 🔹 Call Salad API for transcription
-        const transcriptResponse = await requestTranscription(fileUrl,noteData.id);
+            assessment: [],
+            plan: []
+        });
 
-        const updatedNote = await Note.findByIdAndUpdate(noteData.id, {
-            saladJobId: transcriptResponse?.id,
-            status: "processing"
-        }, { new: true });
-        
+        const noteData = await note.save();
+
+        // Call Salad API for transcription
+        let transcriptResponse;
+        try {
+            transcriptResponse = await requestTranscription(fileUrl, noteData.id);
+        } catch (transcriptError) {
+            console.error("Error in transcription request:", transcriptError);
+            transcriptResponse = null; // Ensure transcriptJobId is handled
+        }
+
+        const updatedNote = await Note.findByIdAndUpdate(
+            noteData.id,
+            { saladJobId: transcriptResponse?.id || null, status: "processing" },
+            { new: true }
+        );
+
         return {
             fileUrl,
             transcriptJobId: transcriptResponse?.id || null,
@@ -196,7 +205,6 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         if (!noteId || !geminiResponse) {
             throw new Error("Missing required parameters: noteId or geminiResponse");
         }
-        console.log("geminiResponse :",geminiResponse)
 
         // Updated regex patterns to extract the structured sections
         const subjectiveMatch = geminiResponse.match(/\*\*Subjective:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
@@ -267,14 +275,6 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         //         });
         // }
         
-        // Debugging Output
-        console.log("Extracted Data:", {
-            subjective,
-            objective,
-            assessment,
-            plan,
-            patientInstructions
-        });
         // Update the note in the database
         const updatedNote = await Note.findByIdAndUpdate(noteId, {
             subjective,

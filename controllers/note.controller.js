@@ -6,19 +6,21 @@ const path = require('path');
 // @access Public
 module.exports.saveAudio = async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ message: 'No file uploaded' });
-        }
-        if (!req.query.name) {
-            return res.status(400).json({ message: 'Require patient name' });
-        }
-        const result = await noteService.saveAudio(req.file,req.query.name);
-        res.status(201).json({
-            message: 'File uploaded successfully',
-            fileUrl: result.fileUrl,
-            transcriptJobId: result.transcriptJobId,
-            note: result.note
-        });
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+      if (!req.query.name) {
+        return res.status(400).json({ message: 'Require patient name' });
+      }
+
+      const result = await noteService.saveAudio(req.file, req.query.name);
+
+      return res.status(201).json({
+        message: 'File uploaded successfully',
+        fileUrl: result.fileUrl,
+        transcriptJobId: result.transcriptJobId,
+        note: result.note
+      });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
