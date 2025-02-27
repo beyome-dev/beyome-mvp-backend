@@ -65,6 +65,8 @@ app.set('socketio', io);
 // set static folders
 app.use(express.static('templates'));
 
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // initialize passport
 app.use(passport.initialize());
 
@@ -81,11 +83,10 @@ app.use(passport.initialize());
 // app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 app.use('/api', routes);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.post(
     '/api/webhook/salad', 
-    express.json({ limit: '2000mb' }), // Increase as needed
-    express.urlencoded({ extended: true, limit: '2000mb' }),
+    express.json({ limit: '200mb' }), // Increase as needed
+    express.urlencoded({ extended: true, limit: '200mb' }),
     noteController.saladWebhook
 );
 // handle celebrate errors and server errors

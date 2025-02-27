@@ -88,7 +88,7 @@ const saveAudio = async (file,patientName, userId) => {
             visitDate: new Date(),
             subjective: "nil",
             objective: "nil",
-            inputContent: `${config.APP_URL}/${fileUrl}`,
+            inputContent: `${config.APP_URL}${fileUrl}`,
             inputContentType: "Recording",
             outputContent: "nil",
             sessionTranscript: "nil",
@@ -130,7 +130,7 @@ const requestTranscription = async (fileUrl, noteId) => {
             SALAD_API_URL,
             {
                 input: {
-                    url: `${config.APP_URL}/${fileUrl}`,
+                    url: `${config.APP_URL}${fileUrl}`,
                     return_as_file: false,
                     url: "https://drive.google.com/uc?export=download&id=1z2nFZQF8sotyeFHbFY7JtMyqMqCEZJBc",
                     language_code: "en",
