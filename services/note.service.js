@@ -106,7 +106,7 @@ const saveAudio = async (file,patientName, userId) => {
         // 🔹 Call Salad API for transcription
         const transcriptResponse = await requestTranscription(fileUrl,noteData.id);
 
-        const updatedNote = await Note.findByIdAndUpdate(noteId, {
+        const updatedNote = await Note.findByIdAndUpdate(noteData.id, {
             saladJobId: transcriptResponse?.id,
             status: "Processing"
         }, { new: true });
@@ -130,7 +130,7 @@ const requestTranscription = async (fileUrl, noteId) => {
             SALAD_API_URL,
             {
                 input: {
-                    url: 'https://drive.google.com/uc?export=download&id=1z2nFZQF8sotyeFHbFY7JtMyqMqCEZJBc',//`${config.APP_URL}/${fileUrl}`, // Adjust with your base URL
+                    url: `${config.APP_URL}/${fileUrl}`,
                     return_as_file: false,
                     url: "https://drive.google.com/uc?export=download&id=1z2nFZQF8sotyeFHbFY7JtMyqMqCEZJBc",
                     language_code: "en",

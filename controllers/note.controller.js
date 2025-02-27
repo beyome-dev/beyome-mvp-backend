@@ -17,7 +17,7 @@ module.exports.saveAudio = async (req, res) => {
             message: 'File uploaded successfully',
             fileUrl: result.fileUrl,
             transcriptJobId: result.transcriptJobId,
-            noteID: result.noteId
+            note: result.note
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
