@@ -75,7 +75,7 @@ const deleteNote = async(noteId) => {
 const saveAudio = async (file,patientName, userId) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl = `/uploads/${file.filename}`;
+        const fileUrl = `/files/${file.filename}`;
 
         // Move file to uploads directory (if needed)
         fs.renameSync(file.path, filePath);
@@ -88,7 +88,7 @@ const saveAudio = async (file,patientName, userId) => {
             visitDate: new Date(),
             subjective: "nil",
             objective: "nil",
-            inputContent: `${config.APP_URL}${fileUrl}`,
+            inputContent: `${config.APP_URL}/api${fileUrl}`,
             inputContentType: "Recording",
             outputContent: "nil",
             sessionTranscript: "nil",
@@ -132,7 +132,6 @@ const requestTranscription = async (fileUrl, noteId) => {
                 input: {
                     url: `${config.APP_URL}${fileUrl}`,
                     return_as_file: false,
-                    url: "https://drive.google.com/uc?export=download&id=1z2nFZQF8sotyeFHbFY7JtMyqMqCEZJBc",
                     language_code: "en",
                     sentence_level_timestamps: true,
                     word_level_timestamps: false,
