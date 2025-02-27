@@ -75,7 +75,7 @@ const deleteNote = async(noteId) => {
 const saveAudio = async (file,patientName, userId) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl = `/files/${file.filename}`;
+        const fileUrl = `${config.APP_URL}/files/${file.filename}`;
 
         // Move file to uploads directory (if needed)
         fs.renameSync(file.path, filePath);
@@ -88,7 +88,7 @@ const saveAudio = async (file,patientName, userId) => {
             visitDate: new Date(),
             subjective: "nil",
             objective: "nil",
-            inputContent: `${config.APP_URL}/api${fileUrl}`,
+            inputContent: fileUrl,
             inputContentType: "Recording",
             outputContent: "nil",
             sessionTranscript: "nil",
@@ -130,7 +130,7 @@ const requestTranscription = async (fileUrl, noteId) => {
             SALAD_API_URL,
             {
                 input: {
-                    url: `${config.APP_URL}${fileUrl}`,
+                    url: fileUrl,
                     return_as_file: false,
                     language_code: "en",
                     sentence_level_timestamps: true,
