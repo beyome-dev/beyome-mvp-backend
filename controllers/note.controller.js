@@ -90,10 +90,6 @@ module.exports.getAllNotesMinimal = async(req, res) => {
 
 module.exports.getNoteById = async(req, res) => {
     try {
-      if (req.params.id == 'minimal') {
-        const notes = await noteService.getAllNotesMinimal(req.query);
-        res.status(200).json(notes);
-      }
       const note = await noteService.getNoteById(req.params.id);
       if (!note) return res.status(404).json({ message: 'Note not found' });
       res.status(200).json(note);

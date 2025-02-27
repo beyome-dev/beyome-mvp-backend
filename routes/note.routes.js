@@ -14,6 +14,9 @@ router.route('/')
         // celebrate(userValidation.registerSchema, opts)
     ], noteController.createNote);
 
+router.route('/minimal')
+    .get([requireAuth], noteController.getAllNotesMinimal)
+
 router.route('/:id')
     .get([requireAuth], noteController.getNoteById)
     .delete([requireAuth], noteController.deleteNote)
@@ -28,4 +31,5 @@ router.route('/saveAudio')
         requireAuth,
         upload.single('audio')
     ], noteController.saveAudio);
+    
 module.exports = router;
