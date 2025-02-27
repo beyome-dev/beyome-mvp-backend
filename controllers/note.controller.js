@@ -14,12 +14,14 @@ module.exports.saveAudio = async (req, res) => {
       }
 
       const result = await noteService.saveAudio(req.file, req.query.name);
-
+      if (!result) {
+        return res.status(400).json({ message: 'Failed to process recording'});
+      }
       return res.status(201).json({
         message: 'File uploaded successfully',
-        fileUrl: result.fileUrl,
-        transcriptJobId: result.transcriptJobId,
-        note: result.note
+        fileUrl: result.fileUrl ? result.fileUrl : "",
+        transcriptJobId: result.transcriptJobId ? result.transcriptJobId : "",
+        note: result.note ? result.note : null
       });
     } catch (error) {
         res.status(500).json({ message: error.message });
