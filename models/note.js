@@ -28,6 +28,9 @@ const NoteSchema = new Schema({
         type: Date, 
         required: true 
     },
+    summary: {
+        type: String, 
+    },
     subjective: { 
         type: String, 
         required: true 
@@ -86,7 +89,10 @@ const NoteSchema = new Schema({
     },// Eg. completed, failed, processing
     saladJobId: {
         type: String
-    }
+    },
+    failureReason: {
+        type: String
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Note', NoteSchema);

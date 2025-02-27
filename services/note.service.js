@@ -45,7 +45,7 @@ const getAllNotes = async(filter = {}) => {
         "tags": 1,
         "status": 1,
         "saladJobId": 1
-    });
+    }).sort({visitDate: -1});
 }
 
 const getAllNotesMinimal = async(filter = {}) => {
@@ -56,7 +56,7 @@ const getAllNotesMinimal = async(filter = {}) => {
         "visitType": 1,
         "visitDate": 1,
         "status": 1,
-    });
+    }).sort({visitDate: -1});
 } 
 
 const getNoteById = async(noteId) => {
@@ -74,7 +74,7 @@ const deleteNote = async(noteId) => {
 const saveAudio = async (file,patientName, userId) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl = `${config.APP_URL}/files/${file.filename}`;
+        const fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`//`${config.APP_URL}/files/${file.filename}`;
 
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
@@ -175,6 +175,13 @@ const requestTranscription = async (fileUrl, noteId) => {
  */
 const generateSOAPNote = async (transcriptPayload, noteId, io) => {
     try {
+        if (transcriptPayload.output.error && transcriptPayload.output.error != '') {
+            const note = await Note.findByIdAndUpdate(noteId, { 
+                status: 'failed',
+                failureReason: transcriptPayload.output.error,
+            });
+            return note
+        }
 
         const transcript = extractSpeakerSentencesFromTimestamps(transcriptPayload);
 
@@ -184,8 +191,20 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
         }
         const promptText = `${prompt.promptText}\n${transcript}`;
 
+
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: AI_MODEL });
+        const model = genAI.getGenerativeModel({ 
+            model: AI_MODEL,
+            systemInstruction: `You are a highly skilled medical scribe with a deep understanding of medical terminology and clinical documentation. Your task is to create a medically accurate and comprehensive SOAP note from the following doctor-patient transcript.
+*General Instructions:*
+
+•⁠  ⁠*Prioritize Medical Accuracy:* In cases of ambiguity, prioritize clinically accepted medical terminology and practices.
+•⁠  ⁠*Use Standard Medical Abbreviations:* Employ only widely recognized and accepted medical abbreviations.
+•⁠  ⁠*Clarify Ambiguities:* If the transcript is unclear, attempt to infer the most likely medical meaning based on context. If inference is impossible, clearly indicate the ambiguity within the SOAP note.
+•⁠  ⁠*Maintain Professional Tone:* The SOAP note should reflect a professional and objective medical record.
+•⁠  ⁠*Do not fabricate information:* If the information is not present in the transcript, do not add it.
+•⁠  ⁠*If a test, medication, or diagnosis is mentioned, but not explained, include it in the note.*`,
+        });
         const result = await model.generateContent(promptText);
 
         const soapNote = result.response.text();
@@ -193,6 +212,7 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
         io.emit('soapNoteGenerated', { soapNote });
 
         const note = await processGeminiResponse(noteId, soapNote, transcript, transcriptPayload.output.summary)
+
         return note;
     } catch (error) {
         console.error('Error generating SOAP note:', error.message);
@@ -205,7 +225,7 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         if (!noteId || !geminiResponse) {
             throw new Error("Missing required parameters: noteId or geminiResponse");
         }
-
+        console.log("geminiResponse :",geminiResponse)
         // Updated regex patterns to extract the structured sections
         const subjectiveMatch = geminiResponse.match(/\*\*Subjective:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const objectiveMatch = geminiResponse.match(/\*\*Objective:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
@@ -284,7 +304,8 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
             patientInstructions,
             status: "completed", // Mark note as completed
             sessionTranscript: transcript,
-            outputContent: summary
+            summary: summary,
+            outputContent: geminiResponse
         }, { new: true });
         if (!updatedNote) {
             throw new Error("Note not found or failed to update.");
@@ -298,7 +319,6 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
 
 const extractSpeakerSentencesFromTimestamps = (payload) => {
     let speakerSentences = '';
-    
     let currentSpeaker = ''
     payload.output.sentence_level_timestamps.forEach(sentence => {
       const { speaker, text } = sentence;
