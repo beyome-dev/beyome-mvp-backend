@@ -17,7 +17,7 @@ const processRunningJobs = async (io) => {
         console.log('Running cron job to process notes...');
 
         // Fetch all notes with status "Running"
-        const runningNotes = await Note.find({ status: 'processinn' });
+        const runningNotes = await Note.find({ status: 'processing' });
 
         if (runningNotes.length === 0) {
             return;

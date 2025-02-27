@@ -68,7 +68,6 @@ module.exports.createNote = async(req, res) => {
 
 module.exports.getAllNotes = async(req, res) => {
     try {
-        console.log("Entered controller func")
       const notes = await noteService.getAllNotes(req.query);
       res.status(200).json(notes);
     } catch (err) {
@@ -78,7 +77,6 @@ module.exports.getAllNotes = async(req, res) => {
 
 module.exports.getAllNotesMinimal = async(req, res) => {
     try {
-        console.log("Entered controller func")
       const notes = await noteService.getAllNotesMinimal(req.query);
       res.status(200).json(notes);
     } catch (err) {
