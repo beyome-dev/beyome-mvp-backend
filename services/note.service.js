@@ -74,7 +74,7 @@ const deleteNote = async(noteId) => {
 const saveAudio = async (file,patientName, userId) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`//`${config.APP_URL}/files/${file.filename}`;
+        const fileUrl = `${config.APP_URL}/files/${file.filename}`;
 
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
@@ -126,7 +126,6 @@ const saveAudio = async (file,patientName, userId) => {
             note: updatedNote
         };
     } catch (error) {
-        console.log(error)
         throw new Error('Error saving file');
     }
 };
@@ -225,7 +224,6 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         if (!noteId || !geminiResponse) {
             throw new Error("Missing required parameters: noteId or geminiResponse");
         }
-        console.log("geminiResponse :",geminiResponse)
         // Updated regex patterns to extract the structured sections
         const subjectiveMatch = geminiResponse.match(/\*\*Subjective:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const objectiveMatch = geminiResponse.match(/\*\*Objective:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
