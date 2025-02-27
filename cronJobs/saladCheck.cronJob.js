@@ -17,7 +17,7 @@ const processRunningJobs = async (io) => {
         console.log('Running cron job to process notes...');
 
         // Fetch all notes with status "Running"
-        const runningNotes = await Note.find({ status: 'Running' });
+        const runningNotes = await Note.find({ status: 'processinn' });
 
         if (runningNotes.length === 0) {
             return;
@@ -28,7 +28,7 @@ const processRunningJobs = async (io) => {
             const createdAt = new Date(note.createdAt);
             if (currentTime - createdAt > FIVE_HOURS) {
                 console.warn(`Note ${note._id} exceeded 5 hours. Marking as Failed.`);
-                await Note.findByIdAndUpdate(note._id, { status: 'Failed' });
+                await Note.findByIdAndUpdate(note._id, { status: 'failed' });
                 continue;
             }
 

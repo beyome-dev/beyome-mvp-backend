@@ -97,7 +97,7 @@ const saveAudio = async (file,patientName, userId) => {
             tags: ["soap", patientName],
             doctor: new mongoose.Types.ObjectId(userId), // FIX HERE
             prompt: new mongoose.Types.ObjectId(prompt._id), // FIX HERE
-            status: "Pending",
+            status: "pending",
             assessment: [], // Required array
             plan: [] // Required array
         };
@@ -108,7 +108,7 @@ const saveAudio = async (file,patientName, userId) => {
 
         const updatedNote = await Note.findByIdAndUpdate(noteData.id, {
             saladJobId: transcriptResponse?.id,
-            status: "Processing"
+            status: "processing"
         }, { new: true });
         
         return {
@@ -282,7 +282,7 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
             assessment,
             plan,
             patientInstructions,
-            status: "Completed", // Mark note as completed
+            status: "completed", // Mark note as completed
             sessionTranscript: transcript,
             outputContent: summary
         }, { new: true });

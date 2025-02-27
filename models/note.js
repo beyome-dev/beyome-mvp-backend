@@ -82,8 +82,8 @@ const NoteSchema = new Schema({
     status: {
         type: String,
         required: true,
-        default: 'Pending'
-    },// Eg. Completed, Failed, Processing
+        default: 'pending'
+    },// Eg. completed, failed, processing
     saladJobId: {
         type: String
     }
