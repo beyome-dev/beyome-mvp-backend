@@ -7,6 +7,7 @@ module.exports = {
     PORT: process.env.PORT,
     APP_URL: process.env.APP_URL,
     apiKey: process.env.API_KEY || 'your-secure-api-key',
+    storagePath: process.env.STORAGE_PATH || '../uploads',
     mongo: {
         url: process.env.MONGO_URI,
         dbName: process.env.MONGO_DB_NAME,
