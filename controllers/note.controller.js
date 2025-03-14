@@ -79,13 +79,18 @@ module.exports.getAllNotes = async(req, res) => {
     }
 };
 
-module.exports.getAllNotesMinimal = async(req, res) => {
-    try {
-      const notes = await noteService.getAllNotesMinimal(req.query);
-      res.status(200).json(notes);
-    } catch (err) {
+module.exports.getAllNotesMinimal = async (req, res) => {
+  try {
+      let { page, limit, ...filters } = req.query;
+      page = parseInt(page) || 1;
+      limit = parseInt(limit) || 10;
+
+      const data = await noteService.getAllNotesMinimal(filters, page, limit);
+      
+      res.status(200).json(data);
+  } catch (err) {
       res.status(500).json({ message: err.message });
-    }
+  }
 };
 
 module.exports.getNoteById = async(req, res) => {

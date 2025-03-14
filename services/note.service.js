@@ -48,16 +48,30 @@ const getAllNotes = async(filter = {}) => {
     }).sort({visitDate: -1});
 }
 
-const getAllNotesMinimal = async(filter = {}) => {
-    return await Note.find(filter,{ 
+const getAllNotesMinimal = async (filter = {}, page = 1, limit = 10) => {
+    const skip = (page - 1) * limit;
+    
+    const notes = await Note.find(filter, {
         "_id": 1,
         "patientName": 1,
         "title": 1,
         "visitType": 1,
         "visitDate": 1,
         "status": 1,
-    }).sort({visitDate: -1});
-} 
+    })
+    .sort({ visitDate: -1 })
+    .skip(skip)
+    .limit(limit);
+
+    const totalCount = await Note.countDocuments(filter);
+
+    return { 
+        notes, 
+        totalPages: Math.ceil(totalCount / limit), 
+        currentPage: page, 
+        totalCount 
+    };
+};
 
 const getNoteById = async(noteId) => {
     return await Note.findById(noteId);
@@ -74,7 +88,7 @@ const deleteNote = async(noteId) => {
 const saveAudio = async (file,patientName, userId) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl = `${config.APP_URL}/files/${file.filename}`;
+        const fileUrl = 'https://drive.google.com/uc?export=download&id=1ZurZEWoHac5J1gsoBORv718HGKe2Ii53'//`${config.APP_URL}/files/${file.filename}`;
 
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
