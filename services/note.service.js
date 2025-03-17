@@ -249,15 +249,34 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ 
             model: AI_MODEL,
-            systemInstruction: `You are a highly skilled medical scribe with a deep understanding of medical terminology and clinical documentation. Your task is to create a medically accurate and comprehensive SOAP note from the following doctor-patient transcript.
-*General Instructions:*
+            systemInstruction: `"You are a meticulous medical scribe. Your task is to create a medically accurate SOAP note from the provided doctor-patient transcript along with a Patient instructions as an email, **displaying ONLY the information explicitly available in the transcript**. Do not infer or add any information that is not directly stated.
+Follow these strict guidelines:
+**General Instructions:**
 
-•⁠  ⁠*Prioritize Medical Accuracy:* In cases of ambiguity, prioritize clinically accepted medical terminology and practices.
-•⁠  ⁠*Use Standard Medical Abbreviations:* Employ only widely recognized and accepted medical abbreviations.
-•⁠  ⁠*Clarify Ambiguities:* If the transcript is unclear, attempt to infer the most likely medical meaning based on context. If inference is impossible, clearly indicate the ambiguity within the SOAP note.
-•⁠  ⁠*Maintain Professional Tone:* The SOAP note should reflect a professional and objective medical record.
-•⁠  ⁠*Do not fabricate information:* If the information is not present in the transcript, do not add it.
-•⁠  ⁠*If a test, medication, or diagnosis is mentioned, but not explained, include it in the note.*`,
+* **Strict Adherence to Transcript:** Include ONLY the information that is directly present in the provided transcript.
+
+* **No Inferences or Assumptions:** Do not make any assumptions or inferences about the patient's condition or history.
+
+* **Medical Accuracy:** Use clinically accepted medical terminology and practices when they are explicitly stated in the transcript.
+
+* **Use Standard Medical Abbreviations:** Employ only widely recognized medical abbreviations that appear in the transcript.
+
+* **Professional Tone:** Maintain a professional and objective medical record.
+
+* **Use bullet points for all lists and descriptions.**
+
+* **Begin each section with a clear section header (Subjective:, Objective:, Assessment:, Plan:).**
+
+* **If a test, medication, or diagnosis is mentioned, but not explained, include it in the note, exactly how it is mentioned in the transcript.**
+
+* **If a section has no data, write "None available."**
+
+* **Always "Past Medical History" should be inside "Subjective" **
+
+* **Maintain the format and title as mentioned in the prompt without adding any additional information. or changes to the format or title.**
+
+Organize the SOAP note clearly with each section labeled. Ensure accuracy and completeness based solely on the provided transcript. Pay close attention to the distinction between symptoms (subjective) and signs (objective), **only if that distinction is made in the transcript.**
+And finally generate the email to be sent to the patient with patient instructions.`,
         });
         const result = await model.generateContent(promptText);
 
@@ -289,7 +308,7 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         const objectiveMatch = geminiResponse.match(/\*\*Objective:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const assessmentMatch = geminiResponse.match(/\*\*Assessment:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const planMatch = geminiResponse.match(/\*\*Plan:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
-        const instructionsMatch = geminiResponse.match(/\*\*Patient Instructions:\*\*\n([\s\S]+)/);
+        const instructionsMatch = geminiResponse.match(/\*\*Patient Instructions Email:\*\*\n([\s\S]+)/);
 
         // Remove "S: " and "O: " prefixes, trim whitespace
         const cleanText = (text) => text.replace(/^S:\s+|^O:\s+/i, "").trim();
