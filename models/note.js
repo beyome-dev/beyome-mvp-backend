@@ -47,13 +47,21 @@ const NoteSchema = new Schema({
     },
     inputContentType: {
         type: String,
-        required: true
+        required: true,
+        enum: ['Recording', 'Dictation', 'Citation Note'],
     },// eg. Recording, Dictation, Citation Note
     outputContent: {
         type: String,
         required: true
     },
+    outputContentUpdated: {
+        type: String,
+        required: false
+    },
     sessionTranscript: {
+        type: String
+    },
+    sessionTranscriptUpdated: {
         type: String
     },
     patientInstructions: {
@@ -85,7 +93,8 @@ const NoteSchema = new Schema({
     status: {
         type: String,
         required: true,
-        default: 'pending'
+        default: 'pending',
+        enum: ['pending', 'completed', 'failed', 'processing'],
     },// Eg. completed, failed, processing
     saladJobId: {
         type: String
@@ -93,6 +102,12 @@ const NoteSchema = new Schema({
     failureReason: {
         type: String
     },
+    analysisResults: {
+        type: Map,
+        of: Schema.Types.Mixed
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Note', NoteSchema);
+
+NoteSchema.index({ doctor: 1, patient: 1, status: 1, visitDate: -1 });

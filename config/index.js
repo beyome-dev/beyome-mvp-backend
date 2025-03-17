@@ -15,6 +15,7 @@ module.exports = {
     jwt: {
         secret: process.env.JWT_SECRET,
         maxAge: process.env.JWT_MAX_AGE,
+        refreshMaxAge: process.env.JWT_REFRESH_MAX_AGE,
         emailSecret: process.env.JWT_EMAIL_SECRET,
     },
     google: {

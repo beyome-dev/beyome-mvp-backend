@@ -25,7 +25,8 @@ const createNote = async(data) => {
     return await note.save();
 }
 
-const getAllNotes = async(filter = {}) => {
+const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
+    const skip = (page - 1) * limit;
     return await Note.find(filter).select({ 
         "_id": 1,
         "patientName": 1,
@@ -45,12 +46,14 @@ const getAllNotes = async(filter = {}) => {
         "tags": 1,
         "status": 1,
         "saladJobId": 1
-    }).sort({visitDate: -1});
+    })
+    .sort({ visitDate: -1 })
+    .skip(skip)
+    .limit(limit);
 }
 
 const getAllNotesMinimal = async (filter = {}, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
-    
     const notes = await Note.find(filter, {
         "_id": 1,
         "patientName": 1,
@@ -73,22 +76,59 @@ const getAllNotesMinimal = async (filter = {}, page = 1, limit = 10) => {
     };
 };
 
-const getNoteById = async(noteId) => {
-    return await Note.findById(noteId);
+const getNoteById = async(noteId, user) => {
+    const note = await Note.findById(noteId);
+    if (!note) throw new Error('Note not found');
+    if (note.doctor.toString() !== user._id.toString()) throw new Error('Not authorized');
+    return note;
 }
 
-const updateNote = async(noteId, data) => {
-    return await Note.findByIdAndUpdate(noteId, data, { new: true });
+const updateNote = async(noteId, data, user) => {
+    const note = await Note.findById(noteId);
+    if (!note) throw new Error('Note not found');
+
+    // Ensure only the doctor who created the note can edit
+    if (note.doctor.toString() !== user._id.toString()) throw new Error('Not authorized');
+
+    // Define fields that are allowed to be updated
+    const allowedFields = [
+        "title",
+        "patientName",
+        'summary',
+        'subjective',
+        'objective',
+        'assessment',
+        'plan',
+        'outputContentUpdated',
+        'sessionTranscriptUpdated',
+        'patientInstructions',
+        'tags',
+    ];
+
+    // Filter data to keep only allowed fields
+    const filteredData = Object.keys(data).reduce((acc, key) => {
+        if (allowedFields.includes(key)) acc[key] = data[key];
+        return acc;
+    }, {});
+
+    // Prevent accidental overwrites of sensitive fields
+    if (Object.keys(filteredData).length === 0) throw new Error('No valid fields to update');
+
+    // Perform the update
+    return await Note.findByIdAndUpdate(noteId, filteredData, { new: true });
 }
 
-const deleteNote = async(noteId) => {
+const deleteNote = async(noteId, user) => {
+    const note = await Note.findById(noteId);
+    if (!note) throw new Error('Note not found');
+    if (note.doctor.toString() !== user._id.toString()) throw new Error('Not authorized');
     return await Note.findByIdAndDelete(noteId);
 }
 
-const saveAudio = async (file,patientName, userId) => {
+const saveAudio = async (file,patientName, user) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl = 'https://drive.google.com/uc?export=download&id=1ZurZEWoHac5J1gsoBORv718HGKe2Ii53'//`${config.APP_URL}/files/${file.filename}`;
+        const fileUrl = `${config.APP_URL}/files/${file.filename}`;
 
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
@@ -103,14 +143,14 @@ const saveAudio = async (file,patientName, userId) => {
             visitDate: new Date(),
             subjective: "nil",
             objective: "nil",
-            inputContent: fileUrl,
+            inputContent: file.filename,
             inputContentType: "Recording",
             outputContent: "nil",
             sessionTranscript: "nil",
             patientInstructions: "nil",
             noteFormat: "SOAP",
             tags: ["soap", patientName],
-            doctor: new mongoose.Types.ObjectId(userId),
+            doctor: new mongoose.Types.ObjectId(user._id),
             prompt: new mongoose.Types.ObjectId(prompt._id),
             status: "pending",
             assessment: [],
@@ -140,6 +180,7 @@ const saveAudio = async (file,patientName, userId) => {
             note: updatedNote
         };
     } catch (error) {
+        console.error('Error saving file:', error.message);
         throw new Error('Error saving file');
     }
 };
@@ -225,7 +266,12 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
         io.emit('soapNoteGenerated', { soapNote });
 
         const note = await processGeminiResponse(noteId, soapNote, transcript, transcriptPayload.output.summary)
-
+        if (note.inputContentType == "Recording") {
+            const filePath = path.join(uploadDir, note.inputContent);
+            fs.unlink(filePath, (unlinkError) => {
+                if (unlinkError) console.error('Failed to delete file:', unlinkError);
+            });
+        }
         return note;
     } catch (error) {
         console.error('Error generating SOAP note:', error.message);

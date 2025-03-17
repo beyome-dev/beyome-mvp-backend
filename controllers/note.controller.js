@@ -1,5 +1,6 @@
 const noteService = require('../services/note.service');
 const path = require('path');
+const mongoose = require('mongoose');
 
 // @desc Upload audio recording
 // @route POST /api/audio/upload
@@ -13,7 +14,7 @@ module.exports.saveAudio = async (req, res) => {
         return res.status(400).json({ message: 'Require patient name' });
       }
 
-      const result = await noteService.saveAudio(req.file, req.query.name);
+      const result = await noteService.saveAudio(req.file, req.query.name, req.user);
       if (!result) {
         return res.status(400).json({ message: 'Failed to process recording'});
       }
@@ -72,7 +73,11 @@ module.exports.createNote = async(req, res) => {
 
 module.exports.getAllNotes = async(req, res) => {
     try {
-      const notes = await noteService.getAllNotes(req.query);
+      let { page, limit, ...filters } = req.query;
+      page = parseInt(page) || 1;
+      limit = parseInt(limit) || 10;
+      filters.doctor = new mongoose.Types.ObjectId(req.user._id)
+      const notes = await noteService.getAllNotes(filters, page, limit);
       res.status(200).json(notes);
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -84,7 +89,7 @@ module.exports.getAllNotesMinimal = async (req, res) => {
       let { page, limit, ...filters } = req.query;
       page = parseInt(page) || 1;
       limit = parseInt(limit) || 10;
-
+      filters.doctor = new mongoose.Types.ObjectId(req.user._id)
       const data = await noteService.getAllNotesMinimal(filters, page, limit);
       
       res.status(200).json(data);
@@ -95,7 +100,7 @@ module.exports.getAllNotesMinimal = async (req, res) => {
 
 module.exports.getNoteById = async(req, res) => {
     try {
-      const note = await noteService.getNoteById(req.params.id);
+      const note = await noteService.getNoteById(req.params.id, req.user);
       if (!note) return res.status(404).json({ message: 'Note not found' });
       res.status(200).json(note);
     } catch (err) {
@@ -105,7 +110,7 @@ module.exports.getNoteById = async(req, res) => {
 
 module.exports.updateNote = async(req, res) => {
     try {
-      const updatedNote = await noteService.updateNote(req.params.id, req.body);
+      const updatedNote = await noteService.updateNote(req.params.id, req.body, req.user);
       if (!updatedNote) return res.status(404).json({ message: 'Note not found' });
       res.status(200).json(updatedNote);
     } catch (err) {
