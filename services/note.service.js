@@ -285,12 +285,12 @@ And finally generate the email to be sent to the patient with patient instructio
         io.emit('soapNoteGenerated', { soapNote });
 
         const note = await processGeminiResponse(noteId, soapNote, transcript, transcriptPayload.output.summary)
-        if (note.inputContentType == "Recording") {
-            const filePath = path.join(uploadDir, note.inputContent);
-            fs.unlink(filePath, (unlinkError) => {
-                if (unlinkError) console.error('Failed to delete file:', unlinkError);
-            });
-        }
+        // if (note.inputContentType == "Recording" && config.deleteAudio){
+        //     const filePath = path.join(uploadDir, note.inputContent);
+        //     fs.unlink(filePath, (unlinkError) => {
+        //         if (unlinkError) console.error('Failed to delete file:', unlinkError);
+        //     });
+        // }
         return note;
     } catch (error) {
         console.error('Error generating SOAP note:', error.message);
