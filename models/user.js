@@ -22,9 +22,9 @@ const UserSchema = new Schema({
         unique: true,
         validate: {
             validator: (v) => {
-                return /^\d{10}$/.test(v);
+                return /^(\+?\d+)$/.test(v);
             },
-            message: (props) => `${props.value} is not a valid phone number!`
+            message: (props) => `${props.value} is not a valid phone number`
         }
     },
     password: {
