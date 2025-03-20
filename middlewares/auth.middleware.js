@@ -7,10 +7,16 @@ const isAdmin = (req, res, next) => {
         return next();
     }
     res.status(401).send({ message: 'Not authorized as an admin' });
+}
+const isDoctor = (req, res, next) => {
+    if (req.user && req.user.isDoctor) {
+        return next();
+    }
+    res.status(401).send({ message: 'Not authorized as a Doctor' });
 
 }
-
 module.exports = {
     requireAuth,
     isAdmin,
+    isDoctor
 }

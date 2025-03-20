@@ -19,13 +19,13 @@ const UserSchema = new Schema({
     },
     phone: {
         type: String,
-        // unique: true,
-        // validate: {
-        //     validator: (v) => {
-        //         return /^\d{10}$/.test(v);
-        //     },
-        //     message: (props) => `${props.value} is not a valid phone number!`
-        // }
+        unique: true,
+        validate: {
+            validator: (v) => {
+                return /^\d{10}$/.test(v);
+            },
+            message: (props) => `${props.value} is not a valid phone number!`
+        }
     },
     password: {
         type: String,
@@ -33,8 +33,30 @@ const UserSchema = new Schema({
     office_location: {
         type: String,
     },
-    specialy: {
+    specialty: {
         type: String,
+        enum: [
+            'Clinical Psychologist',
+            'Counseling Psychologist',
+            'Child Psychologist',
+            'School Psychologist',
+            'Neuropsychologist',
+            'Health Psychologist',
+            'Forensic Psychologist',
+            'Rehabilitation Psychologist',
+            'Industrial-Organizational Psychologist',
+            'Addiction Counselor',
+            'Marriage and Family Therapist',
+            'Psychiatrist',
+            'Child and Adolescent Psychiatrist',
+            'Geriatric Psychiatrist',
+            'Forensic Psychiatrist',
+            'Consultation-Liaison Psychiatrist',
+            'Emergency Psychiatrist',
+            'Military Psychiatrist',
+            'Community Psychiatrist'
+        ],
+        required: false
     },
     picture: {
         type: String,
