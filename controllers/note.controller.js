@@ -120,7 +120,7 @@ module.exports.updateNote = async(req, res) => {
 
 module.exports.deleteNote = async(req, res) => {
     try {
-      const deletedNote = await noteService.deleteNote(req.params.id);
+      const deletedNote = await noteService.deleteNote(req.params.id, req.user);
       if (!deletedNote) return res.status(404).json({ message: 'Note not found' });
       res.status(200).json({ message: 'Note deleted successfully' });
     } catch (err) {
