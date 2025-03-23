@@ -98,7 +98,9 @@ app.use(apiKeyMiddleware)
 async function connectDB() {
     try {
         console.log("MongoDB URI:", config.mongo.url);
-        mongoose.set('debug', true);
+        if (process.env.NODE_ENV != 'production') {
+            mongoose.set('debug', true);
+        }
         await mongoose.connect(config.mongo.url, {
             dbName: config.mongo.dbName, // Ensure this is correctly set in config
             useNewUrlParser: true,

@@ -1,15 +1,15 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const AssessmentSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    description: { type: String, required: true }
-  });
+// const AssessmentSchema = new mongoose.Schema({
+//     title: { type: String, required: true },
+//     description: { type: String, required: true }
+//   });
   
-  const PlanItemSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    steps: [{ type: String, required: true }]
-  });
+//   const PlanItemSchema = new mongoose.Schema({
+//     title: { type: String, required: true },
+//     steps: [{ type: String, required: true }]
+//   });
 
 const NoteSchema = new Schema({
     patientName: { 
@@ -39,8 +39,14 @@ const NoteSchema = new Schema({
         type: String, 
         required: true 
     },
-    assessment: [AssessmentSchema], // Array for sections like Anxiety and Stress, Smoking Cessation, etc.
-    plan: [PlanItemSchema], // Array for plans corresponding to each assessment
+    assessment: { 
+        type: String, 
+        required: true 
+    },
+    plan: { 
+        type: String, 
+        required: true 
+    },
     inputContent: {
         type: String,
         required: true
@@ -54,14 +60,14 @@ const NoteSchema = new Schema({
         type: String,
         required: true
     },
-    outputContentUpdated: {
+    originialOutputContent: {
         type: String,
         required: false
     },
     sessionTranscript: {
         type: String
     },
-    sessionTranscriptUpdated: {
+    originalSessionTranscript: {
         type: String
     },
     patientInstructions: {

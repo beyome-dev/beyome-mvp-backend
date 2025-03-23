@@ -99,8 +99,8 @@ const updateNote = async(noteId, data, user) => {
         'objective',
         'assessment',
         'plan',
-        'outputContentUpdated',
-        'sessionTranscriptUpdated',
+        'outputContent',
+        'sessionTranscript',
         'patientInstructions',
         'tags',
     ];
@@ -153,8 +153,8 @@ const saveAudio = async (file,patientName, user) => {
             doctor: new mongoose.Types.ObjectId(user._id),
             prompt: new mongoose.Types.ObjectId(prompt._id),
             status: "pending",
-            assessment: [],
-            plan: []
+            assessment: 'nil',
+            plan: 'nil'
         });
 
         const noteData = await note.save();
@@ -196,13 +196,13 @@ const requestTranscription = async (fileUrl, noteId) => {
                     url: fileUrl,
                     return_as_file: false,
                     language_code: "en",
-                    sentence_level_timestamps: true,
+                    sentence_level_timestamps: false,
                     word_level_timestamps: false,
                     diarization: false,
                     sentence_diarization: true,
                     srt: false,
-                    summarize: 100,
-                    overall_sentiment_analysis: true
+                    summarize: 0,
+                    overall_sentiment_analysis: false
 
                 },
                 webhook: WEBHOOK_URL+`?id=${noteId}`
@@ -237,46 +237,19 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
             return note
         }
 
-        const transcript = extractSpeakerSentencesFromTimestamps(transcriptPayload);
+        const transcript = extractSpeakerSentencesFromTimestampsWithoutDiarization(transcriptPayload);
 
         const prompt = await Prompt.findOne({aiEngine: "Gemini"})
         if (!prompt._id){
             throw new Error("No prompt found")
         }
-        const promptText = `${prompt.promptText}\n${transcript}`;
+        const promptText = `${prompt.promptText[0]}\n${transcript}`;
 
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ 
             model: AI_MODEL,
-            systemInstruction: `"You are a meticulous medical scribe. Your task is to create a medically accurate SOAP note from the provided doctor-patient transcript along with a Patient instructions as an email, **displaying ONLY the information explicitly available in the transcript**. Do not infer or add any information that is not directly stated.
-Follow these strict guidelines:
-**General Instructions:**
-
-* **Strict Adherence to Transcript:** Include ONLY the information that is directly present in the provided transcript.
-
-* **No Inferences or Assumptions:** Do not make any assumptions or inferences about the patient's condition or history.
-
-* **Medical Accuracy:** Use clinically accepted medical terminology and practices when they are explicitly stated in the transcript.
-
-* **Use Standard Medical Abbreviations:** Employ only widely recognized medical abbreviations that appear in the transcript.
-
-* **Professional Tone:** Maintain a professional and objective medical record.
-
-* **Use bullet points for all lists and descriptions.**
-
-* **Begin each section with a clear section header (Subjective:, Objective:, Assessment:, Plan:).**
-
-* **If a test, medication, or diagnosis is mentioned, but not explained, include it in the note, exactly how it is mentioned in the transcript.**
-
-* **If a section has no data, write "None available."**
-
-* **Always "Past Medical History" should be inside "Subjective" **
-
-* **Maintain the format and title as mentioned in the prompt without adding any additional information. or changes to the format or title.**
-
-Organize the SOAP note clearly with each section labeled. Ensure accuracy and completeness based solely on the provided transcript. Pay close attention to the distinction between symptoms (subjective) and signs (objective), **only if that distinction is made in the transcript.**
-And finally generate the email to be sent to the patient with patient instructions.`,
+            systemInstruction: prompt.systemInstructions,
         });
         const result = await model.generateContent(promptText);
 
@@ -304,76 +277,38 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
             throw new Error("Missing required parameters: noteId or geminiResponse");
         }
         // Updated regex patterns to extract the structured sections
-        const subjectiveMatch = geminiResponse.match(/\*\*Subjective:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
-        const objectiveMatch = geminiResponse.match(/\*\*Objective:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
-        const assessmentMatch = geminiResponse.match(/\*\*Assessment:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
-        const planMatch = geminiResponse.match(/\*\*Plan:\*\*\n([\s\S]+?)(?=\n\n\*\*|$)/);
-        const instructionsMatch = geminiResponse.match(/\*\*Patient Instructions Email:\*\*\n([\s\S]+)/);
+        const subjectiveMatch = geminiResponse.match(/\*\*Subjective:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
+        const objectiveMatch = geminiResponse.match(/\*\*Objective:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
+        const assessmentMatch = geminiResponse.match(/\*\*Assessment:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
+        const planMatch = geminiResponse.match(/\*\*Plan:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
+        const instructionsMatch = geminiResponse.match(/\*\*Patient Instruction Email:\*\*\s*\n([\s\S]+)/);
+        const titleMatch = geminiResponse.match(/\*\*Title:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/);
+        const visitTypeMatch = geminiResponse.match(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/);
+        
 
+        console.log("titleMatch :",titleMatch)
+        console.log("visitTypeMatch :",visitTypeMatch)
         // Remove "S: " and "O: " prefixes, trim whitespace
-        const cleanText = (text) => text.replace(/^S:\s+|^O:\s+/i, "").trim();
+        const cleanText = (text) => text.replace(/^S:\s+|^O:\s+/i, "").replace(/\n+/g, " ").trim();
 
         // Extract text with fallback if data is missing
         const subjective = subjectiveMatch ? cleanText(subjectiveMatch[1]).replace(/^S:\s*/, '') : "No subjective data provided.";
         const objective = objectiveMatch ? cleanText(objectiveMatch[1]).replace(/^O:\s*/, '') : "No objective data provided.";
-        const patientInstructions = instructionsMatch ? instructionsMatch[1].trim() : "No patient instructions provided.";
+        const patientInstructions = instructionsMatch ? instructionsMatch[1].trim() : "Follow the advocate’s advice and reach out for support when needed.";
+        let assessment = assessmentMatch ? cleanText(assessmentMatch[1]).replace(/^A:\s*/, '') : "No assesment data provided.";
+        let plan = planMatch ? cleanText(planMatch[1]).replace(/^P:\s*/, '') : "No plan data provided.";
+        let title = titleMatch ? cleanText(titleMatch[1]) : 'Clinical Note';
+        let visitType = visitTypeMatch ? cleanText(visitTypeMatch[1]) : "General Session";  
 
-        // Extract assessment section (handles bullet points and ** formatting)
-        let assessment = [];
-        if (assessmentMatch) {
-            assessment = assessmentMatch[1]
-                .split("\n")
-                .map(line => line.trim().replace(/^•\s*/, "")) // Remove bullet points
-                .filter(line => line)
-                .map(line => {
-                    const parts = line.replace(/\*\*/g, "").split(/:(.+)/); // Remove extra '**' and split title & description
-                    return {
-                        title: parts[0].trim(),
-                        description: parts[1] ? parts[1].trim() : ""
-                    };
-                });
-        }
-
-        // Extract plan section with properly separated steps
-        // Extract plan dynamically (handles bullet points)
-        let plan = [];
-        if (planMatch) {
-            const planLines = planMatch[1]
-                .split("\n")
-                .map(line => line.trim())
-                .filter(line => line.startsWith("•"));
-
-            plan = planLines.map(line => {
-                const parts = line.replace(/\*\*/g, "").split(/:(.+)/); // Remove extra '**' and split title & description
-                return {
-                    title:  parts[0].replace(/[*•\t:]/g, '').trim(),
-                    steps: [parts[1] ? parts[1].trim() : ""] // Placeholder for expansion if needed
-                }
-            });
-        }
-        // if (planMatch) {
-        //     plan = planMatch[1]
-        //         .split("\n")
-        //         .map(line => line.trim())
-        //         .filter(line => line.startsWith("**")) // Identify titles
-        //         .map((titleLine, index, arr) => {
-        //             const title = titleLine.replace(/\*\*/g, "").replace(/:$/, "").trim(); // Remove '**' and trailing ':'
-        //             const nextIndex = arr[index + 1] ? geminiResponse.indexOf(arr[index + 1]) : geminiResponse.length;
-        //             const currentIndex = geminiResponse.indexOf(titleLine);
-        //             const stepsRaw = geminiResponse.substring(currentIndex + titleLine.length, nextIndex).trim();
-                    
-        //             // Extract steps by splitting on periods ('.')
-        //             const steps = stepsRaw
-        //                 .split(".")
-        //                 .map(step => step.trim())
-        //                 .filter(step => step.length > 0);
-
-        //             return { title, steps };
-        //         });
-        // }
-        
+        const strippedResponse = geminiResponse
+            .replace(/\*\*Title:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/, '')
+            .replace(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/, '')
+            .replace(/\*\*Patient Instruction Email:\*\*\s*\n([\s\S]+)/, '');
+    
         // Update the note in the database
         const updatedNote = await Note.findByIdAndUpdate(noteId, {
+            title,
+            visitType,
             subjective,
             objective,
             assessment,
@@ -382,7 +317,9 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
             status: "completed", // Mark note as completed
             sessionTranscript: transcript,
             summary: summary,
-            outputContent: geminiResponse
+            outputContent: strippedResponse,
+            originialOutputContent: geminiResponse,
+            originalSessionTranscript: transcript,
         }, { new: true });
         if (!updatedNote) {
             throw new Error("Note not found or failed to update.");
@@ -410,6 +347,10 @@ const extractSpeakerSentencesFromTimestamps = (payload) => {
     });
   
     return speakerSentences;
+};
+
+const extractSpeakerSentencesFromTimestampsWithoutDiarization = (payload) => {
+    return payload.output.text;
 };
 
 module.exports = {

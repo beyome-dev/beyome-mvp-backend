@@ -33,6 +33,7 @@ const processRunningJobs = async (io) => {
             }
 
             if (!note.saladJobId) {
+                await Note.findByIdAndUpdate(note._id, { status: 'failed' });
                 console.warn(`Skipping note ${note._id} - No Salad Job ID found.`);
                 continue;
             }
