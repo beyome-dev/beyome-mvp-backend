@@ -237,7 +237,7 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
             return note
         }
 
-        const transcript = extractSpeakerSentencesFromTimestampsWithoutDiarization(transcriptPayload);
+        const transcript = extractSpeakerSentencesFromTimestamps(transcriptPayload);
 
         const prompt = await Prompt.findOne({aiEngine: "Gemini"})
         if (!prompt._id){
