@@ -281,20 +281,17 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         const objectiveMatch = geminiResponse.match(/\*\*Objective:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const assessmentMatch = geminiResponse.match(/\*\*Assessment:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const planMatch = geminiResponse.match(/\*\*Plan:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
-        const instructionsMatch = geminiResponse.match(/\*\*Patient Instruction Email:\*\*\s*\n([\s\S]+)/);
+        const instructionsMatch = geminiResponse.match(/\*\*Patient Instruction Email:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const titleMatch = geminiResponse.match(/\*\*Title:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/);
         const visitTypeMatch = geminiResponse.match(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/);
         
-
-        console.log("titleMatch :",titleMatch)
-        console.log("visitTypeMatch :",visitTypeMatch)
         // Remove "S: " and "O: " prefixes, trim whitespace
         const cleanText = (text) => text.replace(/^S:\s+|^O:\s+/i, "").replace(/\n+/g, " ").trim();
 
         // Extract text with fallback if data is missing
         const subjective = subjectiveMatch ? cleanText(subjectiveMatch[1]).replace(/^S:\s*/, '') : "No subjective data provided.";
         const objective = objectiveMatch ? cleanText(objectiveMatch[1]).replace(/^O:\s*/, '') : "No objective data provided.";
-        const patientInstructions = instructionsMatch ? instructionsMatch[1].trim() : "Follow the advocate’s advice and reach out for support when needed.";
+        const patientInstructions = instructionsMatch ? instructionsMatch[1].split('\n\n').map(email => email.trim()).join('\n\n') : "Follow the advocate’s advice and reach out for support when needed.";
         let assessment = assessmentMatch ? cleanText(assessmentMatch[1]).replace(/^A:\s*/, '') : "No assesment data provided.";
         let plan = planMatch ? cleanText(planMatch[1]).replace(/^P:\s*/, '') : "No plan data provided.";
         let title = titleMatch ? cleanText(titleMatch[1]) : 'Clinical Note';
