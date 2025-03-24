@@ -7,8 +7,10 @@ const storage = multer.diskStorage({
         cb(null, config.storagePath);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
+        const userId = req.user ? req.user._id : 'unknownUser';
+        const patientName = req.query.name || 'unknownPatient';
+        const uniqueSuffix = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
+        cb(null, `${userId}-${patientName}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
 });
 
