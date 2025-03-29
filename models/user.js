@@ -58,6 +58,9 @@ const UserSchema = new Schema({
         ],
         required: false
     },
+    organization: {
+        type: String,
+    },
     picture: {
         type: String,
     },

@@ -73,6 +73,12 @@ const NoteSchema = new Schema({
     patientInstructions: {
         type: String
     },
+    doctorFeedback: {
+        type: String
+    },
+    patientFeedback: {
+        type: String
+    },
     noteFormat: {
         type: String,
         required: true,

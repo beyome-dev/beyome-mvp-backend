@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>New Waitlist Request</title>
+</head>
+
+<body>
+    <div>
+        <h3>Hello Team,</h3>
+        <p>A new user has requested access to our platform. Here are the details:</p>
+
+        <ul>
+            <li><strong>First Name:</strong> <%= firstName ? firstName : "N/A" %></li>
+            <li><strong>Last Name:</strong> <%= lastName ? lastName : "N/A" %></li>
+            <li><strong>Email:</strong> <%= email ? email : "N/A" %></li>
+            <li><strong>Specialty:</strong> <%= specialty ? specialty : "N/A" %></li>
+            <li><strong>Organization:</strong> <%= organization ? organization : "N/A" %></li>
+        </ul>
+
+        <p>Please review and take the necessary action.</p>
+
+        <br>
+        <p>Best,</p>
+        <p>Recapp app</p>
+    </div>
+</body>
+
+</html>

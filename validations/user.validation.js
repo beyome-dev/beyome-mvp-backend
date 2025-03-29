@@ -2,6 +2,28 @@ const { Joi, Segments, CelebrateError } = require('celebrate');
 
 const passwordMessage = 'password must contain at least one uppercase letter, one lowercase letter, and one numeric digit';
 
+const specialtyEnum = [
+    'Clinical Psychologist',
+    'Counseling Psychologist',
+    'Child Psychologist',
+    'School Psychologist',
+    'Neuropsychologist',
+    'Health Psychologist',
+    'Forensic Psychologist',
+    'Rehabilitation Psychologist',
+    'Industrial-Organizational Psychologist',
+    'Addiction Counselor',
+    'Marriage and Family Therapist',
+    'Psychiatrist',
+    'Child and Adolescent Psychiatrist',
+    'Geriatric Psychiatrist',
+    'Forensic Psychiatrist',
+    'Consultation-Liaison Psychiatrist',
+    'Emergency Psychiatrist',
+    'Military Psychiatrist',
+    'Community Psychiatrist'
+];
+
 const loginSchema = {
     [Segments.BODY]: Joi.object().keys({
         email: Joi.string().email().required(),
@@ -24,6 +46,16 @@ const registerSchema = {
     }),
 }
 
+const waitlistSchema = {
+    [Segments.BODY]: Joi.object().keys({
+        firstName: Joi.string().required(),
+        lastName: Joi.string().required(),
+        email: Joi.string().email().required(),
+        phone: Joi.string().required(),
+        specialty: Joi.string().valid(...specialtyEnum).required(),
+        organization: Joi.string(),
+    }),
+}
 const updateSchema = {
     [Segments.BODY]: Joi.object().keys({
         firstName: Joi.string(),
@@ -33,7 +65,7 @@ const updateSchema = {
         picture: Joi.string(),
         phone: Joi.string(),
         office_location: Joi.string(),
-        specialty: Joi.string(),
+        specialty: Joi.string().valid(...specialtyEnum),
     }),
 }
 
@@ -55,4 +87,5 @@ module.exports = {
     updateSchema,
     sendRequestEmailSchema,
     resetPasswordSchema,
+    waitlistSchema,
 }

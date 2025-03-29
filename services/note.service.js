@@ -45,7 +45,10 @@ const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
         "noteFormat": 1,
         "tags": 1,
         "status": 1,
-        "saladJobId": 1
+        "saladJobId": 1,
+        "doctorFeedback": 1,
+        "originalSessionTranscript": 1,
+        "originialOutputContent": 1,
     })
     .sort({ visitDate: -1 })
     .skip(skip)
@@ -103,6 +106,7 @@ const updateNote = async(noteId, data, user) => {
         'sessionTranscript',
         'patientInstructions',
         'tags',
+        'doctorFeedback',
     ];
 
     // Filter data to keep only allowed fields
