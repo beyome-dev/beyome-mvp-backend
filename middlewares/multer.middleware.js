@@ -8,7 +8,7 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         const userId = req.user ? req.user._id : 'unknownUser';
-        const patientName = req.query.name || 'unknownPatient';
+        const patientName = req.query.name.replace(/\s+/g, '-') || 'unknownPatient';
         const uniqueSuffix = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
         cb(null, `${userId}-${patientName}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
