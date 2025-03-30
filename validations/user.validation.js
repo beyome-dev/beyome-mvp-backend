@@ -53,7 +53,7 @@ const waitlistSchema = {
         email: Joi.string().email().required(),
         phone: Joi.string().required(),
         specialty: Joi.string().valid(...specialtyEnum).required(),
-        organization: Joi.string(),
+        organization: Joi.string().allow(''),
     }),
 }
 const updateSchema = {
