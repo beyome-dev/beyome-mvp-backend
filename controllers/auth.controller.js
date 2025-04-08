@@ -105,7 +105,7 @@ module.exports.authThirdPartyCallback = (req, res) => {
 // @access Public
 module.exports.addToWaitlist = async (req, res) => {
     try {
-        const { firstName, lastName, email, specialty, organization } = req.body;
+        const { firstName, lastName, email, phone, specialty, organization } = req.body;
 
         // Send email to the internal team
         await mailerService.sendMail(
@@ -116,6 +116,7 @@ module.exports.addToWaitlist = async (req, res) => {
                 firstName,
                 lastName,
                 email,
+                phone,
                 specialty: specialty || 'N/A',
                 organization: organization || 'N/A',
             }

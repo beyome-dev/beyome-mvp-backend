@@ -87,8 +87,8 @@ fileManager()
 app.use('/api', routes);
 app.post(
     '/api/webhook/salad', 
-    express.json({ limit: '200mb' }), // Increase as needed
-    express.urlencoded({ extended: true, limit: '200mb' }),
+    express.json({ limit: '500mb' }), // Increase as needed
+    express.urlencoded({ extended: true, limit: '500mb' }),
     noteController.saladWebhook
 );
 // handle celebrate errors and server errors
