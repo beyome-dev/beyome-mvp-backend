@@ -132,7 +132,7 @@ const deleteNote = async(noteId, user) => {
 const saveAudio = async (file,patientName, user) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl ="https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i"//`${config.APP_URL}/files/${file.filename}`;
+        const fileUrl =`${config.APP_URL}/files/${file.filename}`;
 
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
