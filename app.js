@@ -14,6 +14,7 @@ const http = require('http');
 const path = require('path');
 const { noteController } = require('./controllers')
 const {saladCheck, fileManager} = require('./cronJobs');
+const axios = require('axios');
 
 // set up passport
 require('./config/passport-config');
@@ -48,6 +49,32 @@ if (process.env.NODE_ENV === 'production') {
 }
 else {
     app.use(morgan('dev'));
+    // Add this once in your app (e.g., in a setup or config file)
+    axios.interceptors.request.use(request => {
+        console.log('Starting Request', {
+            method: request.method,
+            url: request.url,
+            headers: request.headers,
+            data: request.data,
+        });
+        return request;
+    });
+
+    axios.interceptors.response.use(response => {
+        console.log('Response:', {
+            url: response.config.url,
+            status: response.status,
+            data: response.data,
+        });
+        return response;
+    }, error => {
+        console.error('Error Response:', {
+            url: error.config?.url,
+            status: error.response?.status,
+            data: error.response?.data,
+        });
+        return Promise.reject(error);
+    });
 }
 
 

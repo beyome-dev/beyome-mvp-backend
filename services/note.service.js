@@ -132,7 +132,7 @@ const deleteNote = async(noteId, user) => {
 const saveAudio = async (file,patientName, user) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl =`${config.APP_URL}/files/${file.filename}`;
+        const fileUrl ="https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i"//`${config.APP_URL}/files/${file.filename}`;
 
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
@@ -354,9 +354,35 @@ const extractSpeakerSentencesFromTimestamps = (payload) => {
     return speakerSentences;
 };
 
-const extractSpeakerSentencesFromTimestampsWithoutDiarization = (payload) => {
-    return payload.output.text;
-};
+/**
+ * Generates a SOAP note based on the provided transcript data.
+ * @param {string} transcript - The transcript text from Salad.
+ * @param {object} io - The Socket.io instance to emit the result.
+ */
+const reprocessNote = async (noteId, io) => {
+    try {
+       
+        let note = await Note.findById(noteId);
+        if (!note) throw new Error('Note not found');
+
+        if (!note.saladJobId) {
+            await Note.findByIdAndUpdate(note._id, { status: 'failed' });
+            throw new Error("No Salad Job ID found")
+        }
+        const response = await axios.get(`${SALAD_API_URL}/${note.saladJobId}`, {
+            headers: { 'Salad-Api-Key': SALAD_API_KEY }
+        });
+        if (response.status === 200 && response.data.status === 'succeeded') {
+            // Call service function with socket.io instance
+            note = await generateSOAPNote(response.data, note._id, io);
+            return note;
+        } else {
+            throw new Error(`Error fetching job status from salad: ${response.data.status}`);
+        }
+    } catch (error) {
+        throw new Error(`Error fetching job status: ${error.message}`);
+    }
+}
 
 module.exports = {
     createNote,
@@ -367,4 +393,5 @@ module.exports = {
     saveAudio,
     generateSOAPNote,
     getAllNotesMinimal,
+    reprocessNote,
 }

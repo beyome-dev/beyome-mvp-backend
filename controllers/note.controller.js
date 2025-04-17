@@ -62,6 +62,31 @@ module.exports.saladWebhook = async (req, res) => {
     }
 };
 
+// @desc Listen to Salad API webhook response
+// @route POST /api/notes/reprocess?id=<note id>
+// @access Public
+module.exports.reprocessNote = async (req, res) => {
+  try {
+      const noteId = req.query.id
+      if (!noteId) {
+          return res.status(400).json({ message: 'Note data is missing' });
+      }
+      // Get the Socket.io instance
+      const io = req.app.get('socketio');
+
+      // Generate SOAP note and emit to frontend
+      const note = await noteService.reprocessNote(noteId, io);
+
+      res.status(200).json({ 
+          message: 'Clinicalnote generated',
+          note: note,
+      });
+  } catch (error) {
+      console.error('Webhook Error:', error.message);
+      res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports.createNote = async(req, res) => {
     try {
       const note = await noteService.createNote(req.body);

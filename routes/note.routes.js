@@ -25,6 +25,12 @@ router.route('/:id')
         // celebrate(userValidation.updateSchema, opts)
     ], noteController.updateNote);
 
+router.route('/reprocess')
+    .post(
+    [
+        requireAuth,
+    ], noteController.reprocessNote);
+
 router.route('/saveAudio')
     .post(
     [
