@@ -3,15 +3,15 @@ const { userController } = require('../controllers');
 const { celebrate } = require('celebrate');
 const { opts, userValidation } = require('../validations');
 const { authMiddleware } = require('../middlewares');
-const { requireAuth, isAdmin } = authMiddleware;
+const { requireAuth, hasRole } = authMiddleware;
 
 const router = Router();
 
 router.route('/')
-    .get([requireAuth, isAdmin], userController.getUsers)
+    .get([requireAuth, hasRole('platform_admin')], userController.getUsers)
     .post([
         requireAuth,
-        isAdmin,
+        hasRole('platform_admin'),
         celebrate(userValidation.registerSchema, opts)
     ], userController.createUser);
 
@@ -31,11 +31,11 @@ router.route('/confirmation/:token')
     .get(userController.confirmEmail);
 
 router.route('/:id')
-    .get([requireAuth, isAdmin], userController.getUserById)
-    .delete([requireAuth, isAdmin], userController.deleteUser)
+    .get([requireAuth, hasRole('platform_admin')], userController.getUserById)
+    .delete([requireAuth, hasRole('platform_admin')], userController.deleteUser)
     .put([
         requireAuth,
-        isAdmin,
+        hasRole('platform_admin'),
         celebrate(userValidation.updateSchema, opts)
     ], userController.updateUser);
 

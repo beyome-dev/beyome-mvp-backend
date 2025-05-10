@@ -82,6 +82,18 @@ const registerWithThirdParty = async (userData) => {
     return newUser;
 }
 
+const updatePasswordWithoutOld = async (id, newPassword) => {
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    const user = await User.findByIdAndUpdate(id, { password: hashedPassword, hasResetPassword: true });
+    if (user) {
+        return user;
+    }
+    throw new Error('user not found');
+}
+
+
 module.exports = {
     getUsers,
     getUserById,
@@ -91,4 +103,5 @@ module.exports = {
     registerWithThirdParty,
     updateUserById,
     deleteUserById,
+    updatePasswordWithoutOld,
 }

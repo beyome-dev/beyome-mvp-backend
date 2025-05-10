@@ -1,6 +1,7 @@
 const { userService, tokenService, mailerService } = require('../services');
 const passport = require('passport');
 const config = require('../config');
+const { response } = require('express');
 
 // @desc Register new user
 // @route POST /api/auth/register
@@ -21,6 +22,18 @@ module.exports.registerUser = async (req, res) => {
         res.status(400).send({ message: error.message });
     }
 }
+
+module.exports.updatePassword = async (req, res) => {
+    try {
+
+        const { password } = req.body;
+        const user = await userService.updateUserById(id, { password: password });
+        res.status(201).send({ user });
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+}
+
 
 // @desc Reset password of user
 // @route POST /api/auth/password-reset/get-code
@@ -69,9 +82,19 @@ module.exports.loginWithEmailAndPassword = (req, res, next) => {
         if (!user) {
             return res.status(500).send({ message: info.message })
         }
-        const token = tokenService.createToken({ id: user.id, email: user.email });
+        let response = {
+            user: user,
+            token: tokenService.createToken({ id: user.id, email: user.email }),
+        }
+        if (!user.hasResetPassword) {
+            // Create a one-time token for first-time password reset
+            response.emailToken = tokenService.createToken({ id: user.id, email: user.email }, config.jwt.emailSecret, '6h');
+            // const url = config.client.firstTimePasswordResetUrl + emailToken;
 
-        res.send({ user, token });
+            // Send the email with the token
+            // mailerService.sendMail(user.email, 'First Time Password Reset', 'first-time-password-reset', { url: url, name: user.firstName });
+        }
+        res.send(response);
 
     })(req, res, next);
 }
@@ -127,3 +150,33 @@ module.exports.addToWaitlist = async (req, res) => {
         res.status(400).send({ message: error.message });
     }
 };
+
+// @desc    Reset password for the first time
+// @route   POST /api/auth/first-time-password-reset/:token
+// @access  Public
+module.exports.firstTimePasswordReset = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { newPassword } = req.body;
+
+        const user = await tokenService.verifyToken(token, config.jwt.emailSecret);
+
+        if (!user) {
+            return res.status(404).send({ message: 'user not found' });
+        }
+
+        const userDoc = await userService.getUserById(user.id);
+        if (!userDoc) {
+            return res.status(404).send({ message: 'user not found' });
+        }
+
+        if (userDoc.hasResetPassword) {
+            return res.status(400).send({ message: 'password has already been reset' });
+        }
+
+        await userService.updatePasswordWithoutOld(user.id, newPassword);
+        res.status(200).send({ message: 'success' });
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+}

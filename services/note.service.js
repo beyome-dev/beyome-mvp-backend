@@ -29,7 +29,7 @@ const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
     return await Note.find(filter).select({ 
         "_id": 1,
-        "patientName": 1,
+        "clientName": 1,
         "title": 1,
         "visitType": 1,
         "visitDate": 1,
@@ -41,12 +41,12 @@ const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
         "inputContentType": 1,
         "outputContent": 1,
         "sessionTranscript": 1,
-        "patientInstructions": 1,
+        "clientInstructions": 1,
         "noteFormat": 1,
         "tags": 1,
         "status": 1,
         "saladJobId": 1,
-        "doctorFeedback": 1,
+        "userFeedback": 1,
         "originalSessionTranscript": 1,
         "originialOutputContent": 1,
     })
@@ -59,7 +59,7 @@ const getAllNotesMinimal = async (filter = {}, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
     const notes = await Note.find(filter, {
         "_id": 1,
-        "patientName": 1,
+        "clientName": 1,
         "title": 1,
         "visitType": 1,
         "visitDate": 1,
@@ -82,7 +82,7 @@ const getAllNotesMinimal = async (filter = {}, page = 1, limit = 10) => {
 const getNoteById = async(noteId, user) => {
     const note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
-    if (note.doctor.toString() !== user._id.toString()) throw new Error('Not authorized');
+    if (note.user.toString() !== user._id.toString()) throw new Error('Not authorized');
     return note;
 }
 
@@ -90,13 +90,13 @@ const updateNote = async(noteId, data, user) => {
     const note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
 
-    // Ensure only the doctor who created the note can edit
-    if (note.doctor.toString() !== user._id.toString()) throw new Error('Not authorized');
+    // Ensure only the user who created the note can edit
+    if (note.user.toString() !== user._id.toString()) throw new Error('Not authorized');
 
     // Define fields that are allowed to be updated
     const allowedFields = [
         "title",
-        "patientName",
+        "clientName",
         'summary',
         'subjective',
         'objective',
@@ -104,9 +104,9 @@ const updateNote = async(noteId, data, user) => {
         'plan',
         'outputContent',
         'sessionTranscript',
-        'patientInstructions',
+        'clientInstructions',
         'tags',
-        'doctorFeedback',
+        'userFeedback',
     ];
 
     // Filter data to keep only allowed fields
@@ -125,11 +125,11 @@ const updateNote = async(noteId, data, user) => {
 const deleteNote = async(noteId, user) => {
     const note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
-    if (note.doctor.toString() !== user._id.toString()) throw new Error('Not authorized');
+    if (note.user.toString() !== user._id.toString()) throw new Error('Not authorized');
     return await Note.findByIdAndDelete(noteId);
 }
 
-const saveAudio = async (file,patientName, user) => {
+const saveAudio = async (file,clientName, user) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
         const fileUrl =`${config.APP_URL}/files/${file.filename}`;
@@ -137,12 +137,12 @@ const saveAudio = async (file,patientName, user) => {
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
 
-        const prompt = await Prompt.findOne({ aiEngine: "Gemini" }); // Use findOne() to avoid array issues
+        const prompt = await Prompt.findOne({ aiEngine: "Gemini" }); 
         if (!prompt) throw new Error("Prompt data not found");
 
         const note = new Note({
-            patientName,
-            title: `Clinical Note for ${patientName}`,
+            clientName,
+            title: `Clinical Note for ${clientName}`,
             visitType: "Follow up",
             visitDate: new Date(),
             subjective: "nil",
@@ -151,10 +151,10 @@ const saveAudio = async (file,patientName, user) => {
             inputContentType: "Recording",
             outputContent: "nil",
             sessionTranscript: "nil",
-            patientInstructions: "nil",
+            clientInstructions: "nil",
             noteFormat: "SOAP",
-            tags: ["soap", patientName],
-            doctor: new mongoose.Types.ObjectId(user._id),
+            tags: ["soap", clientName],
+            user: new mongoose.Types.ObjectId(user._id),
             prompt: new mongoose.Types.ObjectId(prompt._id),
             status: "pending",
             assessment: 'nil',
@@ -289,7 +289,7 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         const objectiveMatch = geminiResponse.match(/\*\*Objective:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const assessmentMatch = geminiResponse.match(/\*\*Assessment:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const planMatch = geminiResponse.match(/\*\*Plan:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
-        const instructionsMatch = geminiResponse.match(/\*\*Patient Instruction Email:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
+        const instructionsMatch = geminiResponse.match(/\*\*Client Instruction Email:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const titleMatch = geminiResponse.match(/\*\*Title:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/);
         const visitTypeMatch = geminiResponse.match(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/);
         
@@ -299,7 +299,7 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         // Extract text with fallback if data is missing
         const subjective = subjectiveMatch ? cleanText(subjectiveMatch[1]).replace(/^S:\s*/, '') : "No subjective data provided.";
         const objective = objectiveMatch ? cleanText(objectiveMatch[1]).replace(/^O:\s*/, '') : "No objective data provided.";
-        const patientInstructions = instructionsMatch ? instructionsMatch[1].split('\n\n').map(email => email.trim()).join('\n\n') : "Follow the advocate’s advice and reach out for support when needed.";
+        const clientInstructions = instructionsMatch ? instructionsMatch[1].split('\n\n').map(email => email.trim()).join('\n\n') : "Follow the advocate’s advice and reach out for support when needed.";
         let assessment = assessmentMatch ? cleanText(assessmentMatch[1]).replace(/^A:\s*/, '') : "No assesment data provided.";
         let plan = planMatch ? cleanText(planMatch[1]).replace(/^P:\s*/, '') : "No plan data provided.";
         let title = titleMatch ? cleanText(titleMatch[1]) : 'Clinical Note';
@@ -308,7 +308,7 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
         const strippedResponse = geminiResponse
             .replace(/\*\*Title:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/, '')
             .replace(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/, '')
-            .replace(/\*\*Patient Instruction Email:\*\*\s*\n([\s\S]+)/, '');
+            .replace(/\*\*Client Instruction Email:\*\*\s*\n([\s\S]+)/, '');
     
         // Update the note in the database
         const updatedNote = await Note.findByIdAndUpdate(noteId, {
@@ -318,7 +318,7 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
             objective,
             assessment,
             plan,
-            patientInstructions,
+            clientInstructions,
             status: "completed", // Mark note as completed
             sessionTranscript: transcript,
             summary: summary,

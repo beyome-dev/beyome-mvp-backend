@@ -12,7 +12,7 @@ const Schema = mongoose.Schema;
 //   });
 
 const NoteSchema = new Schema({
-    patientName: { 
+    clientName: { 
         type: String, 
         required: true 
     },
@@ -70,13 +70,13 @@ const NoteSchema = new Schema({
     originalSessionTranscript: {
         type: String
     },
-    patientInstructions: {
+    clientInstructions: {
         type: String
     },
-    doctorFeedback: {
+    userFeedback: {
         type: String
     },
-    patientFeedback: {
+    clientFeedback: {
         type: String
     },
     noteFormat: {
@@ -88,12 +88,12 @@ const NoteSchema = new Schema({
         type: [String],
         required: true
     },
-    doctor: {
+    user: {
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    patient: {
+    client: {
         type: Schema.Types.ObjectId,
         ref: 'User'
     },
@@ -122,4 +122,4 @@ const NoteSchema = new Schema({
 
 module.exports = mongoose.model('Note', NoteSchema);
 
-NoteSchema.index({ doctor: 1, patient: 1, status: 1, visitDate: -1 });
+NoteSchema.index({ user: 1, client: 1, status: 1, visitDate: -1 });

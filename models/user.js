@@ -64,9 +64,17 @@ const UserSchema = new Schema({
     picture: {
         type: String,
     },
-    isDoctor: {
-        type: Boolean,
-        default: true,
+    userType: {
+        type: String,
+        enum: [
+            'psychiatrist',       // Doctors with full access to app features
+            'therapist',          // Psychologists with slightly fewer permissions
+            'receptionist',       // Handles bookings, scheduling, and client inbounds
+            'org_admin',          // Organization admin with extended privileges
+            'platform_admin',      // Internal/admin-only access for platform control
+            'manager'
+          ],
+          default: 'psychiatrist'
     },
     isAdmin: {
         type: Boolean,
@@ -84,6 +92,10 @@ const UserSchema = new Schema({
         type: String,
     },
     twoFactorAuth: {
+        type: Boolean,
+        default: false,
+    },
+    hasResetPassword: {
         type: Boolean,
         default: false,
     },
