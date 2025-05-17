@@ -11,7 +11,7 @@ module.exports.saveAudio = async (req, res) => {
         return res.status(400).json({ message: 'No file uploaded' });
       }
       if (!req.query.name) {
-        return res.status(400).json({ message: 'Require patient name' });
+        return res.status(400).json({ message: 'Require client name' });
       }
 
       const result = await noteService.saveAudio(req.file, req.query.name, req.user);
@@ -101,7 +101,7 @@ module.exports.getAllNotes = async(req, res) => {
       let { page, limit, ...filters } = req.query;
       page = parseInt(page) || 1;
       limit = parseInt(limit) || 10;
-      filters.doctor = new mongoose.Types.ObjectId(req.user._id)
+      filters.user = new mongoose.Types.ObjectId(req.user._id)
       const notes = await noteService.getAllNotes(filters, page, limit);
       res.status(200).json(notes);
     } catch (err) {
@@ -114,7 +114,7 @@ module.exports.getAllNotesMinimal = async (req, res) => {
       let { page, limit, ...filters } = req.query;
       page = parseInt(page) || 1;
       limit = parseInt(limit) || 10;
-      filters.doctor = new mongoose.Types.ObjectId(req.user._id)
+      filters.user = new mongoose.Types.ObjectId(req.user._id)
       const data = await noteService.getAllNotesMinimal(filters, page, limit);
       
       res.status(200).json(data);

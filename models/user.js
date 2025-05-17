@@ -13,7 +13,7 @@ const UserSchema = new Schema({
     },
     email: {
         type: String,
-        required: [true, 'Please enter an email'],
+        // required: [true, 'Please enter an email'],
         unique: true,
         lowercase: true,
     },
@@ -64,9 +64,18 @@ const UserSchema = new Schema({
     picture: {
         type: String,
     },
-    isDoctor: {
-        type: Boolean,
-        default: true,
+    userType: {
+        type: String,
+        enum: [
+            'psychiatrist',       // Doctors with full access to app features
+            'therapist',          // Psychologists with slightly fewer permissions
+            'receptionist',       // Handles bookings, scheduling, and client inbounds
+            'org_admin',          // Organization admin with extended privileges
+            'platform_admin',      // Internal/admin-only access for platform control
+            'client',             // Clients with limited access to their own data
+            'manager'
+          ],
+          default: 'therapist'
     },
     isAdmin: {
         type: Boolean,
@@ -87,6 +96,25 @@ const UserSchema = new Schema({
         type: Boolean,
         default: false,
     },
+    hasResetPassword: {
+        type: Boolean,
+        default: false,
+    },
+    patientSummary: {
+        type: String,
+    },
+    googleTokens: {
+        access_token: String,
+        refresh_token: String,
+        scope: String,
+        token_type: String,
+        expiry_date: Number,
+    },
+    tags:   {
+        type: [String],
+        default: []
+    },
+
 }, { timestamps: true });
 
 UserSchema.statics.isEmailTaken = async function (email, excludeUserId) {
@@ -94,6 +122,6 @@ UserSchema.statics.isEmailTaken = async function (email, excludeUserId) {
     return !!user;
 };
 
-const User = mongoose.model('user', UserSchema);
+const User = mongoose.model('User', UserSchema);
 
 module.exports = User;

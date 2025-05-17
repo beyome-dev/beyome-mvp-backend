@@ -5,7 +5,7 @@
 [![GitHub license](https://img.shields.io/github/license/beyome/express-mongodb-rest-api-boilerplate)](https://bitbucket.org/beyome/beyome-mvp-backend/blob/master/LICENSE)
 
 
-Beyome mvp project with trancsription and summary generation api for doctors and patients.
+Beyome mvp project with trancsription and summary generation api for users and clients.
 
 ## Manual Installation
 
