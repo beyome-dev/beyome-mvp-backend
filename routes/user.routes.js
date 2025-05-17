@@ -3,6 +3,7 @@ const { userController } = require('../controllers');
 const { celebrate } = require('celebrate');
 const { opts, userValidation } = require('../validations');
 const { authMiddleware } = require('../middlewares');
+const { client } = require('../config');
 const { requireAuth, hasRole } = authMiddleware;
 
 const router = Router();
@@ -38,5 +39,21 @@ router.route('/:id')
         hasRole('platform_admin'),
         celebrate(userValidation.updateSchema, opts)
     ], userController.updateUser);
+
+router.route('/google-calendar/auth-url')
+    .get([requireAuth], userController.getGoogleAuthUrl);
+
+router.route('/google-calendar/save-tokens')
+    .post([
+        requireAuth,
+        celebrate(userValidation.googleTokenSchema, opts)
+    ], userController.saveGoogleTokens);
+
+router.route('/create-client')
+    .post([
+      requireAuth,
+      hasRole('psychiatrist','therapist', 'receptionist', 'org_admin'),
+      celebrate(userValidation.createClientSchema, opts)
+    ], userController.createClient);
 
 module.exports = router;

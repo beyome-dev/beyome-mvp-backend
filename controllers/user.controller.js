@@ -1,4 +1,5 @@
-const { userService, tokenService, mailerService } = require('../services');
+// const { getAuthUrl, getTokensFromCode } = require('../services/utilityServices/google/googleCalendar.service');
+const { userService, tokenService, mailerService, googleCalendarService } = require('../services');
 const config = require('../config');
 
 // @desc Get user profile
@@ -6,7 +7,13 @@ const config = require('../config');
 // @access Private
 module.exports.getUserProfile = async (req, res) => {
     try {
-        const user = await userService.getUserById(req.user.id);
+        var user = await userService.getUserById(req.user.id);
+        if (user.googleTokens?.refresh_token) {
+            user.hasCalendarSync = true
+            user.googleTokens = undefined
+            console.log("user.hasCalendarSync :",user.hasCalendarSync)
+        }
+        console.log("user.hasCalendarSync :",user.hasCalendarSync)
         res.status(200).send(user);
     } catch (error) {
         console.log(error);
@@ -22,7 +29,14 @@ module.exports.updateUserProfile = async (req, res) => {
         if (!req.user.isAdmin) {
             req.body.isAdmin = false;
         }
+        if (req.body.googleTokens) {
+            delete req.body.googleTokens;
+        }
         const user = await userService.updateUserById(req.user.id, req.body);
+        if (user.googleTokens?.refresh_token) {
+            user.hasCalendarSync = true
+            user.googleTokens = undefined
+        }
         res.status(200).send({ message: 'success' });
     } catch (error) {
         res.status(400).send({ message: error.message });
@@ -68,6 +82,10 @@ module.exports.getUsers = async (req, res) => {
 module.exports.getUserById = async (req, res) => {
     try {
         const user = await userService.getUserById(req.params.id);
+        if (user.googleTokens?.refresh_token) {
+            user.hasCalendarSync = true
+            user.googleTokens = undefined
+        }
         res.status(200).send(user);
     } catch (error) {
         res.status(404).send({ message: error.message });
@@ -135,3 +153,49 @@ module.exports.confirmEmail = async (req, res) => {
         res.status(400).send({ message: error.message });
     }
 }
+
+// @desc    Get Google OAuth URL
+// @route   GET /api/users/google-calendar/auth-url
+// @access  Private
+module.exports.getGoogleAuthUrl = async (req, res) => {
+    try {
+        if (req.user && req.user.googleTokens?.refresh_token) {
+            // Already synced
+            return res.status(200).send({ message: "Already synced" });
+          }
+        const url = googleCalendarService.getAuthUrl(req.user.email);
+        res.status(200).send({ url });
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+};
+
+// @desc    Handle Google OAuth callback and save tokens
+// @route   POST /api/users/google-calendar/save-tokens
+// @access  Private
+module.exports.saveGoogleTokens = async (req, res) => {
+    try {
+        const { code } = req.body;
+        const tokens = await googleCalendarService.getTokensFromCode(code);
+
+        await userService.updateUserById(req.user.id, {
+            googleTokens: tokens
+        });
+
+        res.status(200).send({ message: 'Google Calendar synced successfully' });
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+};
+
+// @desc    Create a new client
+// @route   POST /api/users/create-clients
+// @access  Private
+module.exports.createClient = async (req, res) => {
+    try {
+      const client = await userService.createClient(req.body);
+      res.status(201).json(client);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
+};

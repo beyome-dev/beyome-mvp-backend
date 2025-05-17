@@ -15,7 +15,7 @@ const getUserById = async (id) => {
 }
 
 const getUserByOpts = async (opts) => {
-    const user = await User.findOne(opts).select('-password');
+    const user = await User.findOne(opts).select('-password -googleTokens');
     if (user) {
         return user;
     }
@@ -33,6 +33,7 @@ const registerUser = async (userData) => {
 
     const newUser = await User.create(userData);
     newUser.password = undefined;
+    newUser.googleTokens = undefined;
     return newUser;
 }
 
@@ -46,6 +47,8 @@ const updateUserById = async (id, userData) => {
     }
     const user = await User.findByIdAndUpdate(id, userData);
     if (user) {
+        user.password = undefined;
+        user.googleTokens = undefined;
         return user;
     }
     throw new Error('user not found');
@@ -73,8 +76,26 @@ const loginWithEmailAndPassword = async (email, password) => {
     throw new Error('email not registered');
 }
 
+const createClient = async (userData) => {
+    const user  = await User.findOne({email: userData.email });
+    if (user) {
+        throw new Error('email already exists');
+    }
+    userData.password = undefined;
+    userData.userType = 'client';
+    userData.isAdmin = false
+    userData.emailVerfied = false
+    userData.hasActivePlan = false
+    userData.currentPlan = "none"
+    userData.twoFactorAuth = false
+    userData.hasResetPassword = false
+    const newUser = await User.create(userData);
+    return newUser;
+}
+
+
 const registerWithThirdParty = async (userData) => {
-    const user = await User.findOne({ email: userData.email }).select('-password');
+    const user = await User.findOne({ email: userData.email }).select('-password -googleTokens');
     if (user) {
         return user;
     }
@@ -104,4 +125,5 @@ module.exports = {
     updateUserById,
     deleteUserById,
     updatePasswordWithoutOld,
+    createClient
 }

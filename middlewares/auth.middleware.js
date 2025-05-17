@@ -9,7 +9,6 @@ const hasRole = (...allowedRoles) => {
         }
 
         const isAuthorized = allowedRoles.includes(req.user.userType) || req.user.userType === 'platform_admin';
-
         if (isAuthorized) {
             return next();
         }

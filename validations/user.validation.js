@@ -83,6 +83,23 @@ const resetPasswordSchema = {
     }),
 }
 
+const googleTokenSchema = {
+    [Segments.BODY]: Joi.object().keys({
+        code: Joi.string().required(),
+    }),
+};
+
+const createClientSchema = {
+    [Segments.BODY]: Joi.object().keys({
+        firstName: Joi.string().required(),
+        lastName: Joi.string().required(),
+        email: Joi.string().email().optional(),
+        phone: Joi.string().pattern(/^(\+?\d+)$/).optional(),
+        picture: Joi.string().uri().optional(),
+        organization: Joi.string().optional()
+    }).or('email', 'phone') // Require at least one of email or phone
+};
+
 module.exports = {
     loginSchema,
     registerSchema,
@@ -90,4 +107,6 @@ module.exports = {
     sendRequestEmailSchema,
     resetPasswordSchema,
     waitlistSchema,
+    googleTokenSchema,
+    createClientSchema
 }

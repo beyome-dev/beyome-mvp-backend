@@ -5,7 +5,7 @@ const { authMiddleware } = require('../middlewares');
 const { upload } = require('../middlewares');
 const { requireAuth, hasRole } = authMiddleware;
 
-const roleMiddleware = hasRole('psychiatrist', 'therapist', 'org_admin', 'platform_admin');
+const roleMiddleware = hasRole('psychiatrist', 'therapist', 'org_admin');
 
 const router = Router();
 

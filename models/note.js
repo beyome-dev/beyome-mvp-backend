@@ -1,10 +1,7 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-// const AssessmentSchema = new mongoose.Schema({
-//     title: { type: String, required: true },
-//     description: { type: String, required: true }
-//   });
+
   
 //   const PlanItemSchema = new mongoose.Schema({
 //     title: { type: String, required: true },
@@ -12,21 +9,9 @@ const Schema = mongoose.Schema;
 //   });
 
 const NoteSchema = new Schema({
-    clientName: { 
-        type: String, 
-        required: true 
-    },
     title: {
         type: String,
         required: true
-    },
-    visitType: { 
-        type: String, 
-        required: true 
-    }, // e.g., Psychiatry Follow-Up
-    visitDate: { 
-        type: Date, 
-        required: true 
     },
     summary: {
         type: String, 
@@ -73,12 +58,6 @@ const NoteSchema = new Schema({
     clientInstructions: {
         type: String
     },
-    userFeedback: {
-        type: String
-    },
-    clientFeedback: {
-        type: String
-    },
     noteFormat: {
         type: String,
         required: true,
@@ -93,9 +72,17 @@ const NoteSchema = new Schema({
         ref: 'User',
         required: true
     },
+    booking: {
+        type: Schema.Types.ObjectId,
+        ref: 'Booking',
+    },
     client: {
         type: Schema.Types.ObjectId,
         ref: 'User'
+    },
+    organization: {
+        type: Schema.Types.ObjectId,
+        ref: 'Organization',
     },
     prompt: {
         type: Schema.Types.ObjectId,
@@ -114,12 +101,8 @@ const NoteSchema = new Schema({
     failureReason: {
         type: String
     },
-    analysisResults: {
-        type: Map,
-        of: Schema.Types.Mixed
-    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Note', NoteSchema);
 
-NoteSchema.index({ user: 1, client: 1, status: 1, visitDate: -1 });
+NoteSchema.index({ user: 1, client: 1, status: 1});
