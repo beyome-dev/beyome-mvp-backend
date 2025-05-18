@@ -65,9 +65,9 @@ const BookingSchema = new mongoose.Schema({
     checkOutTime: { type: String, required: false }, // "HH:MM"
     status: {
         type: String,
-        enum: ["booked", "completed", "cancelled","no-show","in-progress","rescheduled"],
+        enum: ["scheduled", "completed", "cancelled","no-show","in-progress","rescheduled","pending-review"],
         required: true,
-        default: "booked",
+        default: "scheduled",
     },
     personalNotes: { type: [String], required: false }, 
     userFeedback: {
@@ -75,6 +75,22 @@ const BookingSchema = new mongoose.Schema({
     },
     clientFeedback: {
         type: [FeedbackSchema]
+    },
+    sessionCost: { type: Number, required: false },
+    sessionCostPaid: { type: Boolean, default: false },
+    sessionCostPaidDate: { type: String, required: false }, // "YYYY-MM-DD"
+    sessionCostPaidTime: { type: String, required: false }, // "HH:MM"
+    sessionCostPaidMethod: { 
+        type: String, 
+        enum: [
+            'credit_card', 
+            'debit_card', 
+            'cash', 
+            'insurance', 
+            'upi',
+            'other'
+        ],
+        required: false
     },
     googleEventId: { type: String, required: false },
 });

@@ -8,8 +8,8 @@ async function createBooking(data, user) {
     if (!client) {
         throw new Error("Client not found");
     }
-    console.log("Client found:", client);
     data.customerName = client.firstName + " " + client.lastName;
+    data.organization = user.organization;
     const booking = new Booking(data);
     if (user.googleTokens?.access_token) {
         const evenID = await calendatService.addBookingEvent(booking, user.googleTokens)
@@ -21,7 +21,7 @@ async function createBooking(data, user) {
 // Get a booking by ID
 async function getBookingById(id, user) {
     const booking = await Booking.findById(id)
-        .populate("client", "firstName lastName")
+        .populate("client", "firstName lastName tags")
         .populate("handler", "firstName lastName")
         .populate("dictationNote");
 
@@ -29,24 +29,39 @@ async function getBookingById(id, user) {
 }
 
 // Get all bookings with optional filters
-async function getAllBookings(filter = {}, user) {
-    const bookings = await Booking.find(filter)
-        .populate("client", "firstName lastName")
+async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
+    const skip = (page - 1) * limit;
+    let bookings = await Booking.find(filter)
+        .populate("client", "firstName lastName tags")
         .populate("handler", "firstName lastName")
-        .populate("dictationNote");
+        .populate("dictationNote")
+        .sort({ visitDate: -1 })
+        .skip(skip)
+        .limit(limit);
 
-    return bookings.map(booking => {
+    bookings = bookings.map(booking => {
         const bookingObj = booking.toObject();
         bookingObj.generatedDictationNote =
             typeof booking.dictationNote?.outputContent === 'string' && booking.dictationNote.outputContent.trim() !== '';
         delete bookingObj.dictationNote;
         return bookingObj;
     });
+    const totalCount = await Booking.countDocuments(filter);
+    
+    return { 
+        bookings, 
+        totalPages: Math.ceil(totalCount / limit), 
+        currentPage: page, 
+        totalCount 
+    };
 }
 
 // Update a booking by ID
 async function updateBooking(id, data, user) {
-    if (data.googleEventId !== "" && user.googleTokens?.access_token) {
+    const booking = await Booking.findByIdAndUpdate(id, data, { new: true });
+    if (data.googleEventId !== "" && user.googleTokens?.access_token
+        && (data.date !== booking.date || data.time !== booking.time 
+        || data.visitType !== booking.visitType)) {
         const evenID = await calendatService.patchBookingEvent(data.googleEventId, booking, user.googleTokens)
         booking.googleEventId = evenID;
     }
@@ -69,20 +84,16 @@ async function rescheduleBooking(id, newDate, newTime, user) {
     if (existingBooking) {
         throw new Error("A booking already exists for the given date and time.");
     }
+    existingBooking.date = newDate
+    existingBooking.time = newTime
+    existingBooking.status = "rescheduled"
+    await existingBooking.save();
     if (existingBooking.googleEventId !== "" && user.googleTokens?.access_token) {
         const evenID = await calendatService.patchBookingEvent(data.googleEventId, booking, user.googleTokens)
         booking.googleEventId = evenID;
     }
     // Update the booking's date, time, and status
-    return await Booking.findByIdAndUpdate(
-        id,
-        {
-            date: newDate,
-            time: newTime,
-            status: "rescheduled"
-        },
-        { new: true }
-    );
+    return existingBooking;
 }
 
 // Link a new note to a booking
@@ -90,8 +101,43 @@ async function linkNoteToBooking(bookingId, noteId) {
     return await Booking.findByIdAndUpdate(
         bookingId,
         { dictationNote: noteId },
+        { new: false }
+    );
+}
+
+// Check In: update checkInTime and status
+async function checkInBooking(id, checkInTime) {
+    return await Booking.findByIdAndUpdate(
+        id,
+        { checkInTime, status: "in-progress" },
         { new: true }
     );
+}
+
+// Check Out: update checkOutTime and status
+async function checkOutBooking(id, checkOutTime) {
+    return await Booking.findByIdAndUpdate(
+        id,
+        { checkOutTime, status: "pending-review" },
+        { new: true }
+    );
+}
+
+// Dictate Note: save audio, update booking with note id
+async function dictateNote(bookingId, file, user) {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new Error("Booking not found");
+
+    // You may want to validate user permissions here
+
+    // Save audio and generate note
+    const noteService = require("./note.service");
+    const noteResult = await noteService.saveAudio(file, booking.client, bookingId, true, user);
+    if (!noteResult) throw new Error("Failed to process recording");
+    if (!noteResult.note) throw new Error("Failed to generate note");
+    booking.dictationNote = noteResult.note;
+
+    return booking;
 }
 
 module.exports = {
@@ -101,5 +147,8 @@ module.exports = {
     updateBooking,
     deleteBooking,
     rescheduleBooking,
-    linkNoteToBooking
+    linkNoteToBooking,
+    checkInBooking,
+    checkOutBooking,
+    dictateNote,
 };

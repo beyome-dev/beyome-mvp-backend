@@ -3,6 +3,9 @@
 const { Router } = require('express');
 const bookingController = require('../controllers/booking.controller');
 const { authMiddleware } = require('../middlewares');
+const { celebrate } = require('celebrate');
+const { opts, bookingValidation } = require('../validations');
+const { upload } = require('../middlewares');
 
 const { requireAuth, hasRole } = authMiddleware;
 
@@ -11,15 +14,39 @@ const roleMiddleware = hasRole('psychiatrist','therapist', 'receptionist', 'org_
 const router = Router();
 
 router.route('/')
-    .get([requireAuth, roleMiddleware], bookingController.getAllBookings)
-    .post([requireAuth, roleMiddleware], bookingController.createBooking);
+    .get([
+        requireAuth, 
+        roleMiddleware
+    ], bookingController.getAllBookings)
+    .post([
+        requireAuth, 
+        celebrate(bookingValidation.bookingCreateSchema, opts),
+        roleMiddleware
+    ], bookingController.createBooking);
 
 router.route('/:id')
     .get([requireAuth, roleMiddleware], bookingController.getBookingById)
-    .put([requireAuth, roleMiddleware], bookingController.updateBooking)
+    .put([
+        requireAuth, 
+        roleMiddleware,
+        celebrate(bookingValidation.bookingUpdateSchema, opts),
+    ], bookingController.updateBooking)
     .delete([requireAuth, roleMiddleware], bookingController.deleteBooking);
 
 router.route('/:id/reschedule')
-    .put([requireAuth, roleMiddleware], bookingController.rescheduleBooking);
+    .put([ 
+        requireAuth, 
+        roleMiddleware,
+        celebrate(bookingValidation.bookingRescheduleSchema, opts),
+    ], bookingController.rescheduleBooking);
+
+router.route('/:id/checkin')
+    .post([requireAuth, roleMiddleware], bookingController.checkInBooking);
+
+router.route('/:id/checkout')
+    .post([requireAuth, roleMiddleware], bookingController.checkOutBooking);
+
+router.route('/:id/dictate-note')
+    .post([requireAuth, roleMiddleware, upload.single('audio')], bookingController.dictateNote);
 
 module.exports = router;
