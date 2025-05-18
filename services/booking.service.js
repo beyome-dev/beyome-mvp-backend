@@ -1,6 +1,7 @@
 const Booking = require("../models/booking");
 const userService = require("./user.service");
 const calendatService = require("./utilityServices/google/googleCalendar.service");
+const moment = require('moment');
 
 // Create a new booking
 async function createBooking(data, user) {
@@ -31,6 +32,13 @@ async function getBookingById(id, user) {
 // Get all bookings with optional filters
 async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
     const skip = (page - 1) * limit;
+
+    const today = moment().format('YYYY-MM-DD');
+    if (filter.date === 'upcoming') {
+        filter.date = { $gte: today };
+    } else if (filter.date === 'past') {
+        filter.date = { $lt: today};
+    }
     let bookings = await Booking.find(filter)
         .populate("client", "firstName lastName tags")
         .populate("handler", "firstName lastName")
