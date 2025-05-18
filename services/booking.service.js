@@ -35,7 +35,7 @@ async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
         .populate("client", "firstName lastName tags")
         .populate("handler", "firstName lastName")
         .populate("dictationNote")
-        .sort({ visitDate: -1 })
+        .sort({ date: -1, time: -1 })
         .skip(skip)
         .limit(limit);
 
