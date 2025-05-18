@@ -58,6 +58,11 @@ const UserSchema = new Schema({
         ],
         required: false
     },
+    handlers: [{
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: false
+    }],
     organization: {
         type: String,
     },

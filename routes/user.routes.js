@@ -49,11 +49,21 @@ router.route('/google-calendar/save-tokens')
         celebrate(userValidation.googleTokenSchema, opts)
     ], userController.saveGoogleTokens);
 
-router.route('/create-client')
+router.route('/:id/clients')
+    .get([
+        requireAuth,
+        hasRole('psychiatrist','therapist', 'receptionist', 'org_admin')
+    ], userController.getClientData)
     .post([
       requireAuth,
       hasRole('psychiatrist','therapist', 'receptionist', 'org_admin'),
       celebrate(userValidation.createClientSchema, opts)
     ], userController.createClient);
+
+// router.route('/:id/client-names')
+//     .get([
+//         requireAuth,
+//         hasRole('psychiatrist','therapist', 'receptionist', 'org_admin')
+//     ], userController.getClientNames)
 
 module.exports = router;

@@ -141,8 +141,9 @@ async function connectDB() {
     }
 }
 
+
 // Connect to MongoDB before starting the server
 connectDB().then(() => {
-    const PORT = config.PORT || 5000;
-    app.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
+    const PORT = config.PORT || 8000;
+    server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
 });

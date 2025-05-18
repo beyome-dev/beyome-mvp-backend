@@ -30,7 +30,7 @@ const createNote = async(data) => {
 
 const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
-    return await Note.find(filter).select({ 
+    const notes =  await Note.find(filter).select({ 
         "_id": 1,
         "clientName": 1,
         "title": 1,
@@ -56,6 +56,15 @@ const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
     .sort({ visitDate: -1 })
     .skip(skip)
     .limit(limit);
+
+    const totalCount = await Note.countDocuments(filter);
+
+    return { 
+        notes, 
+        totalPages: Math.ceil(totalCount / limit), 
+        currentPage: page, 
+        totalCount 
+    };
 }
 
 const getAllNotesMinimal = async (filter = {}, page = 1, limit = 10) => {
@@ -184,7 +193,7 @@ const saveAudio = async (file,clientID, bookingID, isDictation, user) => {
         const noteData = await note.save();
 
         if (bookingID) {
-            await Booking.findByIdAndUpdate(bookingID, { dictationNote: noteData._id }, { new: false });
+            await Booking.findByIdAndUpdate(bookingID, { dictationNote: noteData._id, status: "completed" }, { new: false });
         }
         // Call Salad API for transcription
         let transcriptResponse;
