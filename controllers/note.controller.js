@@ -13,8 +13,13 @@ module.exports.saveAudio = async (req, res) => {
       if (!req.query.name) {
         return res.status(400).json({ message: 'Require client name' });
       }
-
-      const result = await noteService.saveAudio(req.file, req.query.name, req.user);
+      let isDictation = true;
+      if (req.query.type === "dictation") {
+        isDictation = true;
+      } else if (req.query.type === "recording") {
+        isDictation = false;
+      }
+      const result = await noteService.saveAudio(req.file, req.query.client, req.query.booking, isDictation, req.user);
       if (!result) {
         return res.status(400).json({ message: 'Failed to process recording'});
       }

@@ -20,10 +20,15 @@ async function createBooking(req, res) {
 // Get all bookings
 async function getAllBookings(req, res) {
     try {
-        let filter = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-            ? { organization: req.user.organization, ...req.query }
-            : { handler: req.user._id, ...req.query };
-        const bookings = await bookingService.getAllBookings(filter);
+        let { page, limit, ...filters } = req.query;
+        page = parseInt(page) || 1;
+        limit = parseInt(limit) || 10;
+
+        filter = req.user.userType === "receptionist" || req.user.userType === "org_admin"
+            ? { organization: req.user.organization, ...filters }
+            : { handler: req.user._id, ...filters };
+             
+        const bookings = await bookingService.getAllBookings(filter, page, limit, req.user);
         res.json(bookings);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -34,8 +39,6 @@ async function getAllBookings(req, res) {
 async function getBookingById(req, res) {
     try {
         const booking = await bookingService.getBookingById(req.params.id);
-        console.log("Booking found:", booking);
-        console.log("User found:", req.user);
         if (!booking || 
             ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && booking.handler._id.toString() !== req.user._id.toString()) ||
             ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && booking.organization.toString() !== req.user.organization.toString())) {
@@ -52,14 +55,14 @@ async function updateBooking(req, res) {
     try {
         const booking = await bookingService.getBookingById(req.params.id);
         if (!booking || 
-            ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && booking.handler._id.toString() !== req.user._id) ||
+            ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && booking.handler._id.toString() !== req.user._id.toString()) ||
             ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && booking.organization.toString() !== req.user.organization)) {
             return res.status(404).json({ message: "Booking not found" });
         }
         req.body.googleEventId = booking.googleEventId;
         const updated = await bookingService.updateBooking(req.params.id, req.body, req.user);
         if (!updated) {
-            return res.status(404).json({ message: "Booking not found" });
+            return res.status(404).json({ message: "Booking failed to update" });
         }
         res.json(updated);
     } catch (error) {
@@ -72,8 +75,8 @@ async function deleteBooking(req, res) {
     try {
         const booking = await bookingService.getBookingById(req.params.id);
         if (!booking || 
-            ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && booking.handler._id.toString() !== req.user._id) ||
-            ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && booking.organization.toString() !== req.user.organization)) {
+            ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && booking.handler._id.toString() !== req.user._id.toString()) ||
+            ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && booking.organization.toString() !== req.user.organization.toString())) {
             return res.status(404).json({ message: "Booking not found" });
         }
         req.body.googleEventId = booking.googleEventId;
@@ -92,8 +95,8 @@ async function rescheduleBooking(req, res) {
     try {
         const booking = await bookingService.getBookingById(req.params.id);
         if (!booking || 
-            ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && booking.handler._id.toString() !== req.user._id) ||
-            ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && booking.organization.toString() !== req.user.organization)) {
+            ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && booking.handler._id.toString() !== req.user._id.toString()) ||
+            ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && booking.organization.toString() !== req.user.organization.toString())) {
             return res.status(404).json({ message: "Booking not found" });
         }
         const { newDate, newTime } = req.body;
@@ -104,11 +107,49 @@ async function rescheduleBooking(req, res) {
     }
 }
 
+// Check In
+async function checkInBooking (req, res) {
+    try {
+        const checkInTime = new Date().toISOString().substring(11, 16); // "HH:MM"
+        const booking = await bookingService.checkInBooking(req.params.id, checkInTime);
+        res.json(booking);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+// Check Out
+async function checkOutBooking (req, res) {
+    try {
+        const checkOutTime = new Date().toISOString().substring(11, 16); // "HH:MM"
+        const booking = await bookingService.checkOutBooking(req.params.id, checkOutTime);
+        res.json(booking);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+// Dictate Note
+async function dictateNote (req, res) {
+    try {
+        // Assuming you're using multer for file upload and file is in req.file
+        const booking = await bookingService.dictateNote(req.params.id, req.file, req.user);
+        res.json(booking);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+// ...existing code...
+
 module.exports = {
     createBooking,
     getBookingById,
     getAllBookings,
     updateBooking,
     deleteBooking,
-    rescheduleBooking
+    rescheduleBooking,
+    checkInBooking,
+    checkOutBooking,
+    dictateNote
 };

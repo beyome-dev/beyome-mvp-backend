@@ -1,5 +1,5 @@
 const userValidation = require('./user.validation');
-
+const bookingValidation = require('./booking.validation');
 // celebration options
 const opts = {
     abortEarly: false,
@@ -9,5 +9,6 @@ const opts = {
 };
 module.exports = {
     userValidation,
+    bookingValidation,
     opts,
 }

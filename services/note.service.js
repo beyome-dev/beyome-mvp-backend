@@ -6,6 +6,9 @@ const axios = require('axios');
 const Note = require('../models/note');
 const Prompt = require('../models/prompt');
 const mongoose = require('mongoose');
+const userService = require("./user.service");
+const bookingService = require("./booking.service");
+const Booking = require("../models/booking");
 
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs';
 const SALAD_API_KEY = config.salad.apiKey;
@@ -129,11 +132,27 @@ const deleteNote = async(noteId, user) => {
     return await Note.findByIdAndDelete(noteId);
 }
 
-const saveAudio = async (file,clientName, user) => {
+const saveAudio = async (file,clientID, bookingID, isDictation, user) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
         const fileUrl =`${config.APP_URL}/files/${file.filename}`;
 
+        const client = await userService.getUserById(clientID);
+        if (!client) {
+            throw new Error("Client not found");
+        }
+        if (bookingID) {
+            const booking = await bookingService.getBookingById(bookingID);
+            if (!booking) {
+                throw new Error("Booking not found");
+            }
+            if (booking.handler._id.toString() != user._id.toString()) {
+                throw new Error("Not authorized to access this booking");
+            }
+            if (booking.client._id.toString() != client._id.toString()) {
+                throw new Error("Booking does not belong to this client");
+            }
+        }
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
 
@@ -141,28 +160,32 @@ const saveAudio = async (file,clientName, user) => {
         if (!prompt) throw new Error("Prompt data not found");
 
         const note = new Note({
-            clientName,
-            title: `Clinical Note for ${clientName}`,
+            title: `Clinical Note for ${client.firstName} ${client.lastName}`,
             visitType: "Follow up",
             visitDate: new Date(),
             subjective: "nil",
             objective: "nil",
             inputContent: file.filename,
-            inputContentType: "Recording",
             outputContent: "nil",
             sessionTranscript: "nil",
             clientInstructions: "nil",
             noteFormat: "SOAP",
-            tags: ["soap", clientName],
-            user: new mongoose.Types.ObjectId(user._id),
+            tags: ["soap", `${client.firstName} ${client.lastName}`],
+            user: user._id,
+            client: client._id,
+            booking: bookingID,
+            organization: user.organization,
             prompt: new mongoose.Types.ObjectId(prompt._id),
             status: "pending",
             assessment: 'nil',
-            plan: 'nil'
+            plan: 'nil',
+            inputContentType: isDictation ? "Dictation" : "Recording",
         });
-
         const noteData = await note.save();
 
+        if (bookingID) {
+            await Booking.findByIdAndUpdate(bookingID, { dictationNote: noteData._id }, { new: false });
+        }
         // Call Salad API for transcription
         let transcriptResponse;
         try {
@@ -185,7 +208,7 @@ const saveAudio = async (file,clientName, user) => {
         };
     } catch (error) {
         console.error('Error saving file:', error.message);
-        throw new Error('Error saving file');
+        throw error;
     }
 };
 
