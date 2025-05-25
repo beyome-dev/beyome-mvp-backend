@@ -1,4 +1,4 @@
-const { User } = require('../models');
+const { User, Booking } = require('../models');
 const bcrypt = require('bcryptjs');
 const moment = require('moment'); // top of file if not already included
 
@@ -182,7 +182,7 @@ users = await Promise.all(users.map(async user => {
                     upcoming: [
                         {
                             $match: {
-                                status: 'booked',
+                                status: 'scheduled',
                                 $or: [
                                     { date: { $gt: todayStr } },
                                     {
@@ -197,6 +197,11 @@ users = await Promise.all(users.map(async user => {
                     pendingReview: [
                         { $match: { status: 'pending-review' } },
                         { $count: "count" }
+                    ],
+                    latestBooking: [
+                        { $sort: { date: -1, time: -1 } },
+                        { $limit: 1 },
+                        { $project: { _id: 0, date: 1, time: 1 } }
                     ]
                 }
             }
@@ -209,12 +214,23 @@ users = await Promise.all(users.map(async user => {
         user.upcomingCount = result.upcoming?.[0]?.count || 0;
         user.pendingReviewCount = result.pendingReview?.[0]?.count || 0;
 
+        console.log(result.latestBooking, "latestBooking");
+        // Assign lastVisit as joined date and time from latestBooking
+        if (result.latestBooking && result.latestBooking[0]) {
+            const { date, time } = result.latestBooking[0];
+            user.lastVisit = date && time ? `${date} ${time}` : null;
+        } else {
+            user.lastVisit = null;
+        }
+
     } catch (error) {
+        console.error(`Error processing user ${user._id}:`, error);
         user = user.toObject ? user.toObject() : user;
         user.revenue = 0;
         user.completedOrPendingCount = 0;
         user.upcomingCount = 0;
         user.pendingReviewCount = 0;
+        user.lastVisit = null;
     }
     return user;
 }));

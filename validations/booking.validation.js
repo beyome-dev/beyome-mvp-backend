@@ -25,6 +25,8 @@ const bookingCreateSchema = {
             question: Joi.string().required(),
             answer: Joi.string().required()
         })).optional(),
+        sessionCost: Joi.number().optional(),
+        sessionCostPaid: Joi.boolean().optional(),
     }),
 };
 
@@ -56,7 +58,9 @@ const bookingUpdateSchema = {
         clientFeedback: Joi.array().items(Joi.object({
             question: Joi.string().required(),
             answer: Joi.string().required()
-        }))
+        })),
+        sessionCost: Joi.number().optional(),
+        sessionCostPaid: Joi.boolean().optional(),
     }),
 };
 
