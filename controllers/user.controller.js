@@ -200,6 +200,23 @@ module.exports.createClient = async (req, res) => {
     }
 };
 
+module.exports.getClientNames = async (req, res) => {
+    try {
+        let { page, limit, ...filters } = req.query;
+        page = parseInt(page) || 1;
+        limit = parseInt(limit) || 10;
+
+        filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
+            ? { organization: req.user.organization, ...filters }
+            : { handlers: req.user._id, ...filters };
+
+        const client = await userService.getClientNames(filters, page, limit);
+        res.status(201).json(client);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
 module.exports.getClients = async (req, res) => {
     try {
         let { page, limit, ...filters } = req.query;
@@ -209,9 +226,7 @@ module.exports.getClients = async (req, res) => {
         filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
             ? { organization: req.user.organization, ...filters }
             : { handlers: req.user._id, ...filters };
-
-        console.log("filters", filters)
-        const client = await userService.getClients(filters, page, limit);
+        const client = await userService.getClients(filters, page, limit, req.user);
         res.status(201).json(client);
     } catch (error) {
         res.status(400).json({ message: error.message });
@@ -220,16 +235,7 @@ module.exports.getClients = async (req, res) => {
 
 module.exports.getClientData = async (req, res) => {
     try {
-        let { page, limit, ...filters } = req.query;
-        page = parseInt(page) || 1;
-        limit = parseInt(limit) || 10;
-
-        filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-            ? { organization: req.user.organization, ...filters }
-            : { handlers: req.user._id, ...filters };
-
-        console.log("filters", filters)
-        const client = await userService.getClientData(filters, page, limit, req.user);
+        const client = await userService.getClientData(req.params.clientId, req.user);
         res.status(201).json(client);
     } catch (error) {
         res.status(400).json({ message: error.message });

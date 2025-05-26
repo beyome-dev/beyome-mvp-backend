@@ -1,6 +1,7 @@
 const { User, Booking } = require('../models');
 const bcrypt = require('bcryptjs');
 const moment = require('moment'); // top of file if not already included
+const { Note } = require('../models'); // Make sure Note model is imported
 
 const getUsers = async (id) => {
     const users = await User.find({}).select('-password');
@@ -116,14 +117,38 @@ const createClient = async (userData, handlerID) => {
     return newUser;
 }
 
-const getClients = async (filter = {}, page = 1, limit = 10) => {
+const getClientNames = async (filter = {}, page = 1, limit = 10) => {
+    let query = {};
+
+    if (filter.name) {
+        query = {
+            $or: [
+                { firstName: { $regex: filter.name, $options: 'i' } },
+                { lastName: { $regex: filter.name, $options: 'i' } }
+            ]
+        };
+        delete filter.name;
+    }
+
+    query = { ...query, ...filter };
+
+    console.log("query", query);
     const skip = (page - 1) * limit;
-    const users = await User.find(filter)
-    .sort({ visitDate: -1 })
-    .skip(skip)
-    .limit(limit);
+    let users = await User.find(query)
+        .select('firstName lastName email')
+        .sort({ visitDate: -1 })
+        .skip(skip)
+        .limit(limit);
     
-    const totalCount = await User.countDocuments(filter);
+    users = users.map(user => {
+        return {
+            name: `${user.firstName} ${user.lastName}`,
+            email: user.email,
+            _id: user._id
+        };
+    });
+
+    const totalCount = await User.countDocuments(query);
     
     return { 
         users, 
@@ -133,7 +158,106 @@ const getClients = async (filter = {}, page = 1, limit = 10) => {
     };
 }
 
-const getClientData = async (filter = {}, page = 1, limit = 10, handler) => {
+const getClientData = async (clientID, handler) => {
+
+    const client  = await User.findById(clientID);
+    if (!client) {
+        throw new Error('Client not found');
+    }
+
+    // Fetch all bookings for the client
+    const bookings = await Booking.find({ client: client._id });
+
+    // Fetch all notes for the client
+    const notes = await Note.find({ client: client._id });
+
+    const now = moment(); // current date-time
+        const todayStr = now.format("YYYY-MM-DD");
+        const currentTimeStr = now.format("HH:mm");
+
+        const stats = await Booking.aggregate([
+            {
+                $match: {
+                    client: client._id,
+                    handler: handler._id
+                }
+            },
+            {
+                $facet: {
+                    revenue: [
+                        {
+                            $match: {
+                                status: 'completed',
+                                sessionCostPaid: true
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: null,
+                                total: { $sum: '$sessionCost' }
+                            }
+                        }
+                    ],
+                    completedOrPending: [
+                        {
+                            $match: {
+                                status: { $in: ['completed', 'pending-review'] }
+                            }
+                        },
+                        { $count: "count" }
+                    ],
+                    upcoming: [
+                        {
+                            $match: {
+                                status: 'scheduled',
+                                $or: [
+                                    { date: { $gt: todayStr } },
+                                    {
+                                        date: todayStr,
+                                        time: { $gte: currentTimeStr }
+                                    }
+                                ]
+                            }
+                        },
+                        { $count: "count" }
+                    ],
+                    pendingReview: [
+                        { $match: { status: 'pending-review' } },
+                        { $count: "count" }
+                    ],
+                    latestBooking: [
+                        { $sort: { date: -1, time: -1 } },
+                        { $limit: 1 },
+                        { $project: { _id: 0, date: 1, time: 1 } }
+                    ]
+                }
+            }
+        ]);
+
+        const result = stats[0] || {};
+        let analysis = {}
+        analysis.revenue = result.revenue?.[0]?.total || 0;
+        analysis.completedOrPendingCount = result.completedOrPending?.[0]?.count || 0;
+        analysis.upcomingCount = result.upcoming?.[0]?.count || 0;
+        analysis.pendingReviewCount = result.pendingReview?.[0]?.count || 0;
+
+        // Assign lastVisit as joined date and time from latestBooking
+        if (result.latestBooking && result.latestBooking[0]) {
+            const { date, time } = result.latestBooking[0];
+            analysis.lastVisit = date && time ? `${date} ${time}` : null;
+        } else {
+            analysis.lastVisit = null;
+        }
+
+
+    return {
+        client,
+        bookings,
+        notes,
+        analysis
+    };
+}
+const getClients = async (filter = {}, page = 1, limit = 10, handler) => {
     const skip = (page - 1) * limit;
     let users = await User.find(filter).select('firstName lastName email')
     .sort({ visitDate: -1 })
@@ -254,5 +378,6 @@ module.exports = {
     updatePasswordWithoutOld,
     createClient,
     getClients,
+    getClientNames,
     getClientData
 }
