@@ -41,12 +41,12 @@ router.route('/:id/reschedule')
     ], bookingController.rescheduleBooking);
 
 router.route('/:id/checkin')
-    .post([requireAuth, roleMiddleware], bookingController.checkInBooking);
+    .post([requireAuth, hasRole('psychiatrist','therapist')], bookingController.checkInBooking);
 
 router.route('/:id/checkout')
-    .post([requireAuth, roleMiddleware], bookingController.checkOutBooking);
+    .post([requireAuth, hasRole('psychiatrist','therapist')], bookingController.checkOutBooking);
 
 router.route('/:id/dictate-note')
-    .post([requireAuth, roleMiddleware, upload.single('audio')], bookingController.dictateNote);
+    .post([requireAuth, hasRole('psychiatrist','therapist'), upload.single('audio')], bookingController.dictateNote);
 
 module.exports = router;
