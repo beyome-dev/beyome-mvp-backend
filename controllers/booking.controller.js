@@ -111,7 +111,11 @@ async function rescheduleBooking(req, res) {
 async function checkInBooking (req, res) {
     try {
         const checkInTime = new Date().toISOString().substring(11, 16); // "HH:MM"
-        const booking = await bookingService.checkInBooking(req.params.id, checkInTime);
+        let booking = await Booking.findById(id);
+        if (booking.status != "scheduled") {
+            throw new Error("Booking is already checked in.");
+        }
+        booking = await bookingService.checkInBooking(req.params.id, checkInTime);
         res.json(booking);
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -122,7 +126,11 @@ async function checkInBooking (req, res) {
 async function checkOutBooking (req, res) {
     try {
         const checkOutTime = new Date().toISOString().substring(11, 16); // "HH:MM"
-        const booking = await bookingService.checkOutBooking(req.params.id, checkOutTime);
+        let booking = await Booking.findById(id);
+        if (booking.status != "in-progress") {
+            throw new Error("Booking is not checked in.");
+        }
+        booking = await bookingService.checkOutBooking(req.params.id, checkOutTime);
         res.json(booking);
     } catch (err) {
         res.status(400).json({ error: err.message });

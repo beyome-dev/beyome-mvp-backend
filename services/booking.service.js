@@ -36,8 +36,16 @@ async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
     const today = moment().format('YYYY-MM-DD');
     if (filter.date === 'upcoming') {
         filter.date = { $gte: today };
+        filter.status = { $nin: ['pending-review', 'completed'] };
     } else if (filter.date === 'past') {
-        filter.date = { $lt: today};
+        filter = {
+            $or: [
+                { date: { $lt: today } },
+                { date: today, status: { $in: ['pending-review', 'completed'] } }
+            ],
+            ...filter
+        };
+        delete filter.date;
     }
     let bookings = await Booking.find(filter)
         .populate("client", "firstName lastName tags")
