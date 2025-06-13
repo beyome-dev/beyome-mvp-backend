@@ -111,7 +111,7 @@ async function rescheduleBooking(req, res) {
 async function checkInBooking (req, res) {
     try {
         const checkInTime = new Date().toISOString().substring(11, 16); // "HH:MM"
-        let booking = await Booking.findById(id);
+        let booking = await bookingService.getBookingById(req.params.id);
         if (booking.status != "scheduled") {
             throw new Error("Booking is already checked in.");
         }
@@ -126,7 +126,7 @@ async function checkInBooking (req, res) {
 async function checkOutBooking (req, res) {
     try {
         const checkOutTime = new Date().toISOString().substring(11, 16); // "HH:MM"
-        let booking = await Booking.findById(id);
+        let booking = await bookingService.getBookingById(req.params.id);
         if (booking.status != "in-progress") {
             throw new Error("Booking is not checked in.");
         }
