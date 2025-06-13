@@ -141,7 +141,7 @@ const deleteNote = async(noteId, user) => {
     return await Note.findByIdAndDelete(noteId);
 }
 
-const saveAudio = async (file,clientID, bookingID, isDictation, user) => {
+const saveAudio = async (file,clientID, bookingID, noteType, user) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
         const fileUrl =`${config.APP_URL}/files/${file.filename}`;
@@ -167,7 +167,12 @@ const saveAudio = async (file,clientID, bookingID, isDictation, user) => {
 
         const prompt = await Prompt.findOne({ aiEngine: "Gemini" }); 
         if (!prompt) throw new Error("Prompt data not found");
-
+        let type = "Citation Note"
+        if (noteType === "dictation") {
+            type = "Dictation";
+        } else if (req.query.type === "recording") {
+            type = "Recording";
+        } 
         const note = new Note({
             title: `Clinical Note for ${client.firstName} ${client.lastName}`,
             visitType: "Follow up",
@@ -188,7 +193,7 @@ const saveAudio = async (file,clientID, bookingID, isDictation, user) => {
             status: "pending",
             assessment: 'nil',
             plan: 'nil',
-            inputContentType: isDictation ? "Dictation" : "Recording",
+            inputContentType: type,
         });
         const noteData = await note.save();
 
