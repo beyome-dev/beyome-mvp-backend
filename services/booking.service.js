@@ -9,6 +9,18 @@ async function createBooking(data, user) {
     if (!client) {
         throw new Error("Client not found");
     }
+
+    // Check for existing booking with same date, time, and handler
+    const existingBooking = await Booking.findOne({
+        date: data.date,
+        time: data.time,
+        handler: data.handler,
+        organization: data.organization,
+    });
+    if (existingBooking) {
+        throw new Error("A booking already exists for the given date and time.");
+    }
+
     data.customerName = client.firstName + " " + client.lastName;
     data.organization = user.organization;
     const booking = new Booking(data);
