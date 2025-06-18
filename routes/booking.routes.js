@@ -2,7 +2,7 @@
 
 const { Router } = require('express');
 const bookingController = require('../controllers/booking.controller');
-const { authMiddleware } = require('../middlewares');
+const { authMiddleware, queryMiddleware } = require('../middlewares');
 const { celebrate } = require('celebrate');
 const { opts, bookingValidation } = require('../validations');
 const { upload } = require('../middlewares');
@@ -16,6 +16,7 @@ const router = Router();
 router.route('/')
     .get([
         requireAuth, 
+        queryMiddleware,
         roleMiddleware
     ], bookingController.getAllBookings)
     .post([

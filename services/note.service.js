@@ -198,7 +198,7 @@ const saveAudio = async (file,clientID, bookingID, noteType, user) => {
         const noteData = await note.save();
 
         if (bookingID) {
-            await Booking.findByIdAndUpdate(bookingID, { dictationNote: noteData._id, status: "completed" }, { new: false });
+            await Booking.findByIdAndUpdate(bookingID, { dictationNote: noteData._id, status: "generating-note" }, { new: false });
         }
         // Call Salad API for transcription
         let transcriptResponse;
@@ -271,11 +271,7 @@ const requestTranscription = async (fileUrl, noteId) => {
 const generateSOAPNote = async (transcriptPayload, noteId, io) => {
     try {
         if (transcriptPayload.output.error && transcriptPayload.output.error != '') {
-            const note = await Note.findByIdAndUpdate(noteId, { 
-                status: 'failed',
-                failureReason: transcriptPayload.output.error,
-            });
-            return note
+            throw new Error(transcriptPayload.output.error);
         }
 
         const transcript = extractSpeakerSentencesFromTimestamps(transcriptPayload);
@@ -305,15 +301,32 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
         //         if (unlinkError) console.error('Failed to delete file:', unlinkError);
         //     });
         // }
+        console.log("note booking :",note.booking)
+        if (note.booking) {
+            const booking = await bookingService.getBookingById(note.booking);
+            if (!booking) {
+                throw new Error("Booking not found");
+            }
+            await Booking.findByIdAndUpdate(note.booking, { status: "completed" }, { new: false });
+        }
         return note;
     } catch (error) {
-        await Note.findByIdAndUpdate(noteId, { 
+        const note = await Note.findByIdAndUpdate(noteId, { 
             status: 'failed',
             failureReason:  error.message,
         });
+        console.log("note booking :",note.booking)
+        if (note.booking) {
+            const booking = await bookingService.getBookingById(note.booking);
+            if (!booking) {
+                throw new Error("Booking not found");
+            }
+            await Booking.findByIdAndUpdate(note.booking, { status: "completed" }, { new: false });
+        }
         console.error('Error generating SOAP note:', error.message);
-        throw new Error('Failed to generate SOAP note');
+        return note;
     }
+
 };
 
 const processGeminiResponse = async (noteId, geminiResponse, transcript, summary) => {
@@ -348,24 +361,24 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
             .replace(/\*\*Client Instruction Email:\*\*\s*\n([\s\S]+)/, '');
     
         // Update the note in the database
-        const updatedNote = await Note.findByIdAndUpdate(noteId, {
-            title,
-            visitType,
-            subjective,
-            objective,
-            assessment,
-            plan,
-            clientInstructions,
-            status: "completed", // Mark note as completed
-            sessionTranscript: transcript,
-            summary: summary,
-            outputContent: strippedResponse,
-            originialOutputContent: geminiResponse,
-            originalSessionTranscript: transcript,
-        }, { new: true });
-        if (!updatedNote) {
+        const note = await Note.findById(noteId) 
+        if (!note) {
             throw new Error("Note not found or failed to update.");
         }
+        note.title = title
+        note.visitType = visitType
+        note.subjective = subjective
+        note.objective = objective
+        note.assessment = assessment
+        note.plan = plan
+        note.clientInstructions = clientInstructions
+        note.status= "completed", // Mark note as completed
+        note.sessionTranscript = transcript
+        note.summary = summary
+        note.outputContent = strippedResponse
+        note.originialOutputContent = geminiResponse
+        note.originalSessionTranscript = transcript
+        const updatedNote = await note.save();
         return updatedNote;
     } catch (error) {
         console.error("Error processing Gemini response:", error);
@@ -398,7 +411,6 @@ const extractSpeakerSentencesFromTimestamps = (payload) => {
  */
 const reprocessNote = async (noteId, io) => {
     try {
-       
         let note = await Note.findById(noteId);
         if (!note) throw new Error('Note not found');
 

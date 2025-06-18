@@ -3,6 +3,7 @@ const authMiddleware = require('./auth.middleware');
 const rateLimiter = require('./rateLimiter.middleware');
 const upload  = require('./multer.middleware');
 const apiKeyMiddleware = require('./apiKey.middleware')
+const queryMiddleware = require('./queryManager.middleware')
 
 module.exports = {
     validationMiddleware,
@@ -10,4 +11,5 @@ module.exports = {
     rateLimiter,
     upload,
     apiKeyMiddleware,
+    queryMiddleware
 }

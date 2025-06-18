@@ -20,13 +20,13 @@ async function createBooking(req, res) {
 // Get all bookings
 async function getAllBookings(req, res) {
     try {
-        let { page, limit, ...filters } = req.query;
+        let { page, limit } = req.query;
+        let filter = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
-
         filter = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-            ? { organization: req.user.organization, ...filters }
-            : { handler: req.user._id, ...filters };
+            ? { organization: req.user.organization, ...filter }
+            : { handler: req.user._id, ...filter };
              
         const bookings = await bookingService.getAllBookings(filter, page, limit, req.user);
         res.json(bookings);

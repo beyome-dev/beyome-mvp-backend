@@ -78,7 +78,7 @@ module.exports.reprocessNote = async (req, res) => {
       const note = await noteService.reprocessNote(noteId, io);
 
       res.status(200).json({ 
-          message: 'Clinicalnote generated',
+          message: 'Clinical note generated',
           note: note,
       });
   } catch (error) {
