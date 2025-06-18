@@ -2,8 +2,9 @@ const cron = require('node-cron');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const config = require('../config');
-const Note = require('../models/note'); // Adjust path as needed
-const {noteService} = require('../services'); // Adjust path as needed
+const Note = require('../models/note');
+const Booking = require("../models/booking");
+const {noteService} = require('../services');
 
 const SALAD_API_KEY = config.salad.apiKey;
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs/';
@@ -16,12 +17,22 @@ const processRunningJobs = async (io) => {
     try {
         console.log('Running cron job to process notes...');
 
-        // Fetch all notes with status "Running"
-        const runningNotes = await Note.find({ status: 'processing' });
+
+        const bookings = await Booking.find({ status: 'generating-note' })
+
+        let bookingIds = bookings.map(booking => booking._id);
+        // Fetch all notes with status "Running" or with bookingId in bookingIds
+        let runningNotes = await Note.find({
+            $or: [
+            { status: 'processing' },
+            { booking: { $in: bookingIds } }
+            ]
+        });
 
         if (runningNotes.length === 0) {
             return;
         }
+
         const currentTime = new Date();
         for (const note of runningNotes) {
             // Check if note is older than 5 hours

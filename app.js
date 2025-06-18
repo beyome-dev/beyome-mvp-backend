@@ -49,7 +49,6 @@ if (process.env.NODE_ENV === 'production') {
 }
 else {
     app.use(morgan('dev'));
-    // Add this once in your app (e.g., in a setup or config file)
     axios.interceptors.request.use(request => {
         console.log('Starting Request', {
             method: request.method,

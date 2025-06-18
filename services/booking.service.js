@@ -36,16 +36,45 @@ async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
     const today = moment().format('YYYY-MM-DD');
     if (filter.date === 'upcoming') {
         filter.date = { $gte: today };
-        filter.status = { $nin: ['pending-review', 'completed'] };
+        filter.status = { $nin: ['pending-review','generating-note','completed'] };
     } else if (filter.date === 'past') {
-        filter = {
-            $or: [
-                { date: { $lt: today } },
-                { date: today, status: { $in: ['pending-review', 'completed'] } }
-            ],
-            ...filter
-        };
-        delete filter.date;
+        filter.$or = [
+            { date: { $lt: today } },
+            { date: today, status: { $in: ['pending-review','generating-note','completed'] } }
+        ];
+    }
+
+    for (const key in filter) {
+        if (key === 'date' && filter[key]) {
+            if (typeof filter[key] === 'object') {
+                for (const operator in filter[key]) {
+                    if (['$in', '$nin', '$gte', '$gt', '$lt', '$lte'].includes(operator)) {
+                        if (Array.isArray(filter[key][operator])) {
+                            filter[key][operator] = filter[key][operator].map(date => typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD'));
+                        } else {
+                            filter[key][operator] = typeof filter[key][operator] === 'string' ? filter[key][operator] : moment(filter[key][operator]).format('YYYY-MM-DD');
+                        }
+                    }
+                }
+            } else {
+                filter[key] = typeof filter[key] === 'string' ? filter[key] : moment(filter[key]).format('YYYY-MM-DD');
+            }
+        }
+        if (key === 'time' && filter[key]) {
+             if (typeof filter[key] === 'object') {
+                for (const operator in filter[key]) {
+                    if (['$in', '$nin', '$gte', '$gt', '$lt', '$lte'].includes(operator)) {
+                        if (Array.isArray(filter[key][operator])) {
+                            filter[key][operator] = filter[key][operator].map(time => typeof time === 'string' ? time : moment(time).format('HH:mm'));
+                        } else {
+                            filter[key][operator] = typeof filter[key][operator] === 'string' ?  filter[key][operator] : moment(filter[key][operator]).format('HH:mm');
+                        }
+                    }
+                }
+            } else {
+                filter[key] = typeof filter[key] === 'string' ? filter[key] : moment(filter[key]).format('HH:mm');
+            }
+        }
     }
     let bookings = await Booking.find(filter)
         .populate("client", "firstName lastName tags")
@@ -63,12 +92,12 @@ async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
         return bookingObj;
     });
     const totalCount = await Booking.countDocuments(filter);
-    
-    return { 
-        bookings, 
-        totalPages: Math.ceil(totalCount / limit), 
-        currentPage: page, 
-        totalCount 
+
+    return {
+        bookings,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        totalCount
     };
 }
 
