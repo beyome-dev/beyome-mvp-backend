@@ -39,8 +39,8 @@ const queryManager = (req, res, next) => {
                 };
 
                 // 1. Multiple Values (e.g., key=val1,val2,val3)
-                if (typeof value === 'string' && value.includes(',')) {
-                    const values = value.split(',').map(v => v.trim()).map(v => isValidObjectId(v) ? new mongoose.Types.ObjectId(v) : v);
+                if (typeof value === 'string' && value.includes(',') && !key.endsWith('!')) {
+                    const values = value.split(',').map(v => v.trim()).map(v => isValidObjectId(v) ? mongoose.Types.ObjectId.createFromHexString(v) : v);
                     req.mongoQuery[key] = { $in: values };
                 }
                 // 2. Range Queries (e.g., key=gt:10,lt:20 or key=gte:2023-01-01,lte:2023-12-31)
@@ -69,14 +69,15 @@ const queryManager = (req, res, next) => {
                     req.mongoQuery[key] = rangeQuery;
                 }
                 // 3. Not Equal (!=) Queries (e.g., key!=val1 or key!=val1,val2)
-                else if (typeof value === 'string' && value.startsWith('!=')) {
-                    const notEqualValue = value.substring(2); // Remove '!='
-                    if (notEqualValue.includes(',')) {
-                        const notEqualValues = notEqualValue.split(',').map(v => v.trim()).map(v => isValidObjectId(v) ? new mongoose.Types.ObjectId(v) : v);
-                        req.mongoQuery[key] = { $nin: notEqualValues };
+                else if (typeof value === 'string' && key.endsWith('!')) {
+                    console.log()
+                    const cleanKey = key.slice(0, -1); // Remove trailing '!' from key
+                    if (value.includes(',')) {
+                        const notEqualValues = value.split(',').map(v => v.trim()).map(v => isValidObjectId(v) ? mongoose.Types.ObjectId.createFromHexString(v) : v);
+                        req.mongoQuery[cleanKey] = { $nin: notEqualValues };
                     } else {
-                        const finalValue = isValidObjectId(notEqualValue) ? new mongoose.Types.ObjectId(notEqualValue) : notEqualValue;
-                        req.mongoQuery[key] = { $ne: finalValue };
+                        const finalValue = isValidObjectId(value) ? mongoose.Types.ObjectId.createFromHexString(value) : value;
+                        req.mongoQuery[cleanKey] = { $ne: finalValue };
                     }
                 }
                 // 4. Not In Range (ni:) -  Not implemented, as it would require significantly more complex parsing and might overlap with other functionalities.  If needed, implement similarly to range queries.
@@ -85,7 +86,7 @@ const queryManager = (req, res, next) => {
                 //  }
                 // 5. Exact Match
                 else {
-                    const finalValue = isValidObjectId(value) ? new mongoose.Types.ObjectId(value) : value;
+                    const finalValue = isValidObjectId(value) ? mongoose.Types.ObjectId.createFromHexString(value) : value;
                     req.mongoQuery[key] = finalValue;
                 }
             }
