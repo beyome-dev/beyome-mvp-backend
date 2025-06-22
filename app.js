@@ -13,7 +13,7 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const path = require('path');
 const { noteController } = require('./controllers')
-const {saladCheck, fileManager} = require('./cronJobs');
+const {saladCheck, fileManager, bookingCronJob } = require('./cronJobs');
 const axios = require('axios');
 
 // set up passport
@@ -110,6 +110,7 @@ app.use(passport.initialize());
 // app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 saladCheck(io)
 fileManager()
+bookingCronJob()
 app.use('/api', routes);
 app.post(
     '/api/webhook/salad', 
