@@ -8,13 +8,14 @@ const config = require('../config');
 module.exports.getUserProfile = async (req, res) => {
     try {
         var user = await userService.getUserById(req.user.id);
-        if (user.googleTokens?.refresh_token) {
-            user.hasCalendarSync = true
-            user.googleTokens = undefined
-            console.log("user.hasCalendarSync :",user.hasCalendarSync)
+        let userObj = user.toObject ? user.toObject() : { ...user };
+        if (userObj.googleTokens?.refresh_token) {
+            userObj.hasCalendarSync = true;
+            userObj.googleTokens = undefined;
+        } else {
+            userObj.hasCalendarSync = false;
         }
-        console.log("user.hasCalendarSync :",user.hasCalendarSync)
-        res.status(200).send(user);
+        res.status(200).send(userObj);
     } catch (error) {
         console.log(error);
         res.status(400).send({ message: error.message });
