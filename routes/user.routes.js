@@ -18,7 +18,7 @@ router.route('/')
 
 
 router.route('/profile')
-    .get(requireAuth, userController.getUserProfile)
+    .get([requireAuth], userController.getUserProfile)
     .put([
         requireAuth,
         celebrate(userValidation.updateSchema, opts),
@@ -26,22 +26,22 @@ router.route('/profile')
 
 
 router.route('/get-activation-email')
-    .get(celebrate(userValidation.sendRequestEmailSchema, opts), userController.sendConfirmEmail);
+    .get([celebrate(userValidation.sendRequestEmailSchema, opts)], userController.sendConfirmEmail);
 
 router.route('/confirmation/:token')
-    .get(userController.confirmEmail);
+    .get([userController.confirmEmail]);
 
 router.route('/:id')
-    .get([requireAuth, hasRole('platform_admin')], userController.getUserById)
-    .delete([requireAuth, hasRole('platform_admin')], userController.deleteUser)
+    .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], userController.getUserById)
+    .delete([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], userController.deleteUser)
     .put([
         requireAuth,
-        hasRole('platform_admin'),
+        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
         celebrate(userValidation.updateSchema, opts)
     ], userController.updateUser);
 
 router.route('/google-calendar/auth-url')
-    .get([requireAuth], userController.getGoogleAuthUrl);
+    .get(requireAuth, userController.getGoogleAuthUrl);
 
 router.route('/google-calendar/save-tokens')
     .post([
@@ -50,26 +50,26 @@ router.route('/google-calendar/save-tokens')
     ], userController.saveGoogleTokens);
 
 router.route('/:id/clients')
-    .get([
-        requireAuth,
-        hasRole('psychiatrist','therapist', 'receptionist', 'org_admin')
-    ], userController.getClients)
+    .get(
+        [requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')],
+        userController.getClients
+    )
     .post([
       requireAuth,
-      hasRole('psychiatrist','therapist', 'receptionist', 'org_admin'),
+      hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
       celebrate(userValidation.createClientSchema, opts)
     ], userController.createClient);
 
 router.route('/:id/clients/:clientId')
     .get([
         requireAuth,
-        hasRole('psychiatrist','therapist', 'receptionist', 'org_admin')
+        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')
     ], userController.getClientData)
 
 router.route('/:id/client-names')
     .get([
         requireAuth,
-        hasRole('psychiatrist','therapist', 'receptionist', 'org_admin')
+        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')
     ], userController.getClientNames)
 
 module.exports = router;

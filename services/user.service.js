@@ -1,6 +1,6 @@
 const { User, Booking } = require('../models');
 const bcrypt = require('bcryptjs');
-const moment = require('moment'); // top of file if not already included
+const moment = require('moment-timezone'); // top of file if not already included
 const { Note } = require('../models'); // Make sure Note model is imported
 
 const getUsers = async (id) => {
@@ -8,12 +8,15 @@ const getUsers = async (id) => {
     return users;
 }
 
-const getUserById = async (id) => {
-    const user = await User.findById(id).select('-password');
-    if (user) {
-        return user;
+const getUserById = async (id, handler) => {
+   let user = await User.findById(id);
+    if (!user) {
+        throw new Error('user not found');
     }
-    throw new Error('user not found');
+    if (!isAuthorizedToClient(user, handler)) {
+        throw new Error('You are not authorized to edit this user');
+    }
+    return user;
 }
 
 const getUserByOpts = async (opts) => {
@@ -39,7 +42,7 @@ const registerUser = async (userData) => {
     return newUser;
 }
 
-const updateUserById = async (id, userData) => {
+const updateUserById = async (id, userData, handler) => {
     if (userData.password) {
         const salt = await bcrypt.genSalt();
         userData.password = await bcrypt.hash(userData.password, salt);
@@ -47,7 +50,19 @@ const updateUserById = async (id, userData) => {
     if (userData.email && (await User.isEmailTaken(userData.email, id))) {
         throw new Error('email is already taken');
     }
-    const user = await User.findByIdAndUpdate(id, userData);
+    let user = await User.findById(id);
+    if (!user) {
+        throw new Error('user not found');
+    }
+    if (!isAuthorizedToClient(user, handler)) {
+        throw new Error('You are not authorized to edit this user');
+    }
+    if (handler != null && handler != undefined && handler._id.toString() != user._id.toString()) {
+        if(userData.password) {
+            throw new Error('You cannot change the password of another user');
+        }
+    }
+    user = await User.findByIdAndUpdate(id, userData);
     if (user) {
         user.password = undefined;
         user.googleTokens = undefined;
@@ -55,10 +70,37 @@ const updateUserById = async (id, userData) => {
     }
     throw new Error('user not found');
 }
+// Helper function to check if handler is authorized
+function isAuthorizedToClient(user, handler) {
+    if (handler === null || handler === undefined) {
+        return true
+    }
+    const handlerIdStr = handler._id.toString();
+    const userHandlers = (user.handlers || []).map(h => h.toString());
+    const orgMatch = user.organization && handler.organization && user.organization.toString() === handler.organization.toString();
+    if (handlerIdStr == user._id.toString()) {
+        return true; // Handler is the user themselves
+    }
+    // Therapist can only delete if they are a handler of the user
+    if (handler.userType === "therapist" && !userHandlers.includes(handlerIdStr)) {
+        return false;
+    }
+    // Receptionist or org_admin can only delete if in the same organization
+    if ((handler.userType === "receptionist" || handler.userType === "org_admin") && !orgMatch) {
+        return false;
+    }
+    // Otherwise, authorized
+    return true;
+}
 
-const deleteUserById = async (id) => {
+const deleteUserById = async (id, handler) => {
     const user = await User.findById(id);
     if (user) {
+        // Check if handler is allowed to delete this user
+        if (!isAuthorizedToClient(user, handler)) {
+            throw new Error('You are not authorized to delete this user');
+        }
+
         await user.remove();
         return user;
     }
@@ -171,7 +213,7 @@ const getClientData = async (clientID, handler) => {
     // Fetch all notes for the client
     const notes = await Note.find({ client: client._id });
 
-    const now = moment(); // current date-time
+    const now = moment().tz('Asia/Kolkata'); // current date-time
         const todayStr = now.format("YYYY-MM-DD");
         const currentTimeStr = now.format("HH:mm");
 
@@ -268,7 +310,7 @@ const getClients = async (filter = {}, page = 1, limit = 10, handler) => {
 
 users = await Promise.all(users.map(async user => {
     try {
-        const now = moment(); // current date-time
+        const now = moment().tz('Asia/Kolkata'); // current date-time
         const todayStr = now.format("YYYY-MM-DD");
         const currentTimeStr = now.format("HH:mm");
 

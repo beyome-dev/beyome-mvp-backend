@@ -150,6 +150,7 @@ const saveAudio = async (file,clientID, bookingID, noteType, user) => {
         if (!client) {
             throw new Error("Client not found");
         }
+        let visitDate = new Date();
         if (bookingID) {
             const booking = await bookingService.getBookingById(bookingID);
             if (!booking) {
@@ -160,6 +161,23 @@ const saveAudio = async (file,clientID, bookingID, noteType, user) => {
             }
             if (booking.client._id.toString() != client._id.toString()) {
                 throw new Error("Booking does not belong to this client");
+            }
+            // Combine booking.date and booking.time (assumed format: "HH:mm")
+            if (booking.date && booking.time) {
+                // booking.date is a Date or ISO string, booking.time is "HH:mm"
+                const datePart = new Date(booking.date);
+                const [hours, minutes] = booking.time.split(':').map(Number);
+
+                // Set IST time
+                datePart.setHours(hours, minutes, 0, 0);
+
+                // Convert IST to UTC (IST is UTC+5:30)
+                // Subtract 5 hours and 30 minutes
+                datePart.setMinutes(datePart.getMinutes() - 330);
+
+                visitDate = new Date(datePart);
+            } else {
+                visitDate = booking.date ? new Date(booking.date) : new Date();
             }
         }
         // Move file to uploads directory
