@@ -125,6 +125,7 @@ async function updateBooking(id, data, user) {
             const evenID = await calendatService.patchBookingEvent(data.googleEventId, booking, user.googleTokens)
             booking.googleEventId = evenID;
         }
+        data.status = "rescheduled"
     }
     return await Booking.findByIdAndUpdate(id, data, { new: true });
 }
