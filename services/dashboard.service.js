@@ -113,8 +113,8 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
             { $project: { duration: { $subtract: ['$checkOutTime', '$checkInTime'] } } },
             { $group: { _id: null, avgDuration: { $avg: '$duration' }, shortestDuration: { $min: '$duration' }, longestDuration: { $max: '$duration' } } }
         ]),
-        Booking.find({ date: { $gte: today } }).sort({ time: 1 }).limit(5),
-        Booking.find({}).sort({ date: -1, time: -1 }).limit(5),
+        Booking.find({ date: today }).sort({ time: 1 }).limit(5),
+        Booking.find({ date: { $lte: today } }).sort({ date: -1, time: -1 }).limit(5),
         Booking.aggregate([
             { $match: { date: { $gte: overviewRange.start, $lte: overviewRange.end } } },
             { $group: { _id: '$status', count: { $sum: 1 } } }
@@ -181,10 +181,12 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
         },
         upcomingSessions: upcomingSessions.map(b => ({
             id: b._id,
+            date: b.date,
             time: b.time,
             client: b.customerName,
             status: b.status,
             visitType: b.visitType,
+            tags: b.personalNotes,
             appointmentType: b.appointmentType
         })),
         recentSessions: recentSessions.map(b => ({
@@ -192,7 +194,8 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
             time: b.time,
             date: b.date,
             client: b.customerName,
-            status: b.status
+            status: b.status,
+            amount: b.sessionCost,
         })),
         appointmentStatusOverview
     };
