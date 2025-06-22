@@ -26,7 +26,7 @@ const processRunningJobs = async () => {
 };
 
 // Schedule the cron job to run every day at 1AM IST
-const startCronJob = (io) => {
+const startCronJob = () => {
     cron.schedule('0 1 * * *', () => processRunningJobs(io), {
         scheduled: true,
         timezone: 'Asia/Kolkata'
