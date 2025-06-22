@@ -229,7 +229,7 @@ const getClientData = async (clientID, handler) => {
                     revenue: [
                         {
                             $match: {
-                                status: { $in: ['completed', 'pending-review'] },
+                                status: { $in: ['completed', 'pending-review'] }
                             }
                         },
                         {
@@ -325,8 +325,7 @@ users = await Promise.all(users.map(async user => {
                     revenue: [
                         {
                             $match: {
-                                status: 'completed',
-                                sessionCostPaid: true
+                                status: { $in: ['completed', 'pending-review'] }
                             }
                         },
                         {
