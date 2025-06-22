@@ -7,7 +7,11 @@ const calculateGrowth = (current, previous) => {
     return ((current - previous) / previous) * 100;
 };
 
-const getDashboardStats = async (notesParam = 'month', timeParam = 'month', overviewParam = 'month') => {
+const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month', overviewParam = 'month') => {
+    const commonFilter = user.userType === "receptionist" || user.userType === "org_admin"
+        ? { organization: user.organization }
+        : { handler: user._id };
+
     const getDateRange = (param) => {
         switch(param) {
             case 'day':
@@ -67,56 +71,58 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
         recentSessions,
         appointmentStatusOverviewRaw
     ] = await Promise.all([
-        Booking.countDocuments({ date: today }),
-        Booking.countDocuments({ date: today, status: {$in: ['completed', 'pending-review','generating-note']}  }),
-        Booking.countDocuments({ date: today, status: 'no-show' }),
+        Booking.countDocuments({ ...commonFilter, date: today }),
+        Booking.countDocuments({ ...commonFilter, date: today, status: {$in: ['completed', 'pending-review','generating-note']}  }),
+        Booking.countDocuments({ ...commonFilter, date: today, status: 'no-show' }),
         Booking.aggregate([
-            { $match: { date: today } },
+            { $match: { ...commonFilter, date: today } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.aggregate([
-            { $match: { date: today, status: {$in: ['completed', 'pending-review','generating-note']} } },
+            { $match: { ...commonFilter, date: today, status: {$in: ['completed', 'pending-review','generating-note']} } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.aggregate([
-            { $match: { date: yesterday, status: {$in: ['completed', 'pending-review','generating-note']} } },
+            { $match: { ...commonFilter, date: yesterday, status: {$in: ['completed', 'pending-review','generating-note']} } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
-        Booking.countDocuments({ date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth } }),
-        Booking.countDocuments({ date: { $gte: startOfLastMonth, $lte: endOfLastMonth } }),
-        Booking.countDocuments({ date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, status: {$in: ['completed', 'pending-review','generating-note']} }),
-        Booking.countDocuments({ date: { $gte: startOfLastMonth, $lte: endOfLastMonth }, status: {$in: ['completed', 'pending-review','generating-note']} }),
+        Booking.countDocuments({ ...commonFilter, date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth } }),
+        Booking.countDocuments({ ...commonFilter, date: { $gte: startOfLastMonth, $lte: endOfLastMonth } }),
+        Booking.countDocuments({ ...commonFilter, date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, status: {$in: ['completed', 'pending-review','generating-note']} }),
+        Booking.countDocuments({ ...commonFilter, date: { $gte: startOfLastMonth, $lte: endOfLastMonth }, status: {$in: ['completed', 'pending-review','generating-note']} }),
         Booking.countDocuments({
+            ...commonFilter,
             date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth },
             status: { $in: ['no-show', 'cancelled'] }
         }),
         Booking.countDocuments({
+            ...commonFilter,
             date: { $gte: startOfLastMonth, $lte: endOfLastMonth },
             status: { $in: ['no-show', 'cancelled'] }
         }),
         Booking.aggregate([
-            { $match: {  date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, } },
+            { $match: { ...commonFilter, date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.aggregate([
-            { $match: {  date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, status: {$in: ['completed', 'pending-review','generating-note']} } },
+            { $match: { ...commonFilter, date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, status: {$in: ['completed', 'pending-review','generating-note']} } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.aggregate([
-            { $match: { date: { $gte: startOfLastMonth, $lte: endOfLastMonth }, status: {$in: ['completed', 'pending-review','generating-note']} } },
+            { $match: { ...commonFilter, date: { $gte: startOfLastMonth, $lte: endOfLastMonth }, status: {$in: ['completed', 'pending-review','generating-note']} } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
-        Booking.countDocuments({ date: { $gte: notesRange.start, $lte: notesRange.end }, status: 'completed', dictationNote: { $exists: true, $ne: null } }),
-        Booking.countDocuments({ date: { $gte: notesRange.start, $lte: notesRange.end }, status: 'pending-review', dictationNote: { $exists: false } }),
+        Booking.countDocuments({ ...commonFilter, date: { $gte: notesRange.start, $lte: notesRange.end }, status: 'completed', dictationNote: { $exists: true, $ne: null } }),
+        Booking.countDocuments({ ...commonFilter, date: { $gte: notesRange.start, $lte: notesRange.end }, status: 'pending-review', dictationNote: { $exists: false } }),
         Booking.aggregate([
-            { $match: { date: { $gte: timeRange.start, $lte: timeRange.end }, status: {$in: ['completed', 'pending-review','generating-note']}, checkInTime: { $exists: true }, checkOutTime: { $exists: true } } },
+            { $match: { ...commonFilter, date: { $gte: timeRange.start, $lte: timeRange.end }, status: {$in: ['completed', 'pending-review','generating-note']}, checkInTime: { $exists: true }, checkOutTime: { $exists: true } } },
             { $project: { duration: { $subtract: ['$checkOutTime', '$checkInTime'] } } },
             { $group: { _id: null, avgDuration: { $avg: '$duration' }, shortestDuration: { $min: '$duration' }, longestDuration: { $max: '$duration' } } }
         ]),
-        Booking.find({ date: today }).sort({ time: 1 }).limit(5),
-        Booking.find({ date: { $lte: today } }).sort({ date: -1, time: -1 }).limit(5),
+        Booking.find({ ...commonFilter, date: today }).sort({ time: 1 }).limit(5),
+        Booking.find({ ...commonFilter, date: { $lte: today } }).sort({ date: -1, time: -1 }).limit(5),
         Booking.aggregate([
-            { $match: { date: { $gte: overviewRange.start, $lte: overviewRange.end } } },
+            { $match: { ...commonFilter, date: { $gte: overviewRange.start, $lte: overviewRange.end } } },
             { $group: { _id: '$status', count: { $sum: 1 } } }
         ])
     ]);
