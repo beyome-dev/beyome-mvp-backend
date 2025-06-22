@@ -68,6 +68,11 @@ const updateSchema = {
         phone: Joi.string(),
         office_location: Joi.string(),
         specialty: Joi.string().valid(...specialtyEnum),
+        calendarSettings: Joi.object().keys({
+            syncEnabled: Joi.boolean().optional(),
+            syncAppointments: Joi.boolean().optional(),
+            reminderMinutes: Joi.number().integer().min(0).max(1440).optional(),
+        }).optional(),
     }),
 }
 

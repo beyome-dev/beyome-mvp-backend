@@ -2,6 +2,18 @@ const mongoose = require('mongoose');
 const { validate } = require('./note');
 const Schema = mongoose.Schema;
 
+const CalendarSettings = new mongoose.Schema({
+    reminderMinutes: { type: Number, required: true },
+    syncAppointments: {
+        type: Boolean,
+        default: false,
+    },
+    syncEnabled: {
+        type: Boolean,
+        default: false,
+    }
+})
+
 const UserSchema = new Schema({
     firstName: {
         type: String,
@@ -119,7 +131,10 @@ const UserSchema = new Schema({
         type: [String],
         default: []
     },
-
+    calendarSettings: {
+        type: CalendarSettings,
+         default: null,
+    },
 }, { timestamps: true });
 
 UserSchema.statics.isEmailTaken = async function (email, excludeUserId) {
