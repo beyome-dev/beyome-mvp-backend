@@ -1,6 +1,6 @@
 // services/dashboard.service.js
 const Booking = require('../models/booking');
-const moment = require('moment');
+const moment = require('moment-timezone');
 
 const calculateGrowth = (current, previous) => {
     if (previous === 0) return current === 0 ? 0 : 100;
@@ -8,6 +8,7 @@ const calculateGrowth = (current, previous) => {
 };
 
 const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month', overviewParam = 'month') => {
+    const momentIST = moment().tz('Asia/Kolkata');
     const commonFilter = user.userType === "receptionist" || user.userType === "org_admin"
         ? { organization: user.organization }
         : { handler: user._id };
@@ -16,23 +17,23 @@ const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month'
         switch(param) {
             case 'day':
                 return {
-                    start: moment().startOf('day').format('YYYY-MM-DD'),
-                    end: moment().endOf('day').format('YYYY-MM-DD')
+                    start: momentIST.startOf('day').format('YYYY-MM-DD'),
+                    end: momentIST.endOf('day').format('YYYY-MM-DD')
                 };
             case 'month':
                 return {
-                    start: moment().startOf('month').format('YYYY-MM-DD'),
-                    end: moment().endOf('month').format('YYYY-MM-DD')
+                    start: momentIST.startOf('month').format('YYYY-MM-DD'),
+                    end: momentIST.endOf('month').format('YYYY-MM-DD')
                 };
             case 'year':
                 return {
-                    start: moment().startOf('year').format('YYYY-MM-DD'),
-                    end: moment().endOf('year').format('YYYY-MM-DD')
+                    start: momentIST.startOf('year').format('YYYY-MM-DD'),
+                    end: momentIST.endOf('year').format('YYYY-MM-DD')
                 };
             default:
                 return {
-                    start: moment().startOf('day').format('YYYY-MM-DD'),
-                    end: moment().endOf('day').format('YYYY-MM-DD')
+                    start: momentIST.startOf('day').format('YYYY-MM-DD'),
+                    end: momentIST.endOf('day').format('YYYY-MM-DD')
                 };
         }
     };
@@ -41,12 +42,12 @@ const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month'
     const timeRange = getDateRange(timeParam);
     const overviewRange = getDateRange(overviewParam);
 
-    const today = moment().format('YYYY-MM-DD');
-    const yesterday = moment().subtract(1, 'days').format('YYYY-MM-DD');
-    const startOfCurrentMonth = moment().startOf('month').format('YYYY-MM-DD');
-    const endOfCurrentMonth = moment().endOf('month').format('YYYY-MM-DD');
-    const startOfLastMonth = moment().subtract(1, 'month').startOf('month').format('YYYY-MM-DD');
-    const endOfLastMonth = moment().subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
+    const today = momentIST.format('YYYY-MM-DD');
+    const yesterday = momentIST.subtract(1, 'days').format('YYYY-MM-DD');
+    const startOfCurrentMonth = momentIST.startOf('month').format('YYYY-MM-DD');
+    const endOfCurrentMonth = momentIST.endOf('month').format('YYYY-MM-DD');
+    const startOfLastMonth = momentIST.subtract(1, 'month').startOf('month').format('YYYY-MM-DD');
+    const endOfLastMonth = momentIST.subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
 
     const [
         todaySessions,

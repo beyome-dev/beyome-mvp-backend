@@ -97,7 +97,7 @@ module.exports.getUserById = async (req, res) => {
 // @access  Private/Admin
 module.exports.deleteUser = async (req, res) => {
     try {
-        const user = await userService.deleteUserById(req.params.id);
+        const user = await userService.deleteUserById(req.params.id, req.user);
         res.status(200).send({ message: 'success' });
     } catch (error) {
         res.status(404).send({ message: error.message });
@@ -110,7 +110,7 @@ module.exports.deleteUser = async (req, res) => {
 // @access  Private/Admin
 module.exports.updateUser = async (req, res) => {
     try {
-        const user = await userService.updateUserById(req.params.id, req.body);
+        const user = await userService.updateUserById(req.params.id, req.body, req.user);
         res.status(200).send({ message: 'success' });
     } catch (error) {
         res.status(404).send({ message: error.message });

@@ -1,7 +1,7 @@
 const Booking = require("../models/booking");
 const userService = require("./user.service");
 const calendatService = require("./utilityServices/google/googleCalendar.service");
-const moment = require('moment');
+const moment = require('moment-timezone');
 
 // Create a new booking
 async function createBooking(data, user) {
@@ -45,7 +45,7 @@ async function getBookingById(id, user) {
 async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
     const skip = (page - 1) * limit;
 
-    const today = moment().format('YYYY-MM-DD');
+    const today = moment().tz('Asia/Kolkata').format('YYYY-MM-DD');
     if (filter.date === 'upcoming') {
         filter.date = { $gte: today };
         filter.status = { $nin: ['pending-review','generating-note','completed'] };
