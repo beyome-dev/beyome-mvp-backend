@@ -229,8 +229,7 @@ const getClientData = async (clientID, handler) => {
                     revenue: [
                         {
                             $match: {
-                                status: 'completed',
-                                sessionCostPaid: true
+                                status: { $in: ['completed', 'pending-review'] },
                             }
                         },
                         {
