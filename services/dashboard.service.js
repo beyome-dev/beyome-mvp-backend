@@ -68,7 +68,7 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
         appointmentStatusOverviewRaw
     ] = await Promise.all([
         Booking.countDocuments({ date: today }),
-        Booking.countDocuments({ date: today, status: 'completed' }),
+        Booking.countDocuments({ date: today, status: {$in: ['completed', 'pending-review','generating-note']}  }),
         Booking.countDocuments({ date: today, status: 'no-show' }),
         Booking.aggregate([
             { $match: { date: today } },
@@ -84,8 +84,8 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
         ]),
         Booking.countDocuments({ date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth } }),
         Booking.countDocuments({ date: { $gte: startOfLastMonth, $lte: endOfLastMonth } }),
-        Booking.countDocuments({ date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, status: 'completed' }),
-        Booking.countDocuments({ date: { $gte: startOfLastMonth, $lte: endOfLastMonth }, status: 'completed' }),
+        Booking.countDocuments({ date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, status: {$in: ['completed', 'pending-review','generating-note']} }),
+        Booking.countDocuments({ date: { $gte: startOfLastMonth, $lte: endOfLastMonth }, status: {$in: ['completed', 'pending-review','generating-note']} }),
         Booking.countDocuments({
             date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth },
             status: { $in: ['no-show', 'cancelled'] }
@@ -107,9 +107,9 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.countDocuments({ date: { $gte: notesRange.start, $lte: notesRange.end }, status: 'completed', dictationNote: { $exists: true, $ne: null } }),
-        Booking.countDocuments({ date: { $gte: notesRange.start, $lte: notesRange.end }, status: 'completed', dictationNote: { $exists: false } }),
+        Booking.countDocuments({ date: { $gte: notesRange.start, $lte: notesRange.end }, status: 'pending-review', dictationNote: { $exists: false } }),
         Booking.aggregate([
-            { $match: { date: { $gte: timeRange.start, $lte: timeRange.end }, status: 'completed', checkInTime: { $exists: true }, checkOutTime: { $exists: true } } },
+            { $match: { date: { $gte: timeRange.start, $lte: timeRange.end }, status: {$in: ['completed', 'pending-review','generating-note']}, checkInTime: { $exists: true }, checkOutTime: { $exists: true } } },
             { $project: { duration: { $subtract: ['$checkOutTime', '$checkInTime'] } } },
             { $group: { _id: null, avgDuration: { $avg: '$duration' }, shortestDuration: { $min: '$duration' }, longestDuration: { $max: '$duration' } } }
         ]),
