@@ -101,7 +101,7 @@ const deleteUserById = async (id, handler) => {
             throw new Error('You are not authorized to delete this user');
         }
 
-        await user.remove();
+        await User.findByIdAndDelete(id);
         return user;
     }
     throw new Error('user not found');
