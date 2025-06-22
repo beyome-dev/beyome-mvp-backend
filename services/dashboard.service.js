@@ -75,11 +75,11 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.aggregate([
-            { $match: { date: today, status: 'completed', sessionCostPaid: true } },
+            { $match: { date: today, status: {$in: ['completed', 'pending-review','generating-note']} } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.aggregate([
-            { $match: { date: yesterday, status: 'completed', sessionCostPaid: true } },
+            { $match: { date: yesterday, status: {$in: ['completed', 'pending-review','generating-note']} } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.countDocuments({ date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth } }),
@@ -99,11 +99,11 @@ const getDashboardStats = async (notesParam = 'month', timeParam = 'month', over
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.aggregate([
-            { $match: {  date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, status: 'completed', sessionCostPaid: true } },
+            { $match: {  date: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }, status: {$in: ['completed', 'pending-review','generating-note']} } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.aggregate([
-            { $match: { date: { $gte: startOfLastMonth, $lte: endOfLastMonth }, status: 'completed', sessionCostPaid: true } },
+            { $match: { date: { $gte: startOfLastMonth, $lte: endOfLastMonth }, status: {$in: ['completed', 'pending-review','generating-note']} } },
             { $group: { _id: null, total: { $sum: '$sessionCost' } } }
         ]),
         Booking.countDocuments({ date: { $gte: notesRange.start, $lte: notesRange.end }, status: 'completed', dictationNote: { $exists: true, $ne: null } }),
