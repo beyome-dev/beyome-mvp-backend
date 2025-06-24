@@ -32,6 +32,7 @@ const bookingCreateSchema = {
 
 const bookingUpdateSchema = {
     [Segments.BODY]: Joi.object().keys({
+        appointmentType: Joi.string().valid('online', 'offline').optional(),
         visitType: Joi.string().valid(
             'Follow-Up', 'Orientation', 'Consultation', 'Assessment', 'Therapy',
             'Medication Management', 'Crisis Intervention', 'Group Therapy',
