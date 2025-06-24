@@ -65,7 +65,7 @@ const BookingSchema = new mongoose.Schema({
     checkOutTime: { type: Date, required: false }, // changed to Date
     status: {
         type: String,
-        enum: ["scheduled", "cancelled","no-show","in-progress","rescheduled","pending-review", "generating-note", "completed"],
+        enum: ["scheduled", "removed", "cancelled","no-show","in-progress","rescheduled","pending-review", "generating-note", "completed"],
         required: true,
         default: "scheduled",
     },
