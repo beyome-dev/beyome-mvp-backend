@@ -140,7 +140,15 @@ const deleteNote = async(noteId, user) => {
     const note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
     if (note.user.toString() !== user._id.toString()) throw new Error('Not authorized');
-    return await Note.findByIdAndDelete(noteId);
+    const updateNote =  await Note.findByIdAndDelete(noteId);
+    if (note.booking) {
+        const booking = await bookingService.getBookingById(note.booking);
+        if (!booking) {
+            throw new Error("Booking status no updated");
+        }
+        await Booking.findByIdAndUpdate(note.booking, { status: "removed" }, { new: false });
+    }
+    return updateNote;
 }
 
 const saveAudio = async (file,clientID, bookingID, noteType, user) => {
@@ -321,7 +329,6 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
         //         if (unlinkError) console.error('Failed to delete file:', unlinkError);
         //     });
         // }
-        console.log("note booking :",note.booking)
         if (note.booking) {
             const booking = await bookingService.getBookingById(note.booking);
             if (!booking) {
