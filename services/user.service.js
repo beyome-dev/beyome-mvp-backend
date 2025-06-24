@@ -2,6 +2,7 @@ const { User, Booking } = require('../models');
 const bcrypt = require('bcryptjs');
 const moment = require('moment-timezone'); // top of file if not already included
 const { Note } = require('../models'); // Make sure Note model is imported
+const bookingService = require("./booking.service");
 
 const getUsers = async (id) => {
     const users = await User.find({}).select('-password');
@@ -100,8 +101,16 @@ const deleteUserById = async (id, handler) => {
         if (!isAuthorizedToClient(user, handler)) {
             throw new Error('You are not authorized to delete this user');
         }
-
-        await User.findByIdAndDelete(id);
+        if (user.handlers && user.handlers.length > 1) {
+            // Remove handler._id from user's handlers array and update user
+            user.handlers = user.handlers.filter(
+                h => h.toString() !== handler._id.toString()
+            );
+            await user.save();
+        } else if (user.handlers && user.handlers.length === 1) {
+            await User.findByIdAndDelete(id);
+        }
+        await bookingService.deleteBookingForUser(id, handler);
         return user;
     }
     throw new Error('user not found');

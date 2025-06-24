@@ -130,10 +130,20 @@ async function updateBooking(id, data, user) {
 // Delete a booking by ID
 async function deleteBooking(id, data, user) {
     if (data.googleEventId !== "" && user.googleTokens?.access_token) {
-        const evenID = await calendatService.patchBookingEvent(data.googleEventId, booking, user.googleTokens)
-        booking.googleEventId = evenID;
+       await calendatService.removeBookingEvent(data.googleEventId, user.googleTokens)
     }
     return await Booking.findByIdAndDelete(id);
+}
+
+// Delete a booking by client ID and handler ID
+async function deleteBookingForUser(clientId, user) {
+    let bookings = await Booking.find(filter)
+    bookings = bookings.map(booking => {
+        if (booking.googleEventId !== "" && user.googleTokens?.access_token) {
+            calendatService.removeBookingEvent(booking.googleEventId, user.googleTokens)
+        }
+    });
+    return await Booking.deleteMany({client: clientId, handler: user._id});
 }
 
 // Reschedule a booking
@@ -210,4 +220,5 @@ module.exports = {
     checkInBooking,
     checkOutBooking,
     dictateNote,
+    deleteBookingForUser,
 };
