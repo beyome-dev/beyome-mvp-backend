@@ -60,14 +60,14 @@ const waitlistSchema = {
 }
 const updateSchema = {
     [Segments.BODY]: Joi.object().keys({
-        firstName: Joi.string(),
-        lastName: Joi.string(),
-        email: Joi.string().email(),
-        password: Joi.string().regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{6,30}$/).message(passwordMessage),
-        picture: Joi.string(),
-        phone: Joi.string(),
-        office_location: Joi.string(),
-        specialty: Joi.string().valid(...specialtyEnum),
+        firstName: Joi.string().optional(),
+        lastName: Joi.string().optional(),
+        email: Joi.string().email().optional(),
+        password: Joi.string().regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{6,30}$/).optional(),
+        picture: Joi.string().optional(),
+        phone: Joi.string().optional(),
+        office_location: Joi.string().optional(),
+        specialty: Joi.string().valid(...specialtyEnum).optional(),
         calendarSettings: Joi.object().keys({
             syncEnabled: Joi.boolean().optional(),
             syncAppointments: Joi.boolean().optional(),
@@ -102,7 +102,7 @@ const createClientSchema = {
         phone: Joi.string().pattern(/^(\+?\d+)$/).optional(),
         picture: Joi.string().uri().optional(),
         organization: Joi.string().optional()
-    }).or('email', 'phone') // Require at least one of email or phone
+    }) // Require at least one of email or phone
 };
 
 module.exports = {

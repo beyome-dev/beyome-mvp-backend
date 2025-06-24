@@ -115,12 +115,9 @@ async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
 
 // Update a booking by ID
 async function updateBooking(id, data, user) {
-    const booking = await Booking.findByIdAndUpdate(id, data, { new: true });
+    let booking = await Booking.findByIdAndUpdate(id, data, { new: true });
     if (data.date !== booking.date || data.time !== booking.time) {
-        const existingBooking = await Booking.findOne({ date: newDate, time: newTime });
-        if (existingBooking) {
-            throw new Error("A booking already exists for the given date and time.");
-        }
+        booking = await rescheduleBooking(id, data.date, data.time, user);
         if (data.googleEventId !== "" && user.googleTokens?.access_token) {
             const evenID = await calendatService.patchBookingEvent(data.googleEventId, booking, user.googleTokens)
             booking.googleEventId = evenID;

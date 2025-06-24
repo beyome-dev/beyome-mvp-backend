@@ -40,12 +40,8 @@ const bookingUpdateSchema = {
         client: Joi.forbidden().messages({
             'any.unknown': 'Cannot change client, delete and create a new booking'
         }),
-        date: Joi.forbidden().messages({
-            'any.unknown': 'Use reschedule endpoint to change date'
-        }),
-        time: Joi.forbidden().messages({
-            'any.unknown': 'Use reschedule endpoint to change time'
-        }),
+        date: Joi.string().optional(),
+        time: Joi.string().optional(),
         checkInTime: Joi.forbidden().messages({
             'any.unknown': 'checkIn should be done using check in endpoint'
         }),
