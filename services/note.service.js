@@ -119,6 +119,8 @@ const updateNote = async(noteId, data, user) => {
         'clientInstructions',
         'tags',
         'userFeedback',
+        'doctorFeedback',
+        'patientInstructions',
     ];
 
     // Filter data to keep only allowed fields
