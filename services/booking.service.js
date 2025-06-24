@@ -116,7 +116,7 @@ async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
 // Update a booking by ID
 async function updateBooking(id, data, user) {
     let booking = await Booking.findByIdAndUpdate(id, data, { new: true });
-    if (data.date !== booking.date || data.time !== booking.time) {
+    if ((data.date && data.date !== booking.date) || (data.time && data.time !== booking.time)) {
         booking = await rescheduleBooking(id, data.date, data.time, user);
         if (data.googleEventId !== "" && user.googleTokens?.access_token) {
             const evenID = await calendatService.patchBookingEvent(data.googleEventId, booking, user.googleTokens)
