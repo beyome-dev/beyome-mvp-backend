@@ -16,6 +16,7 @@ async function createBooking(data, user) {
         time: data.time,
         handler: data.handler,
         organization: data.organization,
+        status: { $nin: ['cancelled', 'no-show', 'removed'] } // Exclude cancelled and no-show bookings
     });
     if (existingBooking) {
         throw new Error("A booking already exists for the given date and time.");
