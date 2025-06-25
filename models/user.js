@@ -26,12 +26,11 @@ const UserSchema = new Schema({
     email: {
         type: String,
         // required: [true, 'Please enter an email'],
-        unique: true,
+        // unique: true,
         lowercase: true,
     },
     phone: {
         type: String,
-        unique: true,
         validate: {
             validator: (v) => {
                 return /^(\+?\d+)$/.test(v);
@@ -137,10 +136,10 @@ const UserSchema = new Schema({
     },
 }, { timestamps: true });
 
-// UserSchema.statics.isEmailTaken = async function (email, excludeUserId) {
-//     const user = await this.findOne({ email, _id: { $ne: excludeUserId } });
-//     return !!user;
-// };
+UserSchema.statics.isEmailTaken = async function (email, excludeUserId) {
+    const user = await this.findOne({ email, _id: { $ne: excludeUserId } });
+    return !!user;
+};
 
 const User = mongoose.model('User', UserSchema);
 
