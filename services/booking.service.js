@@ -137,7 +137,7 @@ async function deleteBooking(id, data, user) {
 
 // Delete a booking by client ID and handler ID
 async function deleteBookingForUser(clientId, user) {
-    let bookings = await Booking.find(filter)
+    let bookings = await Booking.find({ client: clientId, handler: user._id })
     bookings = bookings.map(booking => {
         if (booking.googleEventId !== "" && user.googleTokens?.access_token) {
             calendatService.removeBookingEvent(booking.googleEventId, user.googleTokens)

@@ -1,8 +1,7 @@
-const { User, Booking } = require('../models');
+const { User, Booking, Note } = require('../models');
 const bcrypt = require('bcryptjs');
-const moment = require('moment-timezone'); // top of file if not already included
-const { Note } = require('../models'); // Make sure Note model is imported
-const bookingService = require("./booking.service");
+const moment = require('moment-timezone');
+const calendatService = require("./utilityServices/google/googleCalendar.service");
 
 const getUsers = async (id) => {
     const users = await User.find({}).select('-password');
@@ -38,9 +37,10 @@ const registerUser = async (userData) => {
     userData.password = await bcrypt.hash(userData.password, salt);
 
     const newUser = await User.create(userData);
-    newUser.password = undefined;
-    newUser.googleTokens = undefined;
-    return newUser;
+    let userObj = newUser.toObject();
+    delete userObj.password;
+    delete userObj.googleTokens;
+    return userObj;
 }
 
 const updateUserById = async (id, userData, handler) => {
@@ -48,9 +48,9 @@ const updateUserById = async (id, userData, handler) => {
         const salt = await bcrypt.genSalt();
         userData.password = await bcrypt.hash(userData.password, salt);
     }
-    if (userData.email && (await User.isEmailTaken(userData.email, id))) {
-        throw new Error('email is already taken');
-    }
+    // if (userData.email && (await User.isEmailTaken(userData.email, id))) {
+    //     throw new Error('email is already taken');
+    // }
     let user = await User.findById(id);
     if (!user) {
         throw new Error('user not found');
@@ -110,7 +110,15 @@ const deleteUserById = async (id, handler) => {
         } else if (user.handlers && user.handlers.length === 1) {
             await User.findByIdAndDelete(id);
         }
-        await bookingService.deleteBookingForUser(id, handler);
+        // Delete all bookings for this user
+        let bookings = await Booking.find({ client: id, handler: handler._id })
+        await Booking.deleteMany({client: id, handler: handler._id});
+        bookings = bookings.map(booking => {
+                if (booking.googleEventId !== "" && handler.googleTokens?.access_token) {
+                    calendatService.removeBookingEvent(booking.googleEventId, handler.googleTokens)
+                }
+        });
+
         return user;
     }
     throw new Error('user not found');
@@ -150,10 +158,15 @@ const updatePasswordWithoutOld = async (id, newPassword) => {
 }
 
 const createClient = async (userData, handlerID) => {
-    const user  = await User.findOne({email: userData.email });
-    if (user) {
-        userData.handlers = [handlerID, ...user.handlers]
-        return  await user.save();
+    if (!userData.firstName || !userData.lastName) {
+        throw new Error('email, firstName and lastName are required');
+    }
+    if (userData.email || userData.phone) {
+        const user  = await User.findOne({ $or: [{email: userData.email }, {phone: userData.phone}] });
+        if (user) {
+            userData.handlers = [handlerID, ...user.handlers]
+            return  await user.save();
+        }
     }
     userData.handlers = [handlerID]
     userData.password = undefined;
