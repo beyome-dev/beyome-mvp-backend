@@ -189,6 +189,21 @@ module.exports.saveGoogleTokens = async (req, res) => {
     }
 };
 
+// @desc    Handle Google OAuth callback and save tokens
+// @route   POST /api/users/google-calendar/remove-tokens
+// @access  Private
+module.exports.removeGoogleTokens = async (req, res) => {
+    try {
+        await userService.updateUserById(req.user.id, {
+            googleTokens: null
+        });
+
+        res.status(200).send({ message: 'Google Calendar sync removed successfully' });
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+};
+
 // @desc    Create a new client
 // @route   POST /api/users/create-clients
 // @access  Private

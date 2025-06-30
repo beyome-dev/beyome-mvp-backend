@@ -77,6 +77,7 @@ const BookingSchema = new mongoose.Schema({
         type: [FeedbackSchema]
     },
     sessionCost: { type: Number, required: false },
+    sessionDuration: { type: Number, required: false },
     sessionCostPaid: { type: Boolean, default: false },
     sessionCostPaidDate: { type: String, required: false }, // "YYYY-MM-DD"
     sessionCostPaidTime: { type: String, required: false }, // "HH:MM"

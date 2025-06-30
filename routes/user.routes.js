@@ -49,6 +49,12 @@ router.route('/google-calendar/save-tokens')
         celebrate(userValidation.googleTokenSchema, opts)
     ], userController.saveGoogleTokens);
 
+router.route('/google-calendar/remove-tokens')
+    .post([
+        requireAuth,
+        celebrate(userValidation.googleTokenSchema, opts)
+    ], userController.removeGoogleTokens);
+
 router.route('/:id/clients')
     .get(
         [requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')],

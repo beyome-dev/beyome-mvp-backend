@@ -73,7 +73,7 @@ const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month'
         appointmentStatusOverviewRaw
     ] = await Promise.all([
         Booking.countDocuments({ ...commonFilter, date: today }),
-        Booking.countDocuments({ ...commonFilter, date: today, status: {$in: ['completed', 'pending-review','generating-note']}  }),
+        Booking.countDocuments({ ...commonFilter, date: today, status: {$in: ['completed', 'pending-review','generating-note']} }),
         Booking.countDocuments({ ...commonFilter, date: today, status: 'no-show' }),
         Booking.aggregate([
             { $match: { ...commonFilter, date: today } },

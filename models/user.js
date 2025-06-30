@@ -65,7 +65,8 @@ const UserSchema = new Schema({
             'Consultation-Liaison Psychiatrist',
             'Emergency Psychiatrist',
             'Military Psychiatrist',
-            'Community Psychiatrist'
+            'Community Psychiatrist',
+            'Other'
         ],
         required: false
     },

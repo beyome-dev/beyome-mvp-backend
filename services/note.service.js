@@ -108,7 +108,6 @@ const updateNote = async(noteId, data, user) => {
     // Define fields that are allowed to be updated
     const allowedFields = [
         "title",
-        "clientName",
         'summary',
         'subjective',
         'objective',
