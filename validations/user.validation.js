@@ -98,11 +98,11 @@ const createClientSchema = {
     [Segments.BODY]: Joi.object().keys({
         firstName: Joi.string().required(),
         lastName: Joi.string().required(),
-        email: Joi.string().email().optional(),
-        phone: Joi.string().pattern(/^(\+?\d+)$/).optional(),
+        email: Joi.string().email().allow('').optional(),
+        phone: Joi.string().pattern(/^(\+?\d+)$/).allow('').optional(),
         picture: Joi.string().uri().optional(),
         organization: Joi.string().optional()
-    }) // Require at least one of email or phone
+    }),
 };
 
 module.exports = {

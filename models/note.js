@@ -58,6 +58,12 @@ const NoteSchema = new Schema({
     clientInstructions: {
         type: String
     },
+    userFeedback: {
+        type: String
+    },
+    doctorFeedback: {
+        type: String
+    },
     noteFormat: {
         type: String,
         required: true,
