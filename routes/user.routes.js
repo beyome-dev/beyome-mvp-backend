@@ -52,30 +52,6 @@ router.route('/google-calendar/save-tokens')
 router.route('/google-calendar/remove-tokens')
     .post([
         requireAuth,
-        celebrate(userValidation.googleTokenSchema, opts)
     ], userController.removeGoogleTokens);
-
-router.route('/:id/clients')
-    .get(
-        [requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')],
-        userController.getClients
-    )
-    .post([
-      requireAuth,
-      hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
-      celebrate(userValidation.createClientSchema, opts)
-    ], userController.createClient);
-
-router.route('/:id/clients/:clientId')
-    .get([
-        requireAuth,
-        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')
-    ], userController.getClientData)
-
-router.route('/:id/client-names')
-    .get([
-        requireAuth,
-        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')
-    ], userController.getClientNames)
 
 module.exports = router;

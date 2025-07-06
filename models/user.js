@@ -25,8 +25,8 @@ const UserSchema = new Schema({
     },
     email: {
         type: String,
-        // required: [true, 'Please enter an email'],
-        // unique: true,
+        required: [true, 'Please enter an email'],
+        unique: true,
         lowercase: true,
     },
     phone: {
@@ -70,11 +70,10 @@ const UserSchema = new Schema({
         ],
         required: false
     },
-    handlers: [{
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-        required: false
-    }],
+    isDoctor: {
+        type: Boolean,
+        default: false,
+    },
     organization: {
         type: String,
     },
@@ -88,11 +87,10 @@ const UserSchema = new Schema({
             'therapist',          // Psychologists with slightly fewer permissions
             'receptionist',       // Handles bookings, scheduling, and client inbounds
             'org_admin',          // Organization admin with extended privileges
-            'platform_admin',      // Internal/admin-only access for platform control
-            'client',             // Clients with limited access to their own data
+            'platform_admin',     // Internal/admin-only access for platform control
             'manager'
-          ],
-          default: 'therapist'
+        ],
+        default: 'therapist'
     },
     isAdmin: {
         type: Boolean,
@@ -108,6 +106,17 @@ const UserSchema = new Schema({
     },
     currentPlan: {
         type: String,
+        type: String,
+        enum: [
+            'early-access',     // For the beta phase
+            'starter',          // For new users limit with 500 session
+            'professional',     // For single user with unlimited acces
+            'clinic',           // For single clinic, included multiple users and managed by organization admin
+            'enterprise',       // For multi clinic, included multiple users and clinics. Managed by organization admin
+            'demo',             // For demo use
+            'internal'          // For internal testing and other in house usage
+        ],
+        default: 'early-access'
     },
     twoFactorAuth: {
         type: Boolean,
@@ -116,9 +125,6 @@ const UserSchema = new Schema({
     hasResetPassword: {
         type: Boolean,
         default: false,
-    },
-    patientSummary: {
-        type: String,
     },
     googleTokens: {
         access_token: String,
