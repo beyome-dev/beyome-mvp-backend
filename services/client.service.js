@@ -47,7 +47,7 @@ function isAuthorizedToClient(client, handler) {
         return true
     }
     const orgMatch = client.organization && handler.organization && client.organization.toString() === handler.organization.toString();
-    if (handlerIdStr == client._id.toString()) {
+    if (handler._id.toString() == client._id.toString()) {
         return true; // Handler is the client themselves
     }
     // Therapist can only delete if they are a handler of the client
@@ -100,9 +100,18 @@ const createClient = async (clientData, handlerID, byPassCheck) => {
         throw new Error('Nick name, First Name or Last Name are required');
     }
     if (!byPassCheck && (clientData.email || clientData.phone)) {
-        const client  = await Client.findOne({ $or: [{email: clientData.email }, {phone: clientData.phone}] });
-        if (client && client._id) {
-            throw new Error('client with same email or phone exists');
+        let query = { $or: [] };
+        if (clientData.email) {
+            query.$or.push({ email: clientData.email });
+        }
+        if (clientData.phone) {
+            query.$or.push({ phone: clientData.phone });
+        }
+        if (query.$or.length > 0) {
+            const client = await Client.findOne(query);
+            if (client && client._id) {
+                throw new Error('client with same email or phone exists');
+            }
         }
     }
     clientData.handler = handlerID
