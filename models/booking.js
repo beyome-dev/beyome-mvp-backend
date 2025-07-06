@@ -37,7 +37,7 @@ const BookingSchema = new mongoose.Schema({
     },
     client: {
         type: Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'Client',
         required: true
     },
     handler: {

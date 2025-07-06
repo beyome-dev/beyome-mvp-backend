@@ -1,11 +1,12 @@
 const Booking = require("../models/booking");
-const userService = require("./user.service");
+const clientService = require('./client.service');
+const userService = require('./user.service');
 const calendatService = require("./utilityServices/google/googleCalendar.service");
 const moment = require('moment-timezone');
 
 // Create a new booking
 async function createBooking(data, user) {
-    const client = await userService.getUserById(data.client);
+    const client = await clientService.getClientById(data.client);
     if (!client) {
         throw new Error("Client not found");
     }
@@ -22,7 +23,7 @@ async function createBooking(data, user) {
         throw new Error("A booking already exists for the given date and time.");
     }
 
-    data.customerName = client.firstName + " " + client.lastName;
+    data.customerName = client.nickName ? client.nickName : client.firstName + " " + client.lastName;
     data.organization = user.organization;
     const booking = new Booking(data);
     if (user.googleTokens?.access_token) {
@@ -33,7 +34,7 @@ async function createBooking(data, user) {
 }
 
 // Get a booking by ID
-async function getBookingById(id, user) {
+async function getBookingById(id) {
     const booking = await Booking.findById(id)
         .populate("client", "firstName lastName tags")
         .populate("handler", "firstName lastName")
@@ -43,7 +44,7 @@ async function getBookingById(id, user) {
 }
 
 // Get all bookings with optional filters
-async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
+async function getAllBookings(filter = {}, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
 
     const today = moment().tz('Asia/Kolkata').format('YYYY-MM-DD');
@@ -57,6 +58,7 @@ async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
         ];
     }
 
+    // Logic to format the date and time to "YYYY-MM-DD" and "HH:MM" respectively
     for (const key in filter) {
         if (key === 'date' && filter[key]) {
             if (typeof filter[key] === 'object') {
@@ -116,14 +118,23 @@ async function getAllBookings(filter = {}, page = 1, limit = 10, user) {
 
 // Update a booking by ID
 async function updateBooking(id, data, user) {
-    let booking = await Booking.findByIdAndUpdate(id, data, { new: true });
+    let booking = await Booking.findById(id);
+    console.log("New date",data.date, "time :",data.time, "Old date :",booking.date, "time :",booking.time)
     if ((data.date && data.date !== booking.date) || (data.time && data.time !== booking.time)) {
-        booking = await rescheduleBooking(id, data.date, data.time, user);
-        if (data.googleEventId !== "" && user.googleTokens?.access_token) {
+        const existingBooking = await Booking.findOne({
+            date: data.date,
+            time: data.time,
+            handler: user._id,
+            organization: data.organization,
+            status: { $nin: ['cancelled', 'no-show', 'removed'] } // Exclude cancelled and no-show bookings
+        });
+        if (existingBooking) {
+            throw new Error("A booking already exists for the given date and time.");
+        }
+        if (booking.googleEventId !== "" && user.googleTokens?.access_token) {
             const evenID = await calendatService.patchBookingEvent(data.googleEventId, booking, user.googleTokens)
             booking.googleEventId = evenID;
         }
-        data.status = "rescheduled"
     }
     return await Booking.findByIdAndUpdate(id, data, { new: true });
 }
@@ -145,25 +156,6 @@ async function deleteBookingForUser(clientId, user) {
         }
     });
     return await Booking.deleteMany({client: clientId, handler: user._id});
-}
-
-// Reschedule a booking
-async function rescheduleBooking(id, newDate, newTime, user) {
-    // Check if a booking already exists for the handler at the new date and time
-    const existingBooking = await Booking.findOne({ date: newDate, time: newTime });
-    if (existingBooking) {
-        throw new Error("A booking already exists for the given date and time.");
-    }
-    existingBooking.date = newDate
-    existingBooking.time = newTime
-    existingBooking.status = "rescheduled"
-    await existingBooking.save();
-    if (existingBooking.googleEventId !== "" && user.googleTokens?.access_token) {
-        const evenID = await calendatService.patchBookingEvent(data.googleEventId, booking, user.googleTokens)
-        booking.googleEventId = evenID;
-    }
-    // Update the booking's date, time, and status
-    return existingBooking;
 }
 
 // Link a new note to a booking
@@ -216,7 +208,6 @@ module.exports = {
     getAllBookings,
     updateBooking,
     deleteBooking,
-    rescheduleBooking,
     linkNoteToBooking,
     checkInBooking,
     checkOutBooking,

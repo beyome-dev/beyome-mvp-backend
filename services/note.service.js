@@ -6,7 +6,7 @@ const axios = require('axios');
 const Note = require('../models/note');
 const Prompt = require('../models/prompt');
 const mongoose = require('mongoose');
-const userService = require("./user.service");
+const clientService = require('./client.service');
 const bookingService = require("./booking.service");
 const Booking = require("../models/booking");
 
@@ -119,7 +119,6 @@ const updateNote = async(noteId, data, user) => {
         'tags',
         'userFeedback',
         'doctorFeedback',
-        'patientInstructions',
     ];
 
     // Filter data to keep only allowed fields
@@ -153,9 +152,12 @@ const deleteNote = async(noteId, user) => {
 const saveAudio = async (file,clientID, bookingID, noteType, user) => {
     try {
         const filePath = path.join(uploadDir, file.filename);
-        const fileUrl =`${config.APP_URL}/files/${file.filename}`;
+        let fileUrl =`${config.APP_URL}/files/${file.filename}`;
+        if (process.env.NODE_ENV === 'development') {
+            fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`
+        }
 
-        const client = await userService.getUserById(clientID);
+        const client =await clientService.getClientById(clientID);
         if (!client) {
             throw new Error("Client not found");
         }

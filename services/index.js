@@ -1,4 +1,5 @@
 const userService = require('./user.service');
+const clientService = require('./client.service');
 const tokenService = require('./token.service');
 const mailerService = require('./mailer.service');
 const noteService = require('./note.service');
@@ -11,5 +12,6 @@ module.exports = {
     mailerService,
     noteService,
     googleCalendarService,
-    dashboardService
+    dashboardService,
+    clientService
 }
