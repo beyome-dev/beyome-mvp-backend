@@ -15,6 +15,9 @@ module.exports.getUserProfile = async (req, res) => {
         } else {
             userObj.hasCalendarSync = false;
         }
+        if (userObj.calendarSettings) {
+            delete userObj.calendarSettings._id
+        }
         res.status(200).send(userObj);
     } catch (error) {
         console.log(error);

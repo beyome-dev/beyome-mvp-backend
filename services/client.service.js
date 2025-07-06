@@ -100,7 +100,7 @@ const createClient = async (clientData, handlerID, byPassCheck) => {
         throw new Error('Nick name, First Name or Last Name are required');
     }
     if (!byPassCheck && (clientData.email || clientData.phone)) {
-        let query = { $or: [] };
+        let query = { handler: handlerID, $or: [] };
         if (clientData.email) {
             query.$or.push({ email: clientData.email });
         }
