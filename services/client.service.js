@@ -96,8 +96,8 @@ const createClient = async (clientData, handlerID, byPassCheck) => {
         }
         clientData.nickName = `Anon${suffix}`;
     }
-    if (!clientData.nickName || !clientData.firstName || !clientData.lastName) {
-        throw new Error('email, firstName and lastName are required');
+    if (!clientData.nickName && !clientData.firstName && !clientData.lastName) {
+        throw new Error('Nick name, First Name or Last Name are required');
     }
     if (!byPassCheck && (clientData.email || clientData.phone)) {
         const client  = await Client.findOne({ $or: [{email: clientData.email }, {phone: clientData.phone}] });
