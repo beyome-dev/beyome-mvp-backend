@@ -87,12 +87,23 @@ const deleteClientById = async (id, handler) => {
 
 
 const createClient = async (clientData, handlerID, byPassCheck) => {
-    if (!clientData.firstName || !clientData.lastName) {
+    if (clientData.anonymous) {
+        // Generate a short alphanumeric anonymous nickname, e.g., "AnonA1B2"
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let suffix = '';
+        for (let i = 0; i < 4; i++) {
+            suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        clientData.nickName = `Anon${suffix}`;
+    }
+    if (!clientData.nickName || !clientData.firstName || !clientData.lastName) {
         throw new Error('email, firstName and lastName are required');
     }
     if (!byPassCheck && (clientData.email || clientData.phone)) {
         const client  = await Client.findOne({ $or: [{email: clientData.email }, {phone: clientData.phone}] });
-         throw new Error('client with same email or phone exists');
+        if (client && client._id) {
+            throw new Error('client with same email or phone exists');
+        }
     }
     clientData.handler = handlerID
     const newClient = await Client.create(clientData);
