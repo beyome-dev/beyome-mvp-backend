@@ -80,7 +80,7 @@ module.exports.getClientById = async (req, res) => {
 // @access  Private/Admin
 module.exports.updateClient = async (req, res) => {
     try {
-        const user = await userService.updateClientById(req.params.id, req.body, req.user);
+        const user = await clientService.updateClientById(req.params.id, req.body, req.user);
         res.status(200).send({ message: 'success' });
     } catch (error) {
         res.status(404).send({ message: error.message });
