@@ -5,6 +5,8 @@ const clientRoutes = require('./client.routes');
 const noteRoutes = require('./note.routes');
 const bookingRoutes = require('./booking.routes');
 const dashboardRoutes = require('./dashboard.routes');
+const promptRoutes = require('./prompt.routes');
+const waitlistRoutes = require('./waitlist.routes');
 
 const router = Router();
 
@@ -14,5 +16,7 @@ router.use('/notes', noteRoutes);
 router.use('/bookings', bookingRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/clients', clientRoutes);
+router.use('/prompts', promptRoutes);
+router.use('/waitlist', waitlistRoutes);
 
 module.exports = router;

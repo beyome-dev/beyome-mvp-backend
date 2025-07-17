@@ -149,35 +149,28 @@ const deleteNote = async(noteId, user) => {
     return updateNote;
 }
 
-const saveAudio = async (file,clientID, bookingID, noteType, user) => {
+const saveAudio = async (file, query, user) => {
     try {
+        let { client, booking, type, prompt } = query
         const filePath = path.join(uploadDir, file.filename);
         let fileUrl =`${config.APP_URL}/files/${file.filename}`;
         if (process.env.NODE_ENV === 'development') {
             fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`
         }
-
-        const client =await clientService.getClientById(clientID);
-        if (!client) {
-            throw new Error("Client not found");
-        }
         let visitDate = new Date();
-        if (bookingID) {
-            const booking = await bookingService.getBookingById(bookingID);
-            if (!booking) {
+        if (booking) {
+            const bookingData = await bookingService.getBookingById(booking);
+            if (!bookingData) {
                 throw new Error("Booking not found");
             }
-            if (booking.handler._id.toString() != user._id.toString()) {
+            if (bookingData.handler._id.toString() != user._id.toString()) {
                 throw new Error("Not authorized to access this booking");
             }
-            if (booking.client._id.toString() != client._id.toString()) {
-                throw new Error("Booking does not belong to this client");
-            }
             // Combine booking.date and booking.time (assumed format: "HH:mm")
-            if (booking.date && booking.time) {
+            if (bookingData.date && bookingData.time) {
                 // booking.date is a Date or ISO string, booking.time is "HH:mm"
-                const datePart = new Date(booking.date);
-                const [hours, minutes] = booking.time.split(':').map(Number);
+                const datePart = new Date(bookingData.date);
+                const [hours, minutes] = bookingData.time.split(':').map(Number);
 
                 // Set IST time
                 datePart.setHours(hours, minutes, 0, 0);
@@ -188,22 +181,30 @@ const saveAudio = async (file,clientID, bookingID, noteType, user) => {
 
                 visitDate = new Date(datePart);
             } else {
-                visitDate = booking.date ? new Date(booking.date) : new Date();
+                visitDate = bookingData.date ? new Date(bookingData.date) : new Date();
             }
+            client = bookingData.client._id;
+        } 
+        let clientData =await clientService.getClientById(client);
+        if (!clientData) {
+            throw new Error("Client not found");
         }
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
-
-        const prompt = await Prompt.findOne({ aiEngine: "Gemini" }); 
-        if (!prompt) throw new Error("Prompt data not found");
-        let type = "Citation Note"
-        if (noteType === "dictation") {
-            type = "Dictation";
+        let promptFilter = { formatName: "SOAP", aiEngine: "Gemini" }
+        if (prompt != '' && prompt != undefined) {
+            promptFilter = { _id: new mongoose.Types.ObjectId(prompt) }
+        }
+        const promptData = await Prompt.findOne(promptFilter); 
+        if (!promptData) throw new Error("Prompt data not found");
+        let contentType = "Citation Note"
+        if (type === "dictation") {
+            contentType = "Dictation";
         } else if (req.query.type === "recording") {
-            type = "Recording";
-        } 
+            contentType = "Recording";
+        }
         const note = new Note({
-            title: `Clinical Note for ${client.firstName} ${client.lastName}`,
+            title: `Clinical Note for ${clientData.firstName} ${clientData.lastName}`,
             visitType: "Follow up",
             visitDate: new Date(),
             subjective: "nil",
@@ -212,22 +213,22 @@ const saveAudio = async (file,clientID, bookingID, noteType, user) => {
             outputContent: "nil",
             sessionTranscript: "nil",
             clientInstructions: "nil",
-            noteFormat: "SOAP",
-            tags: ["soap", `${client.firstName} ${client.lastName}`],
+            noteFormat: promptData.formatName,
+            tags: ["soap", `${clientData.firstName} ${clientData.lastName}`],
             user: user._id,
-            client: client._id,
-            booking: bookingID,
+            client: clientData._id,
+            booking: booking,
             organization: user.organization,
-            prompt: new mongoose.Types.ObjectId(prompt._id),
+            prompt: new mongoose.Types.ObjectId(promptData._id),
             status: "pending",
             assessment: 'nil',
             plan: 'nil',
-            inputContentType: type,
+            inputContentType: contentType,
         });
         const noteData = await note.save();
 
-        if (bookingID) {
-            await Booking.findByIdAndUpdate(bookingID, { dictationNote: noteData._id, status: "generating-note" }, { new: false });
+        if (booking) {
+            await Booking.findByIdAndUpdate(booking, { dictationNote: noteData._id, status: "generating-note" }, { new: false });
         }
         // Call Salad API for transcription
         let transcriptResponse;
@@ -243,7 +244,6 @@ const saveAudio = async (file,clientID, bookingID, noteType, user) => {
             { saladJobId: transcriptResponse?.id || null, status: "processing" },
             { new: true }
         );
-
         return {
             fileUrl,
             transcriptJobId: transcriptResponse?.id || null,
@@ -302,10 +302,13 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
         if (transcriptPayload.output.error && transcriptPayload.output.error != '') {
             throw new Error(transcriptPayload.output.error);
         }
-
+        let note = await Note.findById(noteId) 
+        if (!note) {
+            throw new Error("Note not found or failed to update.");
+        }
         const transcript = extractSpeakerSentencesFromTimestamps(transcriptPayload);
 
-        const prompt = await Prompt.findOne({aiEngine: "Gemini"})
+        const prompt = await Prompt.findById(note.prompt)
         if (!prompt._id){
             throw new Error("No prompt found")
         }
@@ -323,7 +326,7 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
         // Emit the SOAP note to the frontend
         io.emit('soapNoteGenerated', { soapNote });
 
-        const note = await processGeminiResponse(noteId, soapNote, transcript, transcriptPayload.output.summary)
+        note = await processGeminiResponse(note, soapNote, transcript, transcriptPayload.output.summary)
         // if (note.inputContentType == "Recording" && config.deleteAudio){
         //     const filePath = path.join(uploadDir, note.inputContent);
         //     fs.unlink(filePath, (unlinkError) => {
@@ -357,9 +360,9 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
 
 };
 
-const processGeminiResponse = async (noteId, geminiResponse, transcript, summary) => {
+const processGeminiResponse = async (note, geminiResponse, transcript, summary) => {
     try {
-        if (!noteId || !geminiResponse) {
+        if (!note || !geminiResponse) {
             throw new Error("Missing required parameters: noteId or geminiResponse");
         }
         // Updated regex patterns to extract the structured sections
@@ -388,11 +391,6 @@ const processGeminiResponse = async (noteId, geminiResponse, transcript, summary
             .replace(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/, '')
             .replace(/\*\*Client Instruction Email:\*\*\s*\n([\s\S]+)/, '');
     
-        // Update the note in the database
-        const note = await Note.findById(noteId) 
-        if (!note) {
-            throw new Error("Note not found or failed to update.");
-        }
         note.title = title
         note.visitType = visitType
         note.subjective = subjective

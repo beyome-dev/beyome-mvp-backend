@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const note = require('./note');
 const Schema = mongoose.Schema;
 
 
@@ -7,7 +6,7 @@ const PromptSchema = new Schema({
     formatName: {
         type: String,
         unique: true,
-        require: true
+        required: true
     },
     promptText: {
         type: [String]
@@ -18,6 +17,15 @@ const PromptSchema = new Schema({
     },
     aiEngine: {
         type: String,
+        required: true
+    },
+    approved: {
+        type: Boolean,
+        default: false,
+    },
+    createdBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
         required: true
     }
 }, { timestamps: true });
