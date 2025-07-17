@@ -123,34 +123,6 @@ module.exports.authThirdPartyCallback = (req, res) => {
     res.redirect(url);
 }
 
-// @desc Add user to waitlist and send email notification
-// @route POST /api/auth/waitlist
-// @access Public
-module.exports.addToWaitlist = async (req, res) => {
-    try {
-        const { firstName, lastName, email, phone, specialty, organization } = req.body;
-
-        // Send email to the internal team
-        await mailerService.sendMail(
-            config.team.email, // Internal team email
-            'New Waitlist Request',
-            'waitlist-email', // Template name
-            {
-                firstName,
-                lastName,
-                email,
-                phone,
-                specialty: specialty || 'N/A',
-                organization: organization || 'N/A',
-            }
-        );
-
-        res.status(200).send({ message: 'Waitlist request submitted successfully' });
-    } catch (error) {
-        res.status(400).send({ message: error.message });
-    }
-};
-
 // @desc    Reset password for the first time
 // @route   POST /api/auth/first-time-password-reset/:token
 // @access  Public

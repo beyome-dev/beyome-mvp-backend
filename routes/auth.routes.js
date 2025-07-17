@@ -36,7 +36,4 @@ router.route('/facebook').get(authController.loginWithFacebook);
 router.route('/facebook/callback')
     .get(passport.authenticate('facebook'), authController.authThirdPartyCallback);
 
-router.route('/waitlist')
-    .post(celebrate(userValidation.waitlistSchema, opts),authController.addToWaitlist)    
-
 module.exports = router;

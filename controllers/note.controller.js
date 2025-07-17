@@ -10,11 +10,10 @@ module.exports.saveAudio = async (req, res) => {
       if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
       }
-      if (!req.query.client) {
-        return res.status(400).json({ message: 'Require client reference' });
+      if (!req.query.client && !req.query.booking) {
+        return res.status(400).json({ message: 'Require client/booking reference' });
       }
-      console.log("client :",req.query.client)
-      const result = await noteService.saveAudio(req.file, req.query.client, req.query.booking, req.query.type, req.user);
+      const result = await noteService.saveAudio(req.file, req.query, req.user);
       if (!result) {
         return res.status(400).json({ message: 'Failed to process recording'});
       }

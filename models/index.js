@@ -4,6 +4,7 @@ const Note = require('./note');
 const Prompt = require('./prompt');
 const Organization = require('./organization');
 const Booking = require('./booking');
+const Waitlist = require('./waitlist');
 
 module.exports = {
     User,
@@ -11,5 +12,6 @@ module.exports = {
     Prompt,
     Organization,
     Booking,
-    Client
+    Client,
+    Waitlist
 }
