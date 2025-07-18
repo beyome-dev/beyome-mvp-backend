@@ -19,11 +19,7 @@ router.route('/password-reset/get-code')
 
 router.route('/password-reset/verify/:token')
     .post(celebrate(userValidation.resetPasswordSchema, opts), authController.resetPassword);
-
-router.route('/password-reset/first-login/:token')
-    .post(celebrate(userValidation.resetPasswordSchema, opts), authController.firstTimePasswordReset);
-
-router.route('/change-password/')
+    
 // google auth
 router.route('/google').get(authController.loginWithGoogle);
 

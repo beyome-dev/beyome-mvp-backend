@@ -297,16 +297,12 @@ const requestTranscription = async (fileUrl, noteId) => {
  * @param {string} transcript - The transcript text from Salad.
  * @param {object} io - The Socket.io instance to emit the result.
  */
-const generateSOAPNote = async (transcriptPayload, noteId, io) => {
+const generateSOAPNote = async (transcript, noteId, io) => {
     try {
-        if (transcriptPayload.output.error && transcriptPayload.output.error != '') {
-            throw new Error(transcriptPayload.output.error);
-        }
         let note = await Note.findById(noteId) 
         if (!note) {
             throw new Error("Note not found or failed to update.");
         }
-        const transcript = extractSpeakerSentencesFromTimestamps(transcriptPayload);
 
         const prompt = await Prompt.findById(note.prompt)
         if (!prompt._id){
@@ -346,7 +342,6 @@ const generateSOAPNote = async (transcriptPayload, noteId, io) => {
             status: 'failed',
             failureReason:  error.message,
         });
-        console.log("note booking :",note.booking)
         if (note.booking) {
             const booking = await bookingService.getBookingById(note.booking);
             if (!booking) {
@@ -435,7 +430,7 @@ const extractSpeakerSentencesFromTimestamps = (payload) => {
  * @param {string} transcript - The transcript text from Salad.
  * @param {object} io - The Socket.io instance to emit the result.
  */
-const reprocessNote = async (noteId, io) => {
+const reprocessNote = async (noteId, params, io) => {
     try {
         let note = await Note.findById(noteId);
         if (!note) throw new Error('Note not found');
@@ -469,4 +464,5 @@ module.exports = {
     generateSOAPNote,
     getAllNotesMinimal,
     reprocessNote,
+    extractSpeakerSentencesFromTimestamps,
 }

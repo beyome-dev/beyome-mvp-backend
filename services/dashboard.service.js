@@ -8,7 +8,7 @@ const calculateGrowth = (current, previous) => {
 };
 
 const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month', overviewParam = 'month') => {
-    const momentIST = moment().tz('Asia/Kolkata');
+
     const commonFilter = user.userType === "receptionist" || user.userType === "org_admin"
         ? { organization: user.organization }
         : { handler: user._id };
@@ -17,23 +17,23 @@ const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month'
         switch(param) {
             case 'day':
                 return {
-                    start: momentIST.startOf('day').format('YYYY-MM-DD'),
-                    end: momentIST.endOf('day').format('YYYY-MM-DD')
+                    start: moment().tz('Asia/Kolkata').startOf('day').format('YYYY-MM-DD'),
+                    end: moment().tz('Asia/Kolkata').endOf('day').format('YYYY-MM-DD')
                 };
             case 'month':
                 return {
-                    start: momentIST.startOf('month').format('YYYY-MM-DD'),
-                    end: momentIST.endOf('month').format('YYYY-MM-DD')
+                    start: moment().tz('Asia/Kolkata').startOf('month').format('YYYY-MM-DD'),
+                    end: moment().tz('Asia/Kolkata').endOf('month').format('YYYY-MM-DD')
                 };
             case 'year':
                 return {
-                    start: momentIST.startOf('year').format('YYYY-MM-DD'),
-                    end: momentIST.endOf('year').format('YYYY-MM-DD')
+                    start: moment().tz('Asia/Kolkata').startOf('year').format('YYYY-MM-DD'),
+                    end: moment().tz('Asia/Kolkata').endOf('year').format('YYYY-MM-DD')
                 };
             default:
                 return {
-                    start: momentIST.startOf('day').format('YYYY-MM-DD'),
-                    end: momentIST.endOf('day').format('YYYY-MM-DD')
+                    start: moment().tz('Asia/Kolkata').startOf('day').format('YYYY-MM-DD'),
+                    end: moment().tz('Asia/Kolkata').endOf('day').format('YYYY-MM-DD')
                 };
         }
     };
@@ -41,14 +41,13 @@ const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month'
     const notesRange = getDateRange(notesParam);
     const timeRange = getDateRange(timeParam);
     const overviewRange = getDateRange(overviewParam);
-
-    const today = momentIST.format('YYYY-MM-DD');
-    const yesterday = momentIST.subtract(1, 'days').format('YYYY-MM-DD');
-    const startOfCurrentMonth = momentIST.startOf('month').format('YYYY-MM-DD');
-    const endOfCurrentMonth = momentIST.endOf('month').format('YYYY-MM-DD');
-    const startOfLastMonth = momentIST.subtract(1, 'month').startOf('month').format('YYYY-MM-DD');
-    const endOfLastMonth = momentIST.subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
-
+    const today = moment().tz('Asia/Kolkata').format('YYYY-MM-DD');
+    const yesterday = moment().tz('Asia/Kolkata').subtract(1, 'days').format('YYYY-MM-DD');
+    const startOfCurrentMonth = moment().tz('Asia/Kolkata').startOf('month').format('YYYY-MM-DD');
+    const endOfCurrentMonth = moment().tz('Asia/Kolkata').endOf('month').format('YYYY-MM-DD');
+    const startOfLastMonth = moment().tz('Asia/Kolkata').subtract(1, 'month').startOf('month').format('YYYY-MM-DD');
+    const endOfLastMonth = moment().tz('Asia/Kolkata').subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
+    
     const [
         todaySessions,
         todayCompleted,

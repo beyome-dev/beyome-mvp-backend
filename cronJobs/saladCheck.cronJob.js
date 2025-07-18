@@ -57,9 +57,12 @@ const processRunningJobs = async (io) => {
 
                 if (response.status === 200 && response.data.status === 'succeeded') {
                     console.log(`Job ${note.saladJobId} succeeded, processing SOAP note...`);
-
+                    if (response.data.output.error && response.data.output.error != '') {
+                        throw new Error(response.data.output.error);
+                    }
+                    const transcript = extractSpeakerSentencesFromTimestamps(response.data);
                     // Call service function with socket.io instance
-                    await noteService.generateSOAPNote(response.data, note._id, io);
+                    await noteService.generateSOAPNote(transcript, note._id, io);
                 } else {
                     console.log(`Job ${note.saladJobId} status: ${response.data.status}`);
                 }

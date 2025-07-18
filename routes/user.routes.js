@@ -54,4 +54,9 @@ router.route('/google-calendar/remove-tokens')
         requireAuth,
     ], userController.removeGoogleTokens);
 
+router.route('/password-reset/first-login')
+    .post([requireAuth, celebrate(userValidation.resetPasswordSchema, opts)], userController.firstTimePasswordReset);
+
+router.route('/change-password/')
+    .post([requireAuth, celebrate(userValidation.resetPasswordSchema, opts)], userController.firstTimePasswordReset);
 module.exports = router;
