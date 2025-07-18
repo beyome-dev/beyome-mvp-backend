@@ -299,36 +299,40 @@ const requestTranscription = async (fileUrl, noteId) => {
  */
 const generateSOAPNote = async (transcript, noteId, io) => {
     try {
-        let note = await Note.findById(noteId) 
+        let note = await Note.findById(noteId);
         if (!note) {
             throw new Error("Note not found or failed to update.");
         }
 
-        const prompt = await Prompt.findById(note.prompt)
-        if (!prompt._id){
-            throw new Error("No prompt found")
+        const prompt = await Prompt.findById(note.prompt);
+        if (!prompt._id) {
+            throw new Error("No prompt found");
         }
         const promptText = `${prompt.promptText[0]}\n${transcript}`;
 
-
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ 
+        const model = genAI.getGenerativeModel({
             model: AI_MODEL,
             systemInstruction: prompt.systemInstructions,
         });
-        const result = await model.generateContent(promptText);
 
+        // Generate SOAP note
+        let result = await model.generateContent(promptText);
         const soapNote = result.response.text();
-        // Emit the SOAP note to the frontend
         io.emit('soapNoteGenerated', { soapNote });
 
-        note = await processGeminiResponse(note, soapNote, transcript, transcriptPayload.output.summary)
-        // if (note.inputContentType == "Recording" && config.deleteAudio){
-        //     const filePath = path.join(uploadDir, note.inputContent);
-        //     fs.unlink(filePath, (unlinkError) => {
-        //         if (unlinkError) console.error('Failed to delete file:', unlinkError);
-        //     });
-        // }
+        // Generate summary with a unique prompt to avoid repetition
+        const summaryPrompt = `Summarize the following clinical note in 2–4 sentences, focusing on the client's current concerns, therapeutic focus, and progress. Use a different wording and structure than the original note. Do not copy sentences verbatim.\n\nClinical Note:\n${soapNote}`;
+        const summaryResult = await model.generateContent(summaryPrompt);
+        const summary = summaryResult.response.text();
+
+        // Generate client instruction with a unique prompt to avoid repetition
+        const instructionPrompt = `Write a follow-up message for the client after a therapy session, based on the clinical note below. Make sure the message is warm, professional, and supportive. Do not repeat sentences from the note. Instead, paraphrase and use a different structure. Avoid medical jargon and clinical labels.\n\nClinical Note:\n${soapNote}`;
+        const instructionResult = await model.generateContent(instructionPrompt);
+        const clientInstruction = instructionResult.response.text();
+
+        note = await processGeminiResponse(note, soapNote, transcript, summary, clientInstruction);
+
         if (note.booking) {
             const booking = await bookingService.getBookingById(note.booking);
             if (!booking) {
@@ -338,9 +342,9 @@ const generateSOAPNote = async (transcript, noteId, io) => {
         }
         return note;
     } catch (error) {
-        const note = await Note.findByIdAndUpdate(noteId, { 
+        const note = await Note.findByIdAndUpdate(noteId, {
             status: 'failed',
-            failureReason:  error.message,
+            failureReason: error.message,
         });
         if (note.booking) {
             const booking = await bookingService.getBookingById(note.booking);
@@ -352,10 +356,9 @@ const generateSOAPNote = async (transcript, noteId, io) => {
         console.error('Error generating SOAP note:', error.message);
         return note;
     }
-
 };
 
-const processGeminiResponse = async (note, geminiResponse, transcript, summary) => {
+const processGeminiResponse = async (note, geminiResponse, transcript, summary, clientInstruction) => {
     try {
         if (!note || !geminiResponse) {
             throw new Error("Missing required parameters: noteId or geminiResponse");
@@ -392,7 +395,7 @@ const processGeminiResponse = async (note, geminiResponse, transcript, summary) 
         note.objective = objective
         note.assessment = assessment
         note.plan = plan
-        note.clientInstructions = clientInstructions
+        note.clientInstructions = clientInstruction != '' && clientInstruction != undefined ? clientInstruction : clientInstructions
         note.status= "completed", // Mark note as completed
         note.sessionTranscript = transcript
         note.summary = summary
@@ -444,7 +447,9 @@ const reprocessNote = async (noteId, params, io) => {
         });
         if (response.status === 200 && response.data.status === 'succeeded') {
             // Call service function with socket.io instance
-            note = await generateSOAPNote(response.data, note._id, io);
+
+            const transcript = extractSpeakerSentencesFromTimestamps(response.data);
+            note = await generateSOAPNote(transcript, note._id, io);
             return note;
         } else {
             throw new Error(`Error fetching job status from salad: ${response.data.status}`);
