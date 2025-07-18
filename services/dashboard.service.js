@@ -47,8 +47,7 @@ const getDashboardStats = async (user, notesParam = 'month', timeParam = 'month'
     const endOfCurrentMonth = moment().tz('Asia/Kolkata').endOf('month').format('YYYY-MM-DD');
     const startOfLastMonth = moment().tz('Asia/Kolkata').subtract(1, 'month').startOf('month').format('YYYY-MM-DD');
     const endOfLastMonth = moment().tz('Asia/Kolkata').subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
-
-    console.log("Today :", today)
+    
     const [
         todaySessions,
         todayCompleted,

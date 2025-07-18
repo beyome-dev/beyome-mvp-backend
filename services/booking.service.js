@@ -119,7 +119,6 @@ async function getAllBookings(filter = {}, page = 1, limit = 10) {
 // Update a booking by ID
 async function updateBooking(id, data, user) {
     let booking = await Booking.findById(id);
-    console.log("New date",data.date, "time :",data.time, "Old date :",booking.date, "time :",booking.time)
     if ((data.date && data.date !== booking.date) || (data.time && data.time !== booking.time)) {
         const existingBooking = await Booking.findOne({
             date: data.date,

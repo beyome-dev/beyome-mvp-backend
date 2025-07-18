@@ -342,7 +342,6 @@ const generateSOAPNote = async (transcript, noteId, io) => {
             status: 'failed',
             failureReason:  error.message,
         });
-        console.log("note booking :",note.booking)
         if (note.booking) {
             const booking = await bookingService.getBookingById(note.booking);
             if (!booking) {

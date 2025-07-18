@@ -70,7 +70,6 @@ const queryManager = (req, res, next) => {
                 }
                 // 3. Not Equal (!=) Queries (e.g., key!=val1 or key!=val1,val2)
                 else if (typeof value === 'string' && key.endsWith('!')) {
-                    console.log()
                     const cleanKey = key.slice(0, -1); // Remove trailing '!' from key
                     if (value.includes(',')) {
                         const notEqualValues = value.split(',').map(v => v.trim()).map(v => isValidObjectId(v) ? mongoose.Types.ObjectId.createFromHexString(v) : v);

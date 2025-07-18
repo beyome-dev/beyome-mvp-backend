@@ -337,7 +337,6 @@ clients = await Promise.all(clients.map(async client => {
         client.upcomingCount = result.upcoming?.[0]?.count || 0;
         client.pendingReviewCount = result.pendingReview?.[0]?.count || 0;
 
-        console.log(result.latestBooking, "latestBooking");
         // Assign lastVisit as joined date and time from latestBooking
         if (result.latestBooking && result.latestBooking[0]) {
             const { date, time } = result.latestBooking[0];
