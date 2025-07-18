@@ -88,6 +88,13 @@ const resetPasswordSchema = {
     }),
 }
 
+const changePasswordSchema = {
+    [Segments.BODY]: Joi.object().keys({
+        oldPassword: Joi.string().regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{6,30}$/).message(passwordMessage),
+        newPassword: Joi.string().required().regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{6,30}$/).message(passwordMessage),
+    }),
+}
+
 const googleTokenSchema = {
     [Segments.BODY]: Joi.object().keys({
         code: Joi.string().required(),
@@ -113,5 +120,6 @@ module.exports = {
     resetPasswordSchema,
     waitlistSchema,
     googleTokenSchema,
-    createClientSchema
+    createClientSchema,
+    changePasswordSchema
 }

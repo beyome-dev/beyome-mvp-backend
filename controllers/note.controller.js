@@ -51,7 +51,7 @@ module.exports.saladWebhook = async (req, res) => {
         if (response.data.output.error && response.data.output.error != '') {
             throw new Error(response.data.output.error);
         }
-        const transcript = extractSpeakerSentencesFromTimestamps(response.data);
+        const transcript = noteService.extractSpeakerSentencesFromTimestamps(response.data);
         // Generate SOAP note and emit to frontend
         const note = await noteService.generateSOAPNote(transcript, noteId, io);
 

@@ -60,7 +60,7 @@ const processRunningJobs = async (io) => {
                     if (response.data.output.error && response.data.output.error != '') {
                         throw new Error(response.data.output.error);
                     }
-                    const transcript = extractSpeakerSentencesFromTimestamps(response.data);
+                    const transcript = noteService.extractSpeakerSentencesFromTimestamps(response.data);
                     // Call service function with socket.io instance
                     await noteService.generateSOAPNote(transcript, note._id, io);
                 } else {
