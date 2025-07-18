@@ -206,3 +206,25 @@ module.exports.removeGoogleTokens = async (req, res) => {
         res.status(400).send({ message: error.message });
     }
 };
+
+// @desc    Reset password for the first time
+// @route   POST /api/auth/first-time-password-reset/:token
+// @access  Public
+module.exports.firstTimePasswordReset = async (req, res) => {
+    try {
+        const { password } = req.body;
+
+        if (!req.user || !req.user.id) {
+            return res.status(404).send({ message: 'user not found' });
+        }
+
+        if (req.user.hasResetPassword) {
+            return res.status(400).send({ message: 'password has already been reset' });
+        }
+
+        await userService.updatePasswordWithoutOld(req.user._id, password);
+        res.status(200).send({ message: 'success' });
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+}

@@ -47,9 +47,13 @@ module.exports.saladWebhook = async (req, res) => {
         }
         // Get the Socket.io instance
         const io = req.app.get('socketio');
-
+        
+        if (response.data.output.error && response.data.output.error != '') {
+            throw new Error(response.data.output.error);
+        }
+        const transcript = extractSpeakerSentencesFromTimestamps(response.data);
         // Generate SOAP note and emit to frontend
-        const note = await noteService.generateSOAPNote(saladResponse, noteId, io);
+        const note = await noteService.generateSOAPNote(transcript, noteId, io);
 
         res.status(200).json({ 
             message: 'Webhook received and SOAP note generated',
@@ -74,7 +78,7 @@ module.exports.reprocessNote = async (req, res) => {
       const io = req.app.get('socketio');
 
       // Generate SOAP note and emit to frontend
-      const note = await noteService.reprocessNote(noteId, io);
+      const note = await noteService.reprocessNote(noteId, req.body, io);
 
       res.status(200).json({ 
           message: 'Clinical note generated',

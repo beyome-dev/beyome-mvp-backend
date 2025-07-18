@@ -122,33 +122,3 @@ module.exports.authThirdPartyCallback = (req, res) => {
     const url = config.client.oauthRedirectUrl + '?token=' + token;
     res.redirect(url);
 }
-
-// @desc    Reset password for the first time
-// @route   POST /api/auth/first-time-password-reset/:token
-// @access  Public
-module.exports.firstTimePasswordReset = async (req, res) => {
-    try {
-        const { token } = req.params;
-        const { newPassword } = req.body;
-
-        const user = await tokenService.verifyToken(token, config.jwt.emailSecret);
-
-        if (!user) {
-            return res.status(404).send({ message: 'user not found' });
-        }
-
-        const userDoc = await userService.getUserById(user.id);
-        if (!userDoc) {
-            return res.status(404).send({ message: 'user not found' });
-        }
-
-        if (userDoc.hasResetPassword) {
-            return res.status(400).send({ message: 'password has already been reset' });
-        }
-
-        await userService.updatePasswordWithoutOld(user.id, newPassword);
-        res.status(200).send({ message: 'success' });
-    } catch (error) {
-        res.status(400).send({ message: error.message });
-    }
-}
