@@ -29,6 +29,46 @@ const ClientSchema = new Schema({
             message: (props) => `${props.value} is not a valid phone number`
         }
     },
+    dateOfBirth: {
+        type: Date,
+    },
+    pronouns: {
+        type: String,
+        enum: ['He/Him', 'She/Her', 'They/Them', 'He/They', 'She/They', 'Other'],
+    },
+    gender: {
+        type: String,
+        enum: ['male', 'female', 'other', 'prefer_not_to_say'],
+    },
+    address: {
+        houseName: String,
+        street: String,
+        city: String,
+        distrinct: String,
+        state: String,
+        pincode: String,
+        country: String
+    },
+    maritalStatus: {
+        type: String,
+        enum: ['single', 'married', 'divorced', 'widowed', 'separated', 'other'],
+    },
+    occupation: {
+        type: String,
+    },
+    preferredLanguages: {
+       type: [String],
+        default: ["English"]
+    },
+    religion: {    
+        type: String,
+    },
+    insuranceProvider: {
+        type: String,
+    },
+    insuranceNumber: {
+        type: String,
+    },
     handler: {
         type: Schema.Types.ObjectId,
         ref: 'User',
@@ -55,15 +95,74 @@ const ClientSchema = new Schema({
         type: Boolean,
         default: false,
     },
-    clientSummary: {
-        type: String,
+    summary: {
+        type: String, // General summary about the client
     },
-    googleTokens: {
-        access_token: String,
-        refresh_token: String,
-        scope: String,
-        token_type: String,
-        expiry_date: Number,
+    diagnosis: {
+        type: String, // Primary diagnosis or condition
+    },
+    treatmentPlan: {
+        type: String, // Outline of treatment plan/goals
+    },
+    medications: [
+        {
+            name: String,
+            dosage: String,
+            frequency: String,
+            startDate: Date,
+            endDate: Date
+        }
+    ],
+    emergencyContact: {
+        name: String,
+        relation: String,
+        phone: String,
+        email: String
+    },
+    riskAssessment: [
+        {
+            type: {
+                type: String,
+                enum: [
+                    'suicidal_ideation',
+                    'self_harm',
+                    'violence',
+                    'substance_abuse',
+                    'medical',
+                    'other'
+                ],
+                required: true
+            },
+            severity: {
+                type: String,
+                enum: ['low', 'moderate', 'high', 'critical'],
+                required: true
+            },
+            notes: {
+                type: String
+            },
+            dateIdentified: {
+                type: Date,
+                default: Date.now
+            },
+            actionsTaken: {
+                type: String
+            },
+            resolved: {
+                type: Boolean,
+                default: false
+            },
+            dateResolved: {
+                type: Date
+            }
+        }
+    ],
+    consentSigned: {
+        type: Boolean,
+        default: false
+    },
+    consentDate: {
+        type: Date
     },
     tags:   {
         type: [String],

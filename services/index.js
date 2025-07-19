@@ -7,6 +7,7 @@ const dashboardService = require('./dashboard.service');
 const googleCalendarService = require('./utilityServices/google/googleCalendar.service');
 const promptService = require('./prompt.service');
 const waitlistService = require('./waitlist.service');
+const checklistService = require('./checklist.service');
 
 module.exports = {
     userService,
@@ -17,5 +18,6 @@ module.exports = {
     dashboardService,
     clientService,
     promptService,
-    waitlistService
+    waitlistService,
+    checklistService
 }
