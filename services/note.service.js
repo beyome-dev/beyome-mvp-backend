@@ -340,6 +340,7 @@ const generateSOAPNote = async (transcript, noteId, io) => {
             }
             await Booking.findByIdAndUpdate(note.booking, { status: "completed" }, { new: false });
         }
+        generateClientSummaryAndUpdateFromNote(note)
         return note;
     } catch (error) {
         const note = await Note.findByIdAndUpdate(noteId, {
@@ -355,6 +356,67 @@ const generateSOAPNote = async (transcript, noteId, io) => {
         }
         console.error('Error generating SOAP note:', error.message);
         return note;
+    }
+};
+
+const generateClientSummaryAndUpdateFromNote = async (note) => {
+    try {
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+            model: AI_MODEL,
+           systemInstruction: `You are a therapy progress summarization assistant.
+
+Your task is to generate a clear, concise, professional **clinician-facing progress summary** of a client's therapy across sessions for the therapist to review before the client's next visit.
+
+Focus on:
+- Tracking the client's evolving concerns, therapeutic goals, and progress.
+- Identifying patterns, improvements, setbacks, and key themes.
+- Highlighting relevant symptoms, behavioral patterns, or psychosocial factors.
+- Using professional, precise language, including appropriate clinical terminology where needed.
+- Avoiding casual, warm, or direct address to the client.
+- Presenting the information in a clear, structured narrative that the clinician can review quickly.
+
+You will receive:
+1. A summary of prior sessions.
+2. A summary of the latest session.
+
+Using these, generate a 3–5 sentence **clinician-facing progress summary** without copying sentences verbatim from the inputs. Focus on synthesizing the client's progress and current clinical focus to inform continued treatment planning.`
+});
+
+        const clientData = await clientService.getClientById(note.client);
+        if (!clientData) return;
+
+        const oldHistoryPrompt = `You are a therapy progress summarization assistant.
+
+Below is the client's prior progress summarized:
+"""
+${clientData.summary}
+"""
+`;
+
+        const summaryGenPrompt = `Below is the summary from the latest session:
+"""
+${note.summary}
+"""
+
+Generate a **clinician-facing progress summary** in 3–5 sentences, focusing on:
+- The client's evolving concerns, goals, and progress.
+- Patterns, improvements, setbacks, and key themes.
+- Relevant symptoms, behavioral patterns, or psychosocial factors.
+- Using professional and precise language for therapist reference.
+- Avoid direct address or casual encouragement.
+
+Do not copy sentences verbatim. Synthesize and paraphrase, providing a clear overview for treatment planning.`;
+
+        const promptText = clientData.summary ? oldHistoryPrompt + summaryGenPrompt : summaryGenPrompt;
+
+        const result = await model.generateContent(promptText);
+
+        clientData.summary = result.response.text();
+        await clientData.save();
+    } catch (error) { 
+        console.error("Failed to update client summary:", error);
+        throw error;
     }
 };
 

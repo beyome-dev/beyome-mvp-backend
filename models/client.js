@@ -34,17 +34,17 @@ const ClientSchema = new Schema({
     },
     pronouns: {
         type: String,
-        enum: ['He/Him', 'She/Her', 'They/Them', 'He/They', 'She/They', 'Other'],
+        //enum: ['He/Him', 'She/Her', 'They/Them', 'He/They', 'She/They', 'Other'],
     },
     gender: {
         type: String,
-        enum: ['male', 'female', 'other', 'prefer_not_to_say'],
+        // enum: ['man', 'woman', 'non_binary', 'genderqueer', 'transgender', 'intersex', 'agender', 'other', 'prefer_not_to_say'],
     },
     address: {
         houseName: String,
         street: String,
         city: String,
-        distrinct: String,
+        district: String,
         state: String,
         pincode: String,
         country: String

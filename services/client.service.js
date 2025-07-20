@@ -34,13 +34,25 @@ const updateClientById = async (id, clientData, handler) => {
         }
     }
     client = await Client.findByIdAndUpdate(id, clientData);
+    if (clientData.firstName != client.firstName || clientData.lastName != client.lastName) {
+        const updatedFullName = `${clientData.firstName} ${clientData.lastName}`;
+
+        await Booking.updateMany(
+            {
+                client: id,
+                handler: handler._id
+            },
+            {
+                $set: { customerName: updatedFullName }
+            }
+        );
+    }
     if (client) {
-        client.password = undefined;
-        client.googleTokens = undefined;
         return client;
     }
     throw new Error('client not found');
 }
+
 // Helper function to check if handler is authorized
 function isAuthorizedToClient(client, handler) {
     if (handler === null || handler === undefined) {
@@ -86,19 +98,58 @@ const deleteClientById = async (id, handler) => {
 }
 
 
+const generateRandomSuffix = (length = 4) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let suffix = '';
+    for (let i = 0; i < length; i++) {
+        suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return suffix;
+};
+
 const createClient = async (clientData, handlerID, byPassCheck) => {
     if (clientData.anonymous) {
-        // Generate a short alphanumeric anonymous nickname, e.g., "AnonA1B2"
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let suffix = '';
-        for (let i = 0; i < 4; i++) {
-            suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+        let unique = false;
+        let attempts = 0;
+        let generatedFirstName = '';
+        let generatedLastName = '';
+
+        while (!unique && attempts < 10) {
+            generatedFirstName = `Anon${generateRandomSuffix(6)}`;
+            generatedLastName = generateRandomSuffix(5);
+
+            const existing = await Client.findOne({
+                handler: handlerID,
+                firstName: generatedFirstName,
+                lastName: generatedLastName
+            });
+
+            if (!existing) {
+                unique = true;
+            } else {
+                attempts++;
+            }
         }
-        clientData.nickName = `Anon${suffix}`;
+
+        if (!unique) {
+            throw new Error('Unable to generate a unique anonymous client name after 10 attempts. Please try again or contact support.');
+        }
+
+        clientData.firstName = generatedFirstName;
+        clientData.lastName = generatedLastName;
     }
-    if (!clientData.nickName && !clientData.firstName && !clientData.lastName) {
+
+    if (!clientData.firstName && !clientData.lastName) {
         throw new Error('Nick name, First Name or Last Name are required');
     }
+
+    // Trim and enforce consistent nickName formatting
+    if (clientData.firstName && clientData.lastName) {
+        clientData.firstName = clientData.firstName.trim();
+        clientData.lastName = clientData.lastName.trim();
+        clientData.nickName = `${clientData.lastName}, ${clientData.firstName}`;
+    }
+
     if (!byPassCheck && (clientData.email || clientData.phone)) {
         let query = { handler: handlerID, $or: [] };
         if (clientData.email) {
@@ -110,14 +161,15 @@ const createClient = async (clientData, handlerID, byPassCheck) => {
         if (query.$or.length > 0) {
             const client = await Client.findOne(query);
             if (client && client._id) {
-                throw new Error('client with same email or phone exists');
+                throw new Error('Client with the same email or phone already exists.');
             }
         }
     }
-    clientData.handler = handlerID
+
+    clientData.handler = handlerID;
     const newClient = await Client.create(clientData);
     return newClient;
-}
+};
 
 const getClientNames = async (filter = {}, page = 1, limit = 10) => {
     let query = {};
