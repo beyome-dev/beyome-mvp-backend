@@ -16,9 +16,16 @@ async function getChecklistItemById(id) {
 // Get all checklist items for a client
 const getChecklistItems = async (filter, page, limit) => {
     const skip = (page - 1) * limit;
-    return await Checklist.find(filter)
+    const checklist = await Checklist.find(filter)
         .skip(skip)
         .limit(limit);
+    const totalCount = await Checklist.countDocuments(filter);
+    return {
+        checklist,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        totalCount
+    };
 };
 
 // Update a checklist item
