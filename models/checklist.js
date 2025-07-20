@@ -7,7 +7,7 @@ const ChecklistSchema = new Schema({
     item: { type: String, required: true },
     completed: { type: Boolean, default: false },
     dateCompleted: { type: Date },
-    category: { type: String, enums: ['Message', 'Payment', 'Activity', 'Documentation', 'Forms'] },
+    category: { type: String, enums: ['Message', 'Payment', 'Activity', 'Documentation', 'Forms','My tasks', 'Client tasks'] },
     dueDate: { type: Date },
     priority: { type: Number, min: 0, max: 5, default: 0 }
 }, { timestamps: true });
