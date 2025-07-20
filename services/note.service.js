@@ -3,12 +3,10 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const Note = require('../models/note');
-const Prompt = require('../models/prompt');
 const mongoose = require('mongoose');
 const clientService = require('./client.service');
 const bookingService = require("./booking.service");
-const Booking = require("../models/booking");
+const { Client, Booking, Note, Prompt } = require('../models');
 
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs';
 const SALAD_API_KEY = config.salad.apiKey;
@@ -207,12 +205,12 @@ const saveAudio = async (file, query, user) => {
             title: `Clinical Note for ${clientData.firstName} ${clientData.lastName}`,
             visitType: "Follow up",
             visitDate: new Date(),
-            subjective: "nil",
-            objective: "nil",
+            subjective: "Generating...",
+            objective: "Generating...",
             inputContent: file.filename,
-            outputContent: "nil",
-            sessionTranscript: "nil",
-            clientInstructions: "nil",
+            outputContent: "Generating...",
+            sessionTranscript: "Generating...",
+            clientInstructions: "Generating...",
             noteFormat: promptData.formatName,
             tags: ["soap", `${clientData.firstName} ${clientData.lastName}`],
             user: user._id,
@@ -221,8 +219,8 @@ const saveAudio = async (file, query, user) => {
             organization: user.organization,
             prompt: new mongoose.Types.ObjectId(promptData._id),
             status: "pending",
-            assessment: 'nil',
-            plan: 'nil',
+            assessment: 'Generating...',
+            plan: 'Generating...',
             inputContentType: contentType,
         });
         const noteData = await note.save();
@@ -411,9 +409,9 @@ Do not copy sentences verbatim. Synthesize and paraphrase, providing a clear ove
         const promptText = clientData.summary ? oldHistoryPrompt + summaryGenPrompt : summaryGenPrompt;
 
         const result = await model.generateContent(promptText);
+        const newSummary = result.response.text();
 
-        clientData.summary = result.response.text();
-        await clientData.save();
+         return await Client.findByIdAndUpdate(note.client, { summary: newSummary }, { new: true });
     } catch (error) { 
         console.error("Failed to update client summary:", error);
         throw error;
