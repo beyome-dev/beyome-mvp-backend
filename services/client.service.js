@@ -219,10 +219,10 @@ const getClientDataByID = async (clientID, handler) => {
     }
 
     // Fetch all bookings for the client
-    const bookings = await Booking.find({ client: client._id });
+    const bookings = await Booking.find({ client: client._id }).sort({ createdAt: -1 });
 
     // Fetch all notes for the client
-    const notes = await Note.find({ client: client._id });
+    const notes = await Note.find({ client: client._id }).sort({ createdAt: -1 });
 
     const now = moment().tz('Asia/Kolkata'); // current date-time
         const todayStr = now.format("YYYY-MM-DD");
@@ -311,14 +311,14 @@ const getClientDataByID = async (clientID, handler) => {
 }
 const getClientsWithData = async (filter = {}, page = 1, limit = 10, handler) => {
     const skip = (page - 1) * limit;
-    let clients = await Client.find(filter).select('firstName lastName email')
+    let clients = await Client.find(filter).select('firstName lastName email phone')
     .sort({ visitDate: -1 })
     .skip(skip)
     .limit(limit);
     
     const totalCount = await Client.countDocuments(filter);
 
-clients = await Promise.all(clients.map(async client => {
+    clients = await Promise.all(clients.map(async client => {
     try {
         const now = moment().tz('Asia/Kolkata'); // current date-time
         const todayStr = now.format("YYYY-MM-DD");
