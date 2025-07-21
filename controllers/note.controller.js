@@ -1,4 +1,5 @@
 const noteService = require('../services/note.service');
+const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 
@@ -159,7 +160,7 @@ module.exports.deleteNote = async(req, res) => {
 
 module.exports.downloadTherapyNotePDF = async (req, res) => {
     try {
-        const { id } = req.param;
+        const { id } = req.params;
 
         const { filePath, filename } = await noteService.generateTherapyNotePDF(id);
 

@@ -45,7 +45,7 @@ router.route('/saveAudio')
     ], noteController.saveAudio);
 
 router.route('/:id/download')
-    .post([requireAuth,
+    .get([requireAuth,
         roleMiddleware,
     ], noteController.downloadTherapyNotePDF)
     
