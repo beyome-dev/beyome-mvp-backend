@@ -335,7 +335,11 @@ const generateSOAPNote = async (transcript, noteId, io) => {
         const instructionResult = await model.generateContent(instructionPrompt);
         const clientInstruction = instructionResult.response.text();
 
-        note = await processGeminiResponse(note, soapNote, transcript, summary, clientInstruction);
+        const titlePrompt = `Create a title for the session after a therapy session, based on the clinical note below. Make sure the title does not exceed more than 8 words and it is easily understandable and identifieable for a therapist in first glance.\n\nClinical Note:\n${soapNote}`;
+        const titleResult = await model.generateContent(titlePrompt);
+        const title = titleResult.response.text();
+
+        note = await processGeminiResponse(note, soapNote, transcript, title, summary, clientInstruction);
 
         if (note.booking) {
             const booking = await bookingService.getBookingById(note.booking);
@@ -424,7 +428,7 @@ Do not copy sentences verbatim. Synthesize and paraphrase, providing a clear ove
     }
 };
 
-const processGeminiResponse = async (note, geminiResponse, transcript, summary, clientInstruction) => {
+const processGeminiResponse = async (note, geminiResponse, transcript, title, summary, clientInstruction) => {
     try {
         if (!note || !geminiResponse) {
             throw new Error("Missing required parameters: noteId or geminiResponse");
@@ -435,7 +439,6 @@ const processGeminiResponse = async (note, geminiResponse, transcript, summary, 
         const assessmentMatch = geminiResponse.match(/\*\*Assessment:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const planMatch = geminiResponse.match(/\*\*Plan:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
         const instructionsMatch = geminiResponse.match(/\*\*Client Instruction Email:\*\*\s*\n([\s\S]+?)(?=\n\n\*\*|$)/);
-        const titleMatch = geminiResponse.match(/\*\*Title:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/);
         const visitTypeMatch = geminiResponse.match(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/);
         
         // Remove "S: " and "O: " prefixes, trim whitespace
@@ -447,7 +450,6 @@ const processGeminiResponse = async (note, geminiResponse, transcript, summary, 
         const clientInstructions = instructionsMatch ? instructionsMatch[1].split('\n\n').map(email => email.trim()).join('\n\n') : "Follow the advocate’s advice and reach out for support when needed.";
         let assessment = assessmentMatch ? cleanText(assessmentMatch[1]).replace(/^A:\s*/, '') : "No assesment data provided.";
         let plan = planMatch ? cleanText(planMatch[1]).replace(/^P:\s*/, '') : "No plan data provided.";
-        let title = titleMatch ? cleanText(titleMatch[1]) : 'Clinical Note';
         let visitType = visitTypeMatch ? cleanText(visitTypeMatch[1]) : "General Session";  
 
         const strippedResponse = geminiResponse
@@ -455,7 +457,7 @@ const processGeminiResponse = async (note, geminiResponse, transcript, summary, 
             .replace(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/, '')
             .replace(/\*\*Client Instruction Email:\*\*\s*\n([\s\S]+)/, '');
     
-        note.title = title
+        note.title = title ? title.replace(/^\s*\*+\s*/, '').replace(/\s*\*+\s*$/, '') : note.title;
         note.visitType = visitType
         note.subjective = subjective
         note.objective = objective
