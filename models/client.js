@@ -32,6 +32,11 @@ const ClientSchema = new Schema({
     dateOfBirth: {
         type: Date,
     },
+    ageGroup: {
+        type: String,
+        enum: ['7-18', '19-25', '26-40', '41-65', '65+', 'N/A'],
+        default: 'N/A'
+    },
     pronouns: {
         type: String,
         //enum: ['He/Him', 'She/Her', 'They/Them', 'He/They', 'She/They', 'Other'],

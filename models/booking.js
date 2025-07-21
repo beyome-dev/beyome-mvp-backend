@@ -94,7 +94,7 @@ const BookingSchema = new mongoose.Schema({
         required: false
     },
     googleEventId: { type: String, required: false },
-});
+}, { timestamps: true });
 
 BookingSchema.index({ handler: 1, client: 1, status: 1, date: -1 });
 

@@ -43,5 +43,10 @@ router.route('/saveAudio')
         roleMiddleware,
         upload.single('audio')
     ], noteController.saveAudio);
+
+router.route('/:id/download')
+    .post([requireAuth,
+        roleMiddleware,
+    ], noteController.downloadTherapyNotePDF)
     
 module.exports = router;
