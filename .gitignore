@@ -5,4 +5,5 @@ public
 .DS_Store
 storage/public
 uploads/
+temp/
 ecosystem.config.js
