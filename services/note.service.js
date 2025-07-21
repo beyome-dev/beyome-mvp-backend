@@ -121,7 +121,7 @@ const updateNote = async(noteId, data, user) => {
     ];
 
     if (data.outputContent && note.outputContent != data.outputContent) {
-        data.formattedOutputContent = formatTherapyNoteToHTML(strippedResponse)
+        data.formattedOutputContent = formatTherapyNoteToHTML(data.outputContent)
     }
     // Filter data to keep only allowed fields
     const filteredData = Object.keys(data).reduce((acc, key) => {
