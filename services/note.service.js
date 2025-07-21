@@ -120,6 +120,9 @@ const updateNote = async(noteId, data, user) => {
         'doctorFeedback',
     ];
 
+    if (data.outputContent && note.outputContent != data.outputContent) {
+        data.formattedOutputContent = formatTherapyNoteToHTML(strippedResponse)
+    }
     // Filter data to keep only allowed fields
     const filteredData = Object.keys(data).reduce((acc, key) => {
         if (allowedFields.includes(key)) acc[key] = data[key];
@@ -520,18 +523,8 @@ function formatTherapyNoteToHTML(text) {
         htmlLines.push(`<p>${line}</p>`);
     }
 
-    // Wrap with HTML and CSS, remove newlines for single-line return
-    return `
-    <html><head><meta charset="UTF-8">
-    <style>
-    body{font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;padding:30px;}
-    h1,h2,h3{font-weight:bold;margin-top:20px;margin-bottom:10px;}
-    p{margin:4px 0;}
-    </style>
-    </head><body>
-    ${htmlLines.join('')}
-    </body></html>
-    `.replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
+    // Return single-line HTML content without wrapper
+    return htmlLines.join('').replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
 }
 
 const extractSpeakerSentencesFromTimestamps = (payload) => {
@@ -600,10 +593,29 @@ const generateTherapyNotePDF = async (noteId) => {
 
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
+    // Wrap for PDF
+    const fullHTML = wrapHTMLForPDF(innerHTML);
+    
     await generatePDF(note.formattedOutputContent, filePath);
 
     return { filePath, filename };
 };
+
+function wrapHTMLForPDF(innerHTML) {
+    return `
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; padding: 40px; font-size: 14px; line-height: 1.6; color: #222; }
+                h1,h2,h3 { font-weight: bold; margin-top: 20px; margin-bottom: 10px; }
+                p { margin: 4px 0; }
+            </style>
+        </head>
+        <body>${innerHTML}</body>
+        </html>
+    `.replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
+}
 
 /**
  * Generates a PDF file from provided HTML content.
