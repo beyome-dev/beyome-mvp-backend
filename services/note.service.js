@@ -51,6 +51,7 @@ const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
         "userFeedback": 1,
         "originalSessionTranscript": 1,
         "originialOutputContent": 1,
+        "formattedOutputContent": 1,
     })
     .sort({ visitDate: -1 })
     .skip(skip)
@@ -120,9 +121,6 @@ const updateNote = async(noteId, data, user) => {
         'doctorFeedback',
     ];
 
-    if (data.outputContent && note.outputContent != data.outputContent) {
-        data.formattedOutputContent = formatTherapyNoteToHTML(data.outputContent)
-    }
     // Filter data to keep only allowed fields
     const filteredData = Object.keys(data).reduce((acc, key) => {
         if (allowedFields.includes(key)) acc[key] = data[key];
@@ -132,6 +130,9 @@ const updateNote = async(noteId, data, user) => {
     // Prevent accidental overwrites of sensitive fields
     if (Object.keys(filteredData).length === 0) throw new Error('No valid fields to update');
 
+    if (data.outputContent) {
+        filteredData.formattedOutputContent = formatTherapyNoteToHTML(data.outputContent)
+    }
     // Perform the update
     return await Note.findByIdAndUpdate(noteId, filteredData, { new: true });
 }
