@@ -45,6 +45,10 @@ const NoteSchema = new Schema({
         type: String,
         required: true
     },
+    formattedOutputContent: {
+        type: String,
+        required: true
+    },
     originialOutputContent: {
         type: String,
         required: false

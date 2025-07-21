@@ -155,3 +155,28 @@ module.exports.deleteNote = async(req, res) => {
       res.status(500).json({ message: err.message });
     }
 };
+
+
+module.exports.downloadTherapyNotePDF = async (req, res) => {
+    try {
+        const { id } = req.param;
+
+        const { filePath, filename } = await noteService.generateTherapyNotePDF(id);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+
+        fileStream.on('end', () => {
+            fs.unlink(filePath, (err) => {
+                if (err) console.error('Error deleting temp PDF:', err);
+            });
+        });
+
+    } catch (error) {
+        console.error('Error generating or sending PDF:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

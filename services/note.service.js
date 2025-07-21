@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const clientService = require('./client.service');
 const bookingService = require("./booking.service");
 const { Client, Booking, Note, Prompt } = require('../models');
+const puppeteer = require('puppeteer');
 
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs';
 const SALAD_API_KEY = config.salad.apiKey;
@@ -209,6 +210,7 @@ const saveAudio = async (file, query, user) => {
             objective: "Generating...",
             inputContent: file.filename,
             outputContent: "Generating...",
+            formattedOutputContent: "Generating...",
             sessionTranscript: "Generating...",
             clientInstructions: "Generating...",
             noteFormat: promptData.formatName,
@@ -460,6 +462,7 @@ const processGeminiResponse = async (note, geminiResponse, transcript, summary, 
         note.sessionTranscript = transcript
         note.summary = summary
         note.outputContent = strippedResponse
+        note.formattedOutputContent = formatTherapyNoteToHTML(strippedResponse)
         note.originialOutputContent = geminiResponse
         note.originalSessionTranscript = transcript
         const updatedNote = await note.save();
@@ -469,6 +472,67 @@ const processGeminiResponse = async (note, geminiResponse, transcript, summary, 
         throw new Error("Failed to process the response.");
     }
 };
+
+/**
+ * Formats therapy note text into clean HTML for PDF generation and web view.
+ *
+ * Rules:
+ * 1. Single * = bold
+ * 2. Multiple * = heading with increasing size + bold
+ * 3. Lines starting with "-" converted to bullet points
+ */
+
+function formatTherapyNoteToHTML(text) {
+    // Replace literal \n if escaped
+    text = text.replace(/\\n/g, '\n');
+
+    const lines = text.split('\n');
+    const htmlLines = [];
+
+    for (let line of lines) {
+        line = line.trim();
+        if (line === '') continue;
+
+        // Headings based on *
+        const headingMatch = line.match(/^(\*+)(.*?)\1$/);
+        if (headingMatch) {
+            const stars = headingMatch[1].length;
+            const content = headingMatch[2].trim();
+
+            let tag = 'h3';
+            if (stars >= 3) tag = 'h1';
+            else if (stars === 2) tag = 'h2';
+
+            htmlLines.push(`<${tag}>${content}</${tag}>`);
+            continue;
+        }
+
+        // Bullet points for lines starting with '- '
+        if (line.startsWith('- ')) {
+            const content = line.slice(2).trim();
+            htmlLines.push(`<p>&bull; ${content}</p>`);
+            continue;
+        }
+
+        // Inline *bold* within text
+        line = line.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+
+        htmlLines.push(`<p>${line}</p>`);
+    }
+
+    // Wrap with HTML and CSS, remove newlines for single-line return
+    return `
+    <html><head><meta charset="UTF-8">
+    <style>
+    body{font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;padding:30px;}
+    h1,h2,h3{font-weight:bold;margin-top:20px;margin-bottom:10px;}
+    p{margin:4px 0;}
+    </style>
+    </head><body>
+    ${htmlLines.join('')}
+    </body></html>
+    `.replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
+}
 
 const extractSpeakerSentencesFromTimestamps = (payload) => {
     let speakerSentences = '';
@@ -519,6 +583,70 @@ const reprocessNote = async (noteId, params, io) => {
     }
 }
 
+
+
+const generateTherapyNotePDF = async (noteId) => {
+    let note = await Note.findById(noteId);
+    if (!note) throw new Error('Note not found');
+
+    const filename = `therapy_note_${Date.now()}.pdf`;
+    const filePath = path.join(__dirname, '..', 'temp', filename);
+
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+
+    await generatePDF(note.formattedOutputContent, filePath);
+
+    return { filePath, filename };
+};
+
+/**
+ * Generates a PDF file from provided HTML content.
+ * 
+ * @param {string} htmlContent - The HTML content to render.
+ * @param {string} outputPath - The absolute or relative path where the PDF will be saved.
+ * @param {Object} [options] - Optional configurations: { format, margin, printBackground }
+ */
+async function generatePDF(htmlContent, outputPath, options = {}) {
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
+    try {
+        const page = await browser.newPage();
+
+        // Basic styling to enhance PDF readability
+        const styledHTML = `
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 40px; font-size: 14px; line-height: 1.6; }
+                    div { margin-bottom: 6px; }
+                    .title { text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+                </style>
+            </head>
+            <body>${htmlContent}</body>
+            </html>
+        `;
+
+        await page.setContent(styledHTML, { waitUntil: 'networkidle0' });
+
+        await page.pdf({
+            path: outputPath,
+            format: options.format || 'A4',
+            printBackground: options.printBackground ?? true,
+            margin: options.margin || { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' }
+        });
+
+        console.log(`✅ PDF generated successfully at: ${path.resolve(outputPath)}`);
+    } catch (error) {
+        console.error('❌ Error generating PDF:', error);
+        throw error;
+    } finally {
+        await browser.close();
+    }
+}
+
 module.exports = {
     createNote,
     getAllNotes,
@@ -530,4 +658,5 @@ module.exports = {
     getAllNotesMinimal,
     reprocessNote,
     extractSpeakerSentencesFromTimestamps,
+    generateTherapyNotePDF,
 }
