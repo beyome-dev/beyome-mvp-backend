@@ -586,10 +586,16 @@ const reprocessNote = async (noteId, params, io) => {
 
 
 const generateTherapyNotePDF = async (noteId) => {
-    let note = await Note.findById(noteId);
+    const note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
+    const clientData = await clientService.getClientById(note.client);
+    const createdAt = note.createdAt;
+    const day = String(createdAt.getDate()).padStart(2, '0');
+    const month = String(createdAt.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+    const year = createdAt.getFullYear();
 
-    const filename = `therapy_note_${Date.now()}.pdf`;
+    const formattedDate = `${day}-${month}-${year}`;
+    const filename = clientData ? `${clientData.firstName}_${clientData.lastName}_therapy_note_${formattedDate}.pdf` : `therapy_note_${formattedDate}.pdf`;
     const filePath = path.join(__dirname, '..', 'temp', filename);
 
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
