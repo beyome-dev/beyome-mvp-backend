@@ -597,9 +597,9 @@ const generateTherapyNotePDF = async (noteId) => {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
     // Wrap for PDF
-    const fullHTML = wrapHTMLForPDF(innerHTML);
+    const fullHTML = wrapHTMLForPDF(note.formattedOutputContent);
     
-    await generatePDF(note.formattedOutputContent, filePath);
+    await generatePDF(fullHTML, filePath);
 
     return { filePath, filename };
 };
