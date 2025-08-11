@@ -95,6 +95,7 @@ const registerSchema = {
     [Segments.BODY]: Joi.object().keys({
         firstName: Joi.string().required(),
         lastName: Joi.string().required(),
+        // username: Joi.string().alphanum().min(3).max(30).optional(),
         email: Joi.string().email().required(),
         password: Joi.string().required().regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{6,30}$/).message(passwordMessage),
         age: Joi.number().integer().min(18).max(120).required(),
@@ -155,6 +156,7 @@ const updateSchema = {
     [Segments.BODY]: Joi.object().keys({
         firstName: Joi.string().optional(),
         lastName: Joi.string().optional(),
+        // username: Joi.string().alphanum().min(3).max(30).optional(),
         email: Joi.string().email().optional(),
         age: Joi.number().integer().min(18).max(120).optional(),
         password: Joi.string().regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{6,30}$/).optional(),

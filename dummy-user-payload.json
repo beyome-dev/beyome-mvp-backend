@@ -9,7 +9,7 @@
   "specialty": "Clinical Psychologist",
   "isDoctor": true,
   "organization": "Healing Minds Therapy Center",
-  "picture": "https://example.com/profile-pictures/sarah-johnson.jpg",
+  "profileImageUrl": "https://example.com/profile-pictures/sarah-johnson.jpg",
   "userType": "therapist",
   "isAdmin": false,
   "emailVerfied": true,

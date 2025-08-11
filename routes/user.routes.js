@@ -20,8 +20,9 @@ router.route('/')
 router.route('/discoverable')
     .get(userController.getDiscoverableUsers);
 
-router.route('/discoverable/:id')
-    .get(userController.getUserProfileById);
+// Get detailed profile by username (primary method)
+router.route('/discoverable/:username')
+    .get(userController.getUserProfileByUsername);
 
 router.route('/profile')
     .get([requireAuth], userController.getUserProfile)

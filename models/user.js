@@ -84,6 +84,13 @@ const UserSchema = new Schema({
         type: String,
         required: true
     },
+    username: {
+        type: String,
+        unique: true,
+        required: true,
+        lowercase: true,
+        trim: true
+    },
     email: {
         type: String,
         required: [true, 'Please enter an email'],
@@ -140,7 +147,7 @@ const UserSchema = new Schema({
     organization: {
         type: String,
     },
-    picture: {
+    profileImageUrl: {
         type: String,
     },
     userType: {
@@ -319,8 +326,35 @@ const UserSchema = new Schema({
     }
 }, { timestamps: true });
 
+// Function to generate unique username
+const generateUsername = async (firstName, lastName) => {
+    const baseUsername = `${firstName.toLowerCase()}${lastName.toLowerCase()}`.replace(/[^a-z0-9]/g, '');
+    let username = baseUsername;
+    let counter = 1;
+    
+    while (await User.findOne({ username })) {
+        username = `${baseUsername}${counter}`;
+        counter++;
+    }
+    
+    return username;
+};
+
+// Pre-save middleware to generate username if not provided
+UserSchema.pre('save', async function(next) {
+    if (!this.username && this.firstName && this.lastName) {
+        this.username = await generateUsername(this.firstName, this.lastName);
+    }
+    next();
+});
+
 UserSchema.statics.isEmailTaken = async function (email, excludeUserId) {
     const user = await this.findOne({ email, _id: { $ne: excludeUserId } });
+    return !!user;
+};
+
+UserSchema.statics.isUsernameTaken = async function (username, excludeUserId) {
+    const user = await this.findOne({ username, _id: { $ne: excludeUserId } });
     return !!user;
 };
 

@@ -13,14 +13,14 @@ const getDiscoverableUsers = async () => {
     const users = await User.find({ 
         enableDiscovery: true,
         userType: { $in: ['therapist', 'psychiatrist'] } // Only therapists and psychiatrists
-    }).select('firstName lastName therapeuticBio title picture specialty age');
+    }).select('firstName lastName title profileImageUrl specialty age yearsOfExperience languages areaOfExpertise username -_id');
     return users;
 }
 
-// Function to get detailed profile of a specific user
-const getUserProfileById = async (userId) => {
+// Function to get detailed profile of a specific user by username
+const getUserProfileByUsername = async (username) => {
     const user = await User.findOne({ 
-        _id: userId,
+        username: username.toLowerCase(),
         enableDiscovery: true,
         userType: { $in: ['therapist', 'psychiatrist'] }
     }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings');
@@ -31,6 +31,21 @@ const getUserProfileById = async (userId) => {
     
     return user;
 }
+
+// Function to get detailed profile of a specific user by ID (keeping for backward compatibility)
+// const getUserProfileById = async (userId) => {
+//     const user = await User.findOne({ 
+//         _id: userId,
+//         enableDiscovery: true,
+//         userType: { $in: ['therapist', 'psychiatrist'] }
+//     }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings');
+    
+//     if (!user) {
+//         throw new Error('User not found or not discoverable');
+//     }
+    
+//     return user;
+// }
 
 const getUserById = async (id, handler) => {
    let user = await User.findById(id);
@@ -57,6 +72,9 @@ const registerUser = async (userData) => {
         throw new Error('email already exists');
     }
 
+    // Remove username from userData to ensure it's only system-generated
+    delete userData.username;
+
     const salt = await bcrypt.genSalt();
     userData.password = await bcrypt.hash(userData.password, salt);
 
@@ -72,6 +90,10 @@ const updateUserById = async (id, userData, handler) => {
         const salt = await bcrypt.genSalt();
         userData.password = await bcrypt.hash(userData.password, salt);
     }
+    
+    // Remove username from userData to prevent manual updates
+    delete userData.username;
+    
     // if (userData.email && (await User.isEmailTaken(userData.email, id))) {
     //     throw new Error('email is already taken');
     // }
@@ -144,6 +166,10 @@ const registerWithThirdParty = async (userData) => {
     if (user) {
         return user;
     }
+    
+    // Remove username from userData to ensure it's only system-generated
+    delete userData.username;
+    
     const newUser = await User.create(userData);
     return newUser;
 }
@@ -185,7 +211,8 @@ function isAuthorizedToClient(client, handler) {
 module.exports = {
     getUsers,
     getDiscoverableUsers,
-    getUserProfileById,
+    getUserProfileByUsername,
+    // getUserProfileById,
     getUserById,
     getUserByOpts,
     registerUser,

@@ -58,17 +58,29 @@ module.exports.getDiscoverableUsers = async (req, res) => {
     }
 }
 
-// @desc Get detailed profile of a specific user
-// @route GET /api/users/discoverable/:id
+// @desc Get detailed profile of a specific user by username
+// @route GET /api/users/discoverable/:username
 // @access Public
-module.exports.getUserProfileById = async (req, res) => {
+module.exports.getUserProfileByUsername = async (req, res) => {
     try {
-        const user = await userService.getUserProfileById(req.params.id);
+        const user = await userService.getUserProfileByUsername(req.params.username);
         res.status(200).send(user);
     } catch (error) {
         res.status(404).send({ message: error.message });
     }
 }
+
+// @desc Get detailed profile of a specific user by ID (keeping for backward compatibility)
+// @route GET /api/users/discoverable/id/:id
+// @access Public
+// module.exports.getUserProfileById = async (req, res) => {
+//     try {
+//         const user = await userService.getUserProfileById(req.params.id);
+//         res.status(200).send(user);
+//     } catch (error) {
+//         res.status(404).send({ message: error.message });
+//     }
+// }
 
 // @desc    Create a new user
 // @route   POST /api/users
