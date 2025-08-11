@@ -16,6 +16,12 @@ router.route('/')
         celebrate(userValidation.registerSchema, opts)
     ], userController.createUser);
 
+// Discoverable users routes (public access)
+router.route('/discoverable')
+    .get(userController.getDiscoverableUsers);
+
+router.route('/discoverable/:id')
+    .get(userController.getUserProfileById);
 
 router.route('/profile')
     .get([requireAuth], userController.getUserProfile)

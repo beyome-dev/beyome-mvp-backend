@@ -1,4 +1,4 @@
-const { dashboardService } = require('../services');
+const { dashboardService, mailerService } = require('../services');
 
 const getDashboardData = async (req, res) => {
     try {
@@ -11,6 +11,20 @@ const getDashboardData = async (req, res) => {
     }
 };
 
+const sendMail = async (req, res) => {
+    try {
+        const { template, email, recipientName, subject, data } = req.body;
+        if (!email || !subject || !template) {
+            return res.status(400).json({ error: "Email, subject, and template are required" });
+        }
+        await mailerService.sendMail(email, recipientName, subject, template, data);
+        res.status(200).json({ message: "Email sent successfully" });
+    } catch (error) {
+        console.error("Error sending email:", error);
+        res.status(500).json({ error: "Failed to send email" });
+    }
+}
 module.exports = {
-    getDashboardData
+    getDashboardData,
+    sendMail
 };

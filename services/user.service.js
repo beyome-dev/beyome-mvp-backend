@@ -8,6 +8,30 @@ const getUsers = async (id) => {
     return users;
 }
 
+// Function to get discoverable users with minimal information
+const getDiscoverableUsers = async () => {
+    const users = await User.find({ 
+        enableDiscovery: true,
+        userType: { $in: ['therapist', 'psychiatrist'] } // Only therapists and psychiatrists
+    }).select('firstName lastName therapeuticBio title picture specialty age');
+    return users;
+}
+
+// Function to get detailed profile of a specific user
+const getUserProfileById = async (userId) => {
+    const user = await User.findOne({ 
+        _id: userId,
+        enableDiscovery: true,
+        userType: { $in: ['therapist', 'psychiatrist'] }
+    }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings');
+    
+    if (!user) {
+        throw new Error('User not found or not discoverable');
+    }
+    
+    return user;
+}
+
 const getUserById = async (id, handler) => {
    let user = await User.findById(id);
     if (!user) {
@@ -160,6 +184,8 @@ function isAuthorizedToClient(client, handler) {
 
 module.exports = {
     getUsers,
+    getDiscoverableUsers,
+    getUserProfileById,
     getUserById,
     getUserByOpts,
     registerUser,

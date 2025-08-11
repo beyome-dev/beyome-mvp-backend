@@ -210,6 +210,7 @@ const saveAudio = async (file, query, user) => {
             title: `Clinical Note for ${clientData.firstName} ${clientData.lastName}`,
             visitType: "Follow up",
             visitDate: new Date(),
+            summary: "Generating...",
             subjective: "Generating...",
             objective: "Generating...",
             inputContent: file.filename,
@@ -610,12 +611,43 @@ function wrapHTMLForPDF(innerHTML) {
         <head>
             <meta charset="UTF-8">
             <style>
-                body { font-family: Arial, sans-serif; padding: 40px; font-size: 14px; line-height: 1.6; color: #222; }
-                h1,h2,h3 { font-weight: bold; margin-top: 20px; margin-bottom: 10px; }
+                body {
+                    font-family: Arial, sans-serif;
+                    padding: 40px;
+                    font-size: 14px;
+                    line-height: 1.6;
+                    color: #222;
+                    position: relative;
+                    box-sizing: border-box;
+                }
+                h1, h2, h3 {
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 10px;
+                }
                 p { margin: 4px 0; }
+                .footer-watermark {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    font-size: 10px;
+                    color: #888;
+                    display: flex;
+                    align-items: center;
+                    z-index: 1000;
+                }
+                .footer-watermark img {
+                    height: 12px;
+                    margin-left: 5px;
+                }
             </style>
         </head>
-        <body>${innerHTML}</body>
+        <body>
+            ${innerHTML}
+            <div class="footer-watermark">
+                Powered by <img src="https://recapp.beyome.in/Recapp-Green.png" alt="Logo">
+            </div>
+        </body>
         </html>
     `.replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
 }

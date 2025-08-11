@@ -9,7 +9,7 @@ exports.createWaitlistEntry = async (req, res) => {
         const { firstName, lastName, email, phone, specialty, organization } = req.body;
         // Send email to the internal team
         await mailerService.sendMail(
-            config.team.email, // Internal team email
+            config.team.email, "Beyome", // Internal team email
             'New Waitlist Request',
             'waitlist-email', // Template name
             {
@@ -21,6 +21,14 @@ exports.createWaitlistEntry = async (req, res) => {
                 organization: organization || 'N/A',
             }
         );
+        if (email) {
+            await mailerService.sendMail(
+                email, firstName,
+                `Welcome Aboard, ${firstName} — Here’s How to Get Started`,
+                'waitlist-welcome-email', // Template name
+                { firstName }
+            );
+        }
         res.status(200).send({ message: 'Waitlist request submitted successfully' });
     } catch (error) {
         res.status(400).json({ error: error.message });

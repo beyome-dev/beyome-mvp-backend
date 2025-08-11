@@ -14,6 +14,67 @@ const CalendarSettings = new mongoose.Schema({
     }
 })
 
+// Sub-schema for degrees, licenses, and certifications
+const CredentialSchema = new Schema({
+    type: { type: String, required: true }, // e.g., "Degree", "License", "Certification"
+    name: { type: String, required: true }, // e.g., "Ph.D. in Clinical Psychology"
+    institution: { type: String, required: true }, // e.g., "Stanford University"
+    year: { type: Number }, // e.g., 2020
+    licenseNumber: { type: String }, // for licenses
+    state: { type: String }, // for state-specific licenses
+    isActive: { type: Boolean, default: true }
+}, { _id: true });
+
+// Sub-schema for therapeutic approaches
+const TherapeuticApproachSchema = new Schema({
+    name: { type: String, required: true }, // e.g., "CBT", "DBT", "EMDR"
+    description: { type: String }, // brief description of the approach
+    isPrimary: { type: Boolean, default: false } // whether this is a primary approach
+}, { _id: true });
+
+// Sub-schema for specializations
+const SpecializationSchema = new Schema({
+    area: { type: String, required: true }, // e.g., "Anxiety", "Depression", "Trauma"
+    description: { type: String }, // brief description of expertise in this area
+    yearsOfExperience: { type: Number } // years of experience in this specific area
+}, { _id: true });
+
+
+// Sub-schema for session types
+const LinkTree = new Schema({
+    type: { type: String, required: true }, 
+    title: { type: String }, 
+    url: { type: String },
+    isActive: { type: Boolean, default: true }
+}, { _id: true });
+
+// Sub-schema for office locations
+const OfficeLocationSchema = new Schema({
+    name: { type: String, required: true }, // e.g., "Main Office", "Downtown Location",
+    street: { type: String, required: true },
+    address: { type: String, required: true },
+    city: { type: String, required: true },
+    district: { type: String },
+    state: { type: String, required: true },
+    pincode: { type: String },
+    country: { type: String },
+    description: { type: String }, // setting description
+    isPrimary: { type: Boolean, default: false }
+}, { _id: true });
+
+// Sub-schema for FAQ items
+const FAQSchema = new Schema({
+    question: { type: String, required: true },
+    answer: { type: String, required: true },
+    isActive: { type: Boolean, default: true }
+}, { _id: true });
+
+// Sub-schema for personal interests
+const PersonalInterestSchema = new Schema({
+    category: { type: String, required: true }, // e.g., "Hobbies", "Books", "Music", "TV Shows"
+    items: [{ type: String }] // array of items in this category
+}, { _id: true });
+
 const UserSchema = new Schema({
     firstName: {
         type: String,
@@ -38,10 +99,11 @@ const UserSchema = new Schema({
             message: (props) => `${props.value} is not a valid phone number`
         }
     },
-    password: {
-        type: String,
+    age: {
+        type: Number,
+        required: true
     },
-    office_location: {
+    password: {
         type: String,
     },
     specialty: {
@@ -66,6 +128,7 @@ const UserSchema = new Schema({
             'Emergency Psychiatrist',
             'Military Psychiatrist',
             'Community Psychiatrist',
+            'Social Worker',
             'Other'
         ],
         required: false
@@ -141,6 +204,119 @@ const UserSchema = new Schema({
         type: CalendarSettings,
          default: null,
     },
+    enableDiscovery: {
+        type: Boolean,
+        default: true,
+    },
+    
+    // Profile Information
+    title: {
+        type: String,
+        required: false
+    },
+    therapeuticBio: {
+        type: String,
+        required: false
+    },
+    credentials: {
+        type: [CredentialSchema],
+        default: []
+    },
+    price: {
+        type: Number,
+        required: false
+    },
+    yearsOfExperience: {
+        type: Number,
+        required: false,
+        default: 0
+    },
+    languages: {
+        type: [String],
+        default: ["English"]
+    },
+    areaOfExpertise: {
+        type: [String],
+        default: []
+    },
+    personalStory: {
+        type: String,
+        required: false
+    },
+    therapeuticApproaches: {
+        type: [TherapeuticApproachSchema],
+        default: []
+    },
+    therapeuticPhilosophy: {
+        type: String,
+        required: false
+    },
+    specializations: {
+        type: [SpecializationSchema],
+        default: []
+    },
+    ageGroupsServed: {
+        type: [String],
+        default: ["7-18","19-25","26-40","41-65","65+"]
+    },
+    officeLocations: {
+        type: [OfficeLocationSchema],
+        default: []
+    },
+    sessionTypes: {
+        type: [String],
+        default: []
+    },
+    linkTree: {
+        type: [LinkTree],
+        default: []
+    },
+    schedulingAvailability: {
+        type: Boolean,
+        default: true,
+    },
+    responseTime: {
+        type: String,
+        required: false
+    },
+    personalInterests: {
+        type: [PersonalInterestSchema],
+        default: []
+    },
+    faq: {
+        type: [FAQSchema],
+        default: []
+    },
+    culturalBackground: {
+        type: String,
+        required: false
+    },
+    linkedin: {
+        type: String,
+        required: false
+    },
+    instagram: {
+        type: String,
+    },
+    twitter: {
+        type: String,
+    },
+    youtube: {
+        type: String,
+    },
+    tiktok: {
+        type: String,
+    },
+    facebook: {
+        type: String,
+    },
+    website: {
+        type: String,
+    },
+    otherSocials: {
+        type: [String],
+        default: []
+    }
 }, { timestamps: true });
 
 UserSchema.statics.isEmailTaken = async function (email, excludeUserId) {

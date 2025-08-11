@@ -15,7 +15,7 @@ module.exports.registerUser = async (req, res) => {
 
         const url = config.client.confirmUrl + emailToken;
 
-        mailerService.sendMail(user.email, 'Confirm Email', 'confirm-email', { url: url, name: user.firstName });
+        mailerService.sendMail(user.email, user.firstNam, 'Confirm Email', 'confirm-email', { url: url, name: user.firstName });
 
         res.status(201).send({ user, token });
     } catch (error) {
@@ -51,7 +51,7 @@ module.exports.sendResetPasswordEmail = async (req, res) => {
 
         const url = config.client.resetUrl + emailToken;
 
-        mailerService.sendMail(email, 'Reset Password', 'forgot-password-email', { url: url, name: '' });
+        mailerService.sendMail(email, user.firstName, 'Reset Password', 'forgot-password-email', { url: url, name: '' });
         res.status(200).send({ message: 'success' });
     } catch (error) {
         res.status(400).send({ message: error.message });

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Just two steps to set up your Recapp workspace</title>
+    <style>
+        body {font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f9f9f9; color: #333; margin: 0; padding: 0;}
+        .container {max-width: 600px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);}
+        .header {font-size: 22px; text-align: center; margin-bottom: 20px;}
+        .emoji-header {font-size: 28px;}
+        p {font-size: 16px; line-height: 1.6;}
+        .button {display: inline-block; background-color: #0066ff; color: #ffffff; padding: 12px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; margin: 10px 0;}
+        .footer {font-size: 14px; color: #777; text-align: center; margin-top: 30px;}
+        a {color: #0066ff; text-decoration: none;}
+        a:hover {text-decoration: underline;}
+        h3 {margin-top: 30px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header emoji-header">✅ Let’s get your Recapp workspace ready</div>
+
+        <p>Hi <%= firstName ? firstName : "there" %>,</p>
+
+        <p>We’re glad to see you’ve logged into Recapp. Now let’s take the next two steps to start managing your practice smoothly:</p>
+
+        <hr>
+
+        <h3>📅 1. Sync Your Calendar</h3>
+        <p>Make sure your availability stays updated and clients don’t double-book.</p>
+        <p>
+            <a href="<%= syncCalendarLink ? syncCalendarLink : '#' %>" class="button">Sync Your Calendar →</a>
+        </p>
+
+        <hr>
+
+        <h3>👥 2. Add Your First Client</h3>
+        <p>Create your first client profile and start tracking sessions, notes, and progress from Day 1.</p>
+        <p>
+            <a href="<%= addClientLink ? addClientLink : '#' %>" class="button">Add a Client →</a>
+        </p>
+
+        <hr>
+
+        <p>Once these are done, you’ll be able to:</p>
+        <ul>
+            <li>Schedule sessions directly from your dashboard</li>
+            <li>Track progress and history for every client</li>
+            <li>Stay organized with built-in tools for notes and tasks</li>
+        </ul>
+
+        <p>Need help at any point?</p>
+        <p><a href="https://cal.com/recapp/talk-to-the-founders"><strong>Book a quick walkthrough</strong></a> with our team or just reply to this email.</p>
+
+        <p>We’re here to support your practice — every step of the way.</p>
+
+        <p>Warmly,</p>
+
+        <p><strong>Team Recapp</strong></p>
+
+        <div class="footer">
+            © 2025 Recapp. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,228 @@
+{
+  "firstName": "Dr. Sarah",
+  "lastName": "Johnson",
+  "email": "sarah.johnson@therapyclinic.com",
+  "phone": "+1234567890",
+  "age": 35,
+  "password": "securePassword123",
+  "office_location": "Downtown Therapy Center",
+  "specialty": "Clinical Psychologist",
+  "isDoctor": true,
+  "organization": "Healing Minds Therapy Center",
+  "picture": "https://example.com/profile-pictures/sarah-johnson.jpg",
+  "userType": "therapist",
+  "isAdmin": false,
+  "emailVerfied": true,
+  "hasActivePlan": true,
+  "currentPlan": "professional",
+  "twoFactorAuth": false,
+  "hasResetPassword": false,
+  "tags": ["anxiety", "depression", "trauma", "cbt"],
+  "enableDiscovery": true,
+  
+  "title": "Licensed Clinical Psychologist & CBT Specialist",
+  "therapeuticBio": "Licensed Clinical Psychologist specializing in anxiety and depression with 8+ years of experience helping clients overcome mental health challenges.",
+  "price": 150,
+  "yearsOfExperience": 8,
+  "personalStory": "I became a therapist after experiencing the transformative power of therapy in my own life. My journey through anxiety and depression led me to pursue a career in helping others find their path to mental wellness. I specialize in evidence-based approaches and believe in creating a safe, non-judgmental space where clients can explore their thoughts and feelings.",
+  "culturalBackground": "I come from a multicultural background and have experience working with diverse populations. I'm committed to providing culturally sensitive therapy that respects each client's unique background and experiences.",
+  
+  "credentials": [
+    {
+      "type": "Degree",
+      "name": "Ph.D. in Clinical Psychology",
+      "institution": "Stanford University",
+      "year": 2018,
+      "isActive": true
+    },
+    {
+      "type": "License",
+      "name": "Licensed Clinical Psychologist",
+      "institution": "California Board of Psychology",
+      "year": 2019,
+      "licenseNumber": "PSY12345",
+      "state": "California",
+      "isActive": true
+    },
+    {
+      "type": "Certification",
+      "name": "Certified CBT Therapist",
+      "institution": "Beck Institute for Cognitive Behavior Therapy",
+      "year": 2020,
+      "isActive": true
+    },
+    {
+      "type": "Certification",
+      "name": "EMDR Certified Therapist",
+      "institution": "EMDR International Association",
+      "year": 2021,
+      "isActive": true
+    }
+  ],
+  
+  "languages": ["English", "Spanish", "French"],
+  "areaOfExpertise": ["Anxiety Disorders", "Depression", "Trauma", "Couples Therapy", "Stress Management"],
+  
+  "therapeuticApproaches": [
+    {
+      "name": "Cognitive Behavioral Therapy (CBT)",
+      "description": "Evidence-based approach focusing on identifying and changing negative thought patterns and behaviors",
+      "isPrimary": true
+    },
+    {
+      "name": "Dialectical Behavior Therapy (DBT)",
+      "description": "Skills-based therapy for emotional regulation and interpersonal effectiveness",
+      "isPrimary": false
+    },
+    {
+      "name": "Eye Movement Desensitization and Reprocessing (EMDR)",
+      "description": "Trauma-focused therapy using bilateral stimulation to process distressing memories",
+      "isPrimary": false
+    },
+    {
+      "name": "Acceptance and Commitment Therapy (ACT)",
+      "description": "Mindfulness-based approach focusing on accepting difficult thoughts and committing to value-driven actions",
+      "isPrimary": false
+    }
+  ],
+  
+  "therapeuticPhilosophy": "I believe in a collaborative, client-centered approach to therapy. My style is warm, empathetic, and solution-focused. I work with clients to identify their goals and develop practical strategies for achieving them. I emphasize creating a safe, non-judgmental environment where clients feel heard and supported.",
+  
+  "specializations": [
+    {
+      "area": "Anxiety Disorders",
+      "description": "Specialized treatment for generalized anxiety, panic disorder, social anxiety, and phobias",
+      "yearsOfExperience": 8
+    },
+    {
+      "area": "Depression",
+      "description": "Evidence-based treatment for major depressive disorder, persistent depressive disorder, and seasonal affective disorder",
+      "yearsOfExperience": 8
+    },
+    {
+      "area": "Trauma and PTSD",
+      "description": "Trauma-informed care for survivors of abuse, accidents, and other traumatic experiences",
+      "yearsOfExperience": 6
+    },
+    {
+      "area": "Couples Therapy",
+      "description": "Relationship counseling focusing on communication, conflict resolution, and emotional intimacy",
+      "yearsOfExperience": 5
+    },
+    {
+      "area": "Stress Management",
+      "description": "Techniques for managing work stress, life transitions, and burnout",
+      "yearsOfExperience": 7
+    }
+  ],
+  
+  "ageGroupsServed": ["19-25", "26-40", "41-65"],
+  
+  "officeLocations": [
+    {
+      "name": "Main Office",
+      "street": "1234 Therapy Street",
+      "address": "1234 Therapy Street, Suite 200",
+      "city": "San Francisco",
+      "district": "Downtown",
+      "state": "California",
+      "pincode": "94102",
+      "country": "USA",
+      "description": "A welcoming, comfortable space with private therapy rooms, waiting area, and accessible facilities",
+      "isPrimary": true
+    },
+    {
+      "name": "Downtown Location",
+      "street": "567 Business District Ave",
+      "address": "567 Business District Ave, Floor 3",
+      "city": "San Francisco",
+      "district": "Financial District",
+      "state": "California",
+      "pincode": "94105",
+      "country": "USA",
+      "description": "Convenient downtown location with modern amenities and easy access to public transportation",
+      "isPrimary": false
+    }
+  ],
+  
+  "sessionTypes": ["In-person", "Telehealth", "Group sessions"],
+  "schedulingAvailability": true,
+  "responseTime": "Within 24 hours during business days",
+  
+  "linkTree": [
+    {
+      "type": "website",
+      "title": "Personal Website",
+      "url": "https://dr-sarah-johnson.com",
+      "isActive": true
+    },
+    {
+      "type": "blog",
+      "title": "Mental Health Blog",
+      "url": "https://dr-sarah-johnson.com/blog",
+      "isActive": true
+    },
+    {
+      "type": "booking",
+      "title": "Book a Session",
+      "url": "https://calendly.com/dr-sarah-johnson",
+      "isActive": true
+    }
+  ],
+  
+  "personalInterests": [
+    {
+      "category": "Hobbies",
+      "items": ["Hiking", "Yoga", "Cooking", "Reading", "Photography"]
+    },
+    {
+      "category": "Books",
+      "items": ["The Body Keeps the Score by Bessel van der Kolk", "Man's Search for Meaning by Viktor Frankl", "The Power of Now by Eckhart Tolle", "Daring Greatly by Brené Brown"]
+    },
+    {
+      "category": "Music",
+      "items": ["Classical", "Jazz", "Indie Folk", "Meditation Music", "World Music"]
+    },
+    {
+      "category": "TV Shows",
+      "items": ["The Good Place", "Ted Lasso", "Mindhunter", "Documentaries about psychology and human behavior"]
+    }
+  ],
+  
+  "faq": [
+    {
+      "question": "What if therapy doesn't work for me?",
+      "answer": "Therapy is a collaborative process, and sometimes it takes time to find the right approach or therapist. I'm committed to working with you to find what works best for your unique situation. If we're not making progress, I'm happy to discuss alternative approaches or refer you to other professionals who might be a better fit.",
+      "isActive": true
+    },
+    {
+      "question": "What if I can't open up?",
+      "answer": "It's completely normal to feel nervous about opening up to a therapist. I create a safe, non-judgmental space where you can share at your own pace. There's no pressure to reveal everything at once - we can start with what feels comfortable and build trust over time.",
+      "isActive": true
+    },
+    {
+      "question": "What if you judge me?",
+      "answer": "My role as a therapist is to provide support, not judgment. I've worked with clients from all walks of life and understand that everyone has their own unique experiences and challenges. I'm here to help you work through whatever you're dealing with, without any judgment or criticism.",
+      "isActive": true
+    },
+    {
+      "question": "How long will therapy take?",
+      "answer": "The duration of therapy varies depending on your goals and the issues we're addressing. Some clients see significant improvement in just a few sessions, while others benefit from longer-term therapy. We'll regularly check in on your progress and adjust our approach as needed.",
+      "isActive": true
+    },
+    {
+      "question": "Do you offer sliding scale fees?",
+      "answer": "Yes, I offer sliding scale fees for clients who need financial assistance. Please don't hesitate to ask about this option during our initial consultation. I believe mental health care should be accessible to everyone.",
+      "isActive": true
+    }
+  ],
+  
+  "linkedin": "https://linkedin.com/in/dr-sarah-johnson",
+  "instagram": "@dr.sarah.johnson",
+  "twitter": "@DrSarahJohnson",
+  "youtube": "https://youtube.com/@DrSarahJohnson",
+  "tiktok": "@dr.sarah.johnson",
+  "facebook": "https://facebook.com/dr.sarah.johnson",
+  "website": "https://dr-sarah-johnson.com",
+  "otherSocials": ["https://psychologytoday.com/profile/dr-sarah-johnson", "https://goodtherapy.org/dr-sarah-johnson"]
+} 

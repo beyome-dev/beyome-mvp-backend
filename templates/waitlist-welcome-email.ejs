@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You’re In! Here’s What Happens Next at Recapp</title>
+    <style>
+        body {font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f9f9f9; color: #333; margin: 0; padding: 0;}
+        .container {max-width: 600px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);}
+        .header {font-size: 22px; text-align: center; margin-bottom: 20px;}
+        .emoji-header {font-size: 28px;}
+        p {font-size: 16px; line-height: 1.6;}
+        .button {display: inline-block; background-color: #0066ff; color: #ffffff; padding: 12px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; margin: 20px 0;}
+        .footer {font-size: 14px; color: #777; text-align: center; margin-top: 30px;}
+        a {color: #0066ff; text-decoration: none;}
+        a:hover {text-decoration: underline;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header emoji-header">👋 Welcome to Recapp, <%= firstName ? firstName : "there" %>!</div>
+
+        <p>Thanks for signing up. We're excited to have you onboard.</p>
+
+        <p>Your profile is now under verification — a quick process that usually takes <strong>2–3 business days</strong>. We do this to ensure Recapp remains a trusted space for <strong>licensed mental health professionals</strong> like you.</p>
+
+        <p><strong>In the meantime</strong>, you can get a head start:</p>
+
+        <p>Book a <strong>free 30-minute walkthrough</strong> with our team. We’ll guide you through the platform, answer your questions, and show you how to simplify and grow your practice with Recapp.</p>
+
+        <p style="text-align: center;">
+            <a href="https://cal.com/recapp/talk-to-the-founders" class="button">👉 Book a walkthrough</a>
+        </p>
+
+        <p>Got questions? Reach us anytime at <strong>care@beyome.in</strong>.</p>
+
+        <p>Warmly,</p>
+
+        <p><strong>The Recapp Team</strong></p>
+
+        <div class="footer">
+            © 2025 Recapp. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>

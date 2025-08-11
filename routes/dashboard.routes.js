@@ -11,5 +11,7 @@ const router = Router();
 router.route('/')
     .get([requireAuth, roleMiddleware], dashboardController.getDashboardData)
 
+router.route('/sendMail')
+    .post([requireAuth, hasRole('platform_admin')], dashboardController.sendMail)
 
 module.exports = router;

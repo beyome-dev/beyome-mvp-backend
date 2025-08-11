@@ -46,6 +46,30 @@ module.exports.updateUserProfile = async (req, res) => {
     }
 }
 
+// @desc Get discoverable users list (minimal info)
+// @route GET /api/users/discoverable
+// @access Public
+module.exports.getDiscoverableUsers = async (req, res) => {
+    try {
+        const users = await userService.getDiscoverableUsers();
+        res.status(200).send(users);
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+}
+
+// @desc Get detailed profile of a specific user
+// @route GET /api/users/discoverable/:id
+// @access Public
+module.exports.getUserProfileById = async (req, res) => {
+    try {
+        const user = await userService.getUserProfileById(req.params.id);
+        res.status(200).send(user);
+    } catch (error) {
+        res.status(404).send({ message: error.message });
+    }
+}
+
 // @desc    Create a new user
 // @route   POST /api/users
 // @access  Private/Admin
@@ -53,13 +77,17 @@ module.exports.createUser = async (req, res) => {
     try {
         const user = await userService.registerUser(req.body);
 
-        const emailToken = tokenService.createToken({ id: user.id, email: user.email }, config.jwt.JWT_EMAIL_SECRET, '6h');
+        // const emailToken = tokenService.createToken({ id: user.id, email: user.email }, config.jwt.JWT_EMAIL_SECRET, '6h');
+        // const url = config.client.url + `/confirmation/${emailToken}`;
+        const loginUrl = config.client.url + `/login`;
 
-        const baseUrl = req.protocol + "://" + req.get("host");
-        const url = baseUrl + `/api/auth/confirmation/${emailToken}`;
 
-
-        mailerService.sendMail(user.email, 'Confirm Email', 'confirm-email', { url: url, name: user.firstName })
+        mailerService.sendMail(user.email, user.firstName, 'Confirm Email', 'register-email', {
+            firstName: user.firstName, 
+            temporaryPassword: req.body.password, 
+            userEmail: user.email, 
+            loginLink: loginUrl 
+        });
 
         res.status(201).send(user);
     } catch (error) {
@@ -137,7 +165,7 @@ module.exports.sendConfirmEmail = async (req, res) => {
         const baseUrl = req.protocol + "://" + req.get("host");
         const url = baseUrl + `/api/auth/confirmation/${emailToken}`;
 
-        mailerService.sendMail(email, 'Confirm Email', 'confirm-email', { url: url, name: '' });
+        mailerService.sendMail(email, user.firstName, 'Confirm Email', 'confirm-email', { url: url, name: '' });
         res.status(200).send({ message: 'success' });
     } catch (error) {
         res.status(400).send({ message: error.message });

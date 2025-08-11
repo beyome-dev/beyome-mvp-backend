@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Here’s how therapists save hours every week with Recapp</title>
+    <style>
+        body {font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f9f9f9; color: #333; margin: 0; padding: 0;}
+        .container {max-width: 600px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);}
+        .header {font-size: 22px; text-align: center; margin-bottom: 20px;}
+        .emoji-header {font-size: 28px;}
+        p {font-size: 16px; line-height: 1.6;}
+        .button {display: inline-block; background-color: #0066ff; color: #ffffff; padding: 12px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; margin: 10px 0;}
+        .footer {font-size: 14px; color: #777; text-align: center; margin-top: 30px;}
+        a {color: #0066ff; text-decoration: none;}
+        a:hover {text-decoration: underline;}
+        h3 {margin-top: 30px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header emoji-header">Let’s make your next therapy session a little smoother</div>
+
+        <p>Hi <%= firstName ? firstName : "there" %>,</p>
+
+        <p>We know running a practice isn’t just about therapy sessions — it's also notes, schedules, client details, and remembering everything between appointments.</p>
+
+        <p>Here are a few ways Recapp can make that easier — therapists tell us these features have made their day-to-day feel lighter, faster, and more in control:</p>
+
+        <hr>
+
+        <h3>🕒 “No more flipping through notebooks.”</h3>
+        <p>Write your therapy notes in structured, professional formats — stored neatly under each client. It’s fast, easy, and review-ready.</p>
+        <p>🎥 <a href="https://www.notion.so/Email-Automation-23735b2e2c7780d1ad22d828180f6361?pvs=21"><strong>See how notes work →</strong></a></p>
+
+        <hr>
+
+        <h3>📅 “I stopped worrying about scheduling conflicts.”</h3>
+        <p>Sync your calendar and manage availability in one place. Clients stay on track, and you stay sane.</p>
+        <p>🎥 <a href="https://www.notion.so/Email-Automation-23735b2e2c7780d1ad22d828180f6361?pvs=21"><strong>Watch scheduling in action →</strong></a></p>
+
+        <hr>
+
+        <h3>🧠 “I finally have all my client details in one view.”</h3>
+        <p>Access session history, track progress, manage tasks — all client data in one clean page.</p>
+        <p>🎥 <a href="https://www.notion.so/Email-Automation-23735b2e2c7780d1ad22d828180f6361?pvs=21"><strong>Check out the client dashboard →</strong></a></p>
+
+        <hr>
+
+        <p>✨ Start with one feature — log in, add a client, or just sync your calendar. You'll feel the difference.</p>
+
+        <p style="text-align: center;">
+            <a href="<%= loginLink ? loginLink : '#' %>" class="button">👉 Log in to Recapp</a>
+        </p>
+
+        <p>Need a hand? <a href="https://cal.com/recapp/talk-to-the-founders"><strong>Book a free walkthrough</strong></a> — we’d love to show you around.</p>
+
+        <p>Warmly,</p>
+
+        <p><strong>Team Recapp</strong></p>
+
+        <div class="footer">
+            © 2025 Recapp. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome Aboard, [First Name] — Here’s How to Get Started</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f9f9f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .header {
+            font-size: 22px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .emoji-header {
+            font-size: 28px;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .button {
+            display: inline-block;
+            background-color: #0066ff;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        ul li {
+            margin-bottom: 10px;
+        }
+        .footer {
+            font-size: 14px;
+            color: #777;
+            text-align: center;
+            margin-top: 30px;
+        }
+        .highlight {
+            font-weight: 600;
+        }
+        a {
+            color: #0066ff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header emoji-header">🎉 Your Recapp Account Is Now Active!</div>
+
+        <p>Hi <%= firstName ? firstName : "N/A" %>,</p>
+
+        <p>Thanks for completing your registration — your account is now verified and ready to use.</p>
+
+        <p>Here are your login details:</p>
+        <ul>
+            <li><span class="highlight">User ID:</span><%= userEmail ? userEmail : "N/A" %></li>
+            <li><span class="highlight">Password:</span> <%= temporaryPassword ? temporaryPassword : "N/A" %></li>
+        </ul>
+
+        <p><em>(You can update this anytime from your settings.)</em></p>
+
+        <p style="text-align: center;">
+            <a href="<%= loginLink ? loginLink : "#" %>" class="button">🔗 Log in now</a>
+        </p>
+
+        <p>Here’s what you can start doing today:</p>
+        <ul>
+            <li>Add and manage your clients</li>
+            <li>Schedule and track sessions</li>
+            <li>Document notes using structured formats (SOAP, DAP, etc.)</li>
+            <li>Organize tasks and follow-ups for each client</li>
+            <li>Monitor your caseload over time</li>
+        </ul>
+
+        <p>Need help getting started?</p>
+
+        <p><a href="https://cal.com/recapp/talk-to-the-founders"><strong>Book a free walkthrough</strong></a> with our team — we’ll guide you through everything.</p>
+
+        <p>For any support, reach us at <strong>care@beyome.in</strong></p>
+
+        <p>Looking forward to supporting your practice,</p>
+
+        <p><strong>Team Recapp</strong></p>
+
+        <div class="footer">
+            © 2025 Recapp. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
