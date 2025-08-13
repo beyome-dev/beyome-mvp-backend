@@ -87,6 +87,12 @@ const loginSchema = {
     }),
 }
 
+const itinerarySchema = Joi.object().keys({
+    name: Joi.string().required(),
+    description: Joi.string().optional(),
+    price: Joi.number().integer().min(0).default(0).required()
+});
+
 //To check a password between 8 to 15 characters 
 // which contain at least one lowercase letter, one uppercase letter, one numeric digit, and one special
 // /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])(?!.*\s).{6,15}$/
@@ -138,6 +144,7 @@ const registerSchema = {
         facebook: Joi.string().optional(),
         website: Joi.string().uri().optional(),
         otherSocials: Joi.array().items(Joi.string()).optional(),
+        itineraries: Joi.array().items(itinerarySchema).optional(),
     }),
 }
 
@@ -204,6 +211,7 @@ const updateSchema = {
         facebook: Joi.string().optional(),
         website: Joi.string().uri().optional(),
         otherSocials: Joi.array().items(Joi.string()).optional(),
+        itineraries: Joi.array().items(itinerarySchema).optional(),
     }),
 }
 

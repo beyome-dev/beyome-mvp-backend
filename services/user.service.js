@@ -23,7 +23,7 @@ const getUserProfileByUsername = async (username) => {
         username: username.toLowerCase(),
         enableDiscovery: true,
         userType: { $in: ['therapist', 'psychiatrist'] }
-    }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings');
+    }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings -enableDiscovery');
     
     if (!user) {
         throw new Error('User not found or not discoverable');

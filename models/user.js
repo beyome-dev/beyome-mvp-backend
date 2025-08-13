@@ -75,7 +75,16 @@ const PersonalInterestSchema = new Schema({
     items: [{ type: String }] // array of items in this category
 }, { _id: true });
 
+
+// Sub-schema for specializations
+const ItinerarySchema = new Schema({
+    name: { type: String, required: true }, // name of the itinerary
+    description: { type: String }, // brief description of the itinerary
+    price: { type: Number, required: true, default: 0 } // price of the itinerary
+}, { _id: true });
+
 const UserSchema = new Schema({
+    // Personal Information
     firstName: {
         type: String,
         required: true
@@ -140,80 +149,16 @@ const UserSchema = new Schema({
         ],
         required: false
     },
-    isDoctor: {
-        type: Boolean,
-        default: false,
-    },
+    
     organization: {
         type: String,
     },
     profileImageUrl: {
         type: String,
     },
-    userType: {
-        type: String,
-        enum: [
-            'psychiatrist',       // Doctors with full access to app features
-            'therapist',          // Psychologists with slightly fewer permissions
-            'receptionist',       // Handles bookings, scheduling, and client inbounds
-            'org_admin',          // Organization admin with extended privileges
-            'platform_admin',     // Internal/admin-only access for platform control
-            'manager'
-        ],
-        default: 'therapist'
-    },
-    isAdmin: {
-        type: Boolean,
-        default: false,
-    },
-    emailVerfied: {
-        type: Boolean,
-        default: false,
-    },
-    hasActivePlan: {
-        type: Boolean,
-        default: false,
-    },
-    currentPlan: {
-        type: String,
-        type: String,
-        enum: [
-            'early-access',     // For the beta phase
-            'starter',          // For new users limit with 500 session
-            'professional',     // For single user with unlimited acces
-            'clinic',           // For single clinic, included multiple users and managed by organization admin
-            'enterprise',       // For multi clinic, included multiple users and clinics. Managed by organization admin
-            'demo',             // For demo use
-            'internal'          // For internal testing and other in house usage
-        ],
-        default: 'early-access'
-    },
-    twoFactorAuth: {
-        type: Boolean,
-        default: false,
-    },
-    hasResetPassword: {
-        type: Boolean,
-        default: false,
-    },
-    googleTokens: {
-        access_token: String,
-        refresh_token: String,
-        scope: String,
-        token_type: String,
-        expiry_date: Number,
-    },
     tags:   {
         type: [String],
         default: []
-    },
-    calendarSettings: {
-        type: CalendarSettings,
-         default: null,
-    },
-    enableDiscovery: {
-        type: Boolean,
-        default: true,
     },
     
     // Profile Information
@@ -323,7 +268,79 @@ const UserSchema = new Schema({
     otherSocials: {
         type: [String],
         default: []
-    }
+    },
+    itineraries: {
+        type: [ItinerarySchema],
+        default: []
+    },
+    calendarSettings: {
+        type: CalendarSettings,
+         default: null,
+    },
+
+    // System Information: Fields should not be editable by the user
+    isDoctor: {
+        type: Boolean,
+        default: false,
+    },
+    userType: {
+        type: String,
+        enum: [
+            'psychiatrist',       // Doctors with full access to app features
+            'therapist',          // Psychologists with slightly fewer permissions
+            'receptionist',       // Handles bookings, scheduling, and client inbounds
+            'org_admin',          // Organization admin with extended privileges
+            'platform_admin',     // Internal/admin-only access for platform control
+            'manager'
+        ],
+        default: 'therapist'
+    },
+    isAdmin: {
+        type: Boolean,
+        default: false,
+    },
+    emailVerfied: {
+        type: Boolean,
+        default: false,
+    },
+    hasActivePlan: {
+        type: Boolean,
+        default: false,
+    },
+    currentPlan: {
+        type: String,
+        type: String,
+        enum: [
+            'early-access',     // For the beta phase
+            'starter',          // For new users limit with 500 session
+            'professional',     // For single user with unlimited acces
+            'clinic',           // For single clinic, included multiple users and managed by organization admin
+            'enterprise',       // For multi clinic, included multiple users and clinics. Managed by organization admin
+            'demo',             // For demo use
+            'internal'          // For internal testing and other in house usage
+        ],
+        default: 'early-access'
+    },
+    twoFactorAuth: {
+        type: Boolean,
+        default: false,
+    },
+    hasResetPassword: {
+        type: Boolean,
+        default: false,
+    },
+    googleTokens: {
+        access_token: String,
+        refresh_token: String,
+        scope: String,
+        token_type: String,
+        expiry_date: Number,
+    },
+    enableDiscovery: {
+        type: Boolean,
+        default: true,
+    },
+    
 }, { timestamps: true });
 
 // Function to generate unique username
