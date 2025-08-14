@@ -2,7 +2,7 @@ const { Router } = require('express');
 const { noteController } = require('../controllers');
 const { opts, userValidation } = require('../validations');
 const { authMiddleware } = require('../middlewares');
-const { upload } = require('../middlewares');
+const { upload } = require('../middlewares/multer.middleware');
 const { requireAuth, hasRole } = authMiddleware;
 
 const roleMiddleware = hasRole('psychiatrist', 'therapist', 'org_admin');

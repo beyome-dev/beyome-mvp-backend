@@ -46,6 +46,47 @@ module.exports.updateUserProfile = async (req, res) => {
     }
 }
 
+// @desc Upload profile picture
+// @route POST /api/users/profile/upload-picture
+// @access Private
+module.exports.uploadProfilePicture = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).send({ 
+                message: 'No file uploaded or invalid file type. Please upload an image file (JPEG, PNG, GIF, WebP) under 5MB.' 
+            });
+        }
+
+        // Generate the file URL
+        const baseUrl = req.protocol + '://' + req.get('host');
+        const imageUrl = `${baseUrl}/api/uploads/${req.file.filename}`;
+
+        // Update user's profile image URL
+        const updatedUser = await userService.updateProfileImage(req.user.id, imageUrl);
+
+        res.status(200).send({
+            message: 'Profile picture uploaded successfully',
+            imageUrl: imageUrl,
+            user: updatedUser
+        });
+    } catch (error) {
+        // Handle multer errors specifically
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).send({ 
+                message: 'File too large. Please upload an image file under 5MB.' 
+            });
+        }
+        
+        if (error.message && error.message.includes('Only image files')) {
+            return res.status(400).send({ 
+                message: 'Invalid file type. Please upload an image file (JPEG, PNG, GIF, WebP).' 
+            });
+        }
+        
+        res.status(400).send({ message: error.message });
+    }
+}
+
 // @desc Get discoverable users list (minimal info)
 // @route GET /api/users/discoverable
 // @access Public
@@ -290,3 +331,4 @@ module.exports.changePassword = async (req, res) => {
         res.status(400).send({ message: error.message });
     }
 }
+

@@ -23,7 +23,7 @@ const getUserProfileByUsername = async (username) => {
         username: username.toLowerCase(),
         enableDiscovery: true,
         userType: { $in: ['therapist', 'psychiatrist'] }
-    }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings -enableDiscovery');
+    }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings');
     
     if (!user) {
         throw new Error('User not found or not discoverable');
@@ -33,19 +33,19 @@ const getUserProfileByUsername = async (username) => {
 }
 
 // Function to get detailed profile of a specific user by ID (keeping for backward compatibility)
-// const getUserProfileById = async (userId) => {
-//     const user = await User.findOne({ 
-//         _id: userId,
-//         enableDiscovery: true,
-//         userType: { $in: ['therapist', 'psychiatrist'] }
-//     }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings');
+const getUserProfileById = async (userId) => {
+    const user = await User.findOne({ 
+        _id: userId,
+        enableDiscovery: true,
+        userType: { $in: ['therapist', 'psychiatrist'] }
+    }).select('-password -googleTokens -email -phone -organization -isAdmin -emailVerfied -hasActivePlan -currentPlan -twoFactorAuth -hasResetPassword -tags -calendarSettings');
     
-//     if (!user) {
-//         throw new Error('User not found or not discoverable');
-//     }
+    if (!user) {
+        throw new Error('User not found or not discoverable');
+    }
     
-//     return user;
-// }
+    return user;
+}
 
 const getUserById = async (id, handler) => {
    let user = await User.findById(id);
@@ -116,6 +116,21 @@ const updateUserById = async (id, userData, handler) => {
         return user;
     }
     throw new Error('user not found');
+}
+
+// Function to update user's profile image URL
+const updateProfileImage = async (userId, imageUrl) => {
+    const user = await User.findByIdAndUpdate(
+        userId, 
+        { profileImageUrl: imageUrl },
+        { new: true }
+    ).select('-password -googleTokens');
+    
+    if (!user) {
+        throw new Error('User not found');
+    }
+    
+    return user;
 }
 
 const deleteUserById = async (id, handler) => {
@@ -212,13 +227,14 @@ module.exports = {
     getUsers,
     getDiscoverableUsers,
     getUserProfileByUsername,
-    // getUserProfileById,
+    getUserProfileById,
     getUserById,
     getUserByOpts,
     registerUser,
     loginWithEmailAndPassword,
     registerWithThirdParty,
     updateUserById,
+    updateProfileImage,
     deleteUserById,
     updatePasswordWithoutOld,
 }

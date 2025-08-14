@@ -5,7 +5,7 @@ const bookingController = require('../controllers/booking.controller');
 const { authMiddleware, queryMiddleware } = require('../middlewares');
 const { celebrate } = require('celebrate');
 const { opts, bookingValidation } = require('../validations');
-const { upload } = require('../middlewares');
+const { upload } = require('../middlewares/multer.middleware');
 
 const { requireAuth, hasRole } = authMiddleware;
 

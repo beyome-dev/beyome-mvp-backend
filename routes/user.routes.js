@@ -5,6 +5,7 @@ const { opts, userValidation } = require('../validations');
 const { authMiddleware } = require('../middlewares');
 const { client } = require('../config');
 const { requireAuth, hasRole } = authMiddleware;
+const { profilePictureUpload } = require('../middlewares/multer.middleware');
 
 const router = Router();
 
@@ -31,6 +32,9 @@ router.route('/profile')
         celebrate(userValidation.updateSchema, opts),
     ], userController.updateUserProfile);
 
+// Profile picture upload route with file size and type limits
+router.route('/profile/upload-picture')
+    .post([requireAuth, profilePictureUpload.single('profilePicture')], userController.uploadProfilePicture);
 
 router.route('/get-activation-email')
     .get([celebrate(userValidation.sendRequestEmailSchema, opts)], userController.sendConfirmEmail);
