@@ -72,9 +72,6 @@ const registerUser = async (userData) => {
         throw new Error('email already exists');
     }
 
-    // Remove username from userData to ensure it's only system-generated
-    delete userData.username;
-
     const salt = await bcrypt.genSalt();
     userData.password = await bcrypt.hash(userData.password, salt);
 

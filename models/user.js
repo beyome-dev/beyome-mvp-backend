@@ -117,7 +117,7 @@ const UserSchema = new Schema({
     },
     age: {
         type: Number,
-        required: true
+        default: 0
     },
     password: {
         type: String,
@@ -357,8 +357,8 @@ const generateUsername = async (firstName, lastName) => {
     return username;
 };
 
-// Pre-save middleware to generate username if not provided
-UserSchema.pre('save', async function(next) {
+// Pre-validate middleware to generate username before required validation runs
+UserSchema.pre('validate', async function(next) {
     if (!this.username && this.firstName && this.lastName) {
         this.username = await generateUsername(this.firstName, this.lastName);
     }
