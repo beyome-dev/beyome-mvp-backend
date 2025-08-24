@@ -1,4 +1,4 @@
-const { User, Booking } = require('../models');
+const { User, Booking, UserLoginLog } = require('../models');
 const bcrypt = require('bcryptjs');
 const moment = require('moment-timezone');
 const calendatService = require("./utilityServices/google/googleCalendar.service");
@@ -166,6 +166,11 @@ const loginWithEmailAndPassword = async (email, password) => {
         const auth = user.password ? await bcrypt.compare(password, user.password) : null;
         if (auth) {
             user.password = undefined;
+
+            await UserLoginLog.create({
+                userId: req.user._id,
+                loggedInAt: new Date()
+            });
             return user;
         }
         throw new Error('incorrect password');

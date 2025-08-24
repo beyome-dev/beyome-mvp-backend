@@ -8,6 +8,7 @@ const dashboardRoutes = require('./dashboard.routes');
 const promptRoutes = require('./prompt.routes');
 const waitlistRoutes = require('./waitlist.routes');
 const checklistRoutes = require('./checklist.routes');
+const adminRoutes = require('./admin.routes');
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/clients', clientRoutes);
 router.use('/prompts', promptRoutes);
 router.use('/waitlist', waitlistRoutes);
 router.use('/checklist', checklistRoutes);
+router.use('/admin', adminRoutes);
 
 module.exports = router;

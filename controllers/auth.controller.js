@@ -1,7 +1,6 @@
 const { userService, tokenService, mailerService } = require('../services');
 const passport = require('passport');
 const config = require('../config');
-const { response } = require('express');
 
 // @desc Register new user
 // @route POST /api/auth/register

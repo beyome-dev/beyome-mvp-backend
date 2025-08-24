@@ -49,14 +49,14 @@ const getAttachments = (templateName) => {
 //     return info;
 // }
 
-const transporter = nodemailer.createTransport({
-    host: "smtp-relay.sendinblue.com",
-    port: 587,
-    auth: {
-        user: config.email.brevoUser, // Your Brevo SMTP user
-        pass: config.email.brevoPassword, // Your Brevo SMTP password
-    },
-});
+// const transporter = nodemailer.createTransport({
+//     host: "smtp-relay.sendinblue.com",
+//     port: 587,
+//     auth: {
+//         user: config.email.brevoUser, // Your Brevo SMTP user
+//         pass: config.email.brevoPassword, // Your Brevo SMTP password
+//     },
+// });
 
 // const brevoCampaign = async (to, subject, templateName, data) => {
 //  var SibApiV3Sdk = require('sib-api-v3-sdk');
@@ -93,7 +93,7 @@ const transporter = nodemailer.createTransport({
     
 const brevoSendMail = async (toEmail, toName, subjec, htmlContent, textContent) => {
     let emailAPI = new TransactionalEmailsApi();
-    emailAPI.authentications.apiKey.apiKey = "xkeysib-xxxxxxxxxxxxxxxxxxxxx"
+    emailAPI.authentications.apiKey.apiKey = config.email.brevoApiKey
     let message = new SendSmtpEmail();
     message.subject = subjec;
     if (htmlContent) {
@@ -119,7 +119,7 @@ const sendMail = async (toEmail, toName, subject, templateName, data) => {
     // };
 
     try {
-        await brevoSendMail(toName, toEmail, subject, compiledTemplate(data));
+        await brevoSendMail(toEmail, toName, subject, compiledTemplate(data));
         // await transporter.sendMail(mailOptions);
         // console.log(`Email sent to ${to}`);
         // return { success: true };

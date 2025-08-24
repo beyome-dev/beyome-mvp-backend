@@ -35,6 +35,7 @@ module.exports = {
         service: process.env.EMAIL_SERVICE,
         brevoUser: process.env.BREVO_USERNAME, // Your Brevo SMTP user
         brevoPassword: process.env.BREVO_PASSWORD,
+        brevoApiKey: process.env.BREVO_API_KEY
     },
     client: {
         url: process.env.CLIENT_URL,
@@ -44,8 +45,5 @@ module.exports = {
     },
     salad: {
         apiKey: process.env.SALAD_API_KEY,
-    },
-    team: {
-        email: process.env.TEAM_EMAIL,
     }
 };
