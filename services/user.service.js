@@ -168,7 +168,7 @@ const loginWithEmailAndPassword = async (email, password) => {
             user.password = undefined;
 
             await UserLoginLog.create({
-                userId: req.user._id,
+                userId: user._id,
                 loggedInAt: new Date()
             });
             return user;

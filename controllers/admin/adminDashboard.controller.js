@@ -7,7 +7,7 @@ const config = require('../../config');
 // @access Admin only
 module.exports.getUserAttendance = async (req, res) => {
     try {
-        const { from, to } = req.query;
+        const { from, to, format = 'json' } = req.query;
 
         // Validate required query parameters
         if (!from || !to) {
@@ -26,12 +26,37 @@ module.exports.getUserAttendance = async (req, res) => {
             });
         }
 
+        // Validate format parameter
+        const validFormats = ['json', 'html', 'excel'];
+        if (!validFormats.includes(format)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Format must be one of: json, html, excel'
+            });
+        }
+
         const attendance = await adminDashboardService.getUserAttendance(from, to);
 
-        res.status(200).json({
-            success: true,
-            data: attendance
-        });
+        // Handle different response formats
+        switch (format) {
+            case 'html':
+                const htmlContent = adminDashboardService.convertToHTML(attendance, 'User Attendance Report');
+                res.setHeader('Content-Type', 'text/html');
+                res.setHeader('Content-Disposition', 'inline; filename="user-attendance-report.html"');
+                return res.send(htmlContent);
+
+            case 'excel':
+                const csvContent = adminDashboardService.convertToExcel(attendance, 'User Attendance Report');
+                res.setHeader('Content-Type', 'text/csv');
+                res.setHeader('Content-Disposition', 'attachment; filename="user-attendance-report.csv"');
+                return res.send(csvContent);
+
+            default: // json
+                res.status(200).json({
+                    success: true,
+                    data: attendance
+                });
+        }
     } catch (error) {
         console.error('Error in getUserAttendance:', error);
         res.status(500).json({
@@ -46,12 +71,56 @@ module.exports.getUserAttendance = async (req, res) => {
 // @access Admin only
 module.exports.getUserStatistics = async (req, res) => {
     try {
-        const userStats = await adminDashboardService.getUserStatistics();
+        const { from, to, format = 'json' } = req.query;
 
-        res.status(200).json({
-            success: true,
-            data: userStats
-        });
+        // Validate format parameter
+        const validFormats = ['json', 'html', 'excel'];
+        if (!validFormats.includes(format)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Format must be one of: json, html, excel'
+            });
+        }
+
+        // Validate date format if provided
+        if (from || to) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (from && !dateRegex.test(from)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'From date format should be YYYY-MM-DD'
+                });
+            }
+            if (to && !dateRegex.test(to)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'To date format should be YYYY-MM-DD'
+                });
+            }
+        }
+
+        const userStats = await adminDashboardService.getUserStatistics(from, to);
+
+        // Handle different response formats
+        switch (format) {
+            case 'html':
+                const htmlContent = adminDashboardService.convertToHTML(userStats, 'User Statistics Report');
+                res.setHeader('Content-Type', 'text/html');
+                res.setHeader('Content-Disposition', 'inline; filename="user-statistics-report.html"');
+                return res.send(htmlContent);
+
+            case 'excel':
+                const csvContent = adminDashboardService.convertToExcel(userStats, 'User Statistics Report');
+                res.setHeader('Content-Type', 'text/csv');
+                res.setHeader('Content-Disposition', 'attachment; filename="user-statistics-report.csv"');
+                return res.send(csvContent);
+
+            default: // json
+                res.status(200).json({
+                    success: true,
+                    data: userStats
+                });
+        }
     } catch (error) {
         console.error('Error in getUserStatistics:', error);
         res.status(500).json({
