@@ -9,7 +9,7 @@ exports.createWaitlistEntry = async (req, res) => {
         const { firstName, lastName, email, phone, specialty, organization } = req.body;
         // Send email to the internal team
         await mailerService.sendMail(
-            config.email.email, "Beyome", // Internal team email
+            config.team.email,  config.team.name, // Internal team email
             'New Waitlist Request',
             'waitlist-email', // Template name
             {

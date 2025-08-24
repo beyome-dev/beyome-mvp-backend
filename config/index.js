@@ -45,5 +45,9 @@ module.exports = {
     },
     salad: {
         apiKey: process.env.SALAD_API_KEY,
+    },
+    team: {
+        email: process.env.TEAM_EMAIL,
+        name:  process.env.TEAM_NAME
     }
 };

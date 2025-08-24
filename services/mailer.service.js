@@ -103,7 +103,18 @@ const brevoSendMail = async (toEmail, toName, subjec, htmlContent, textContent) 
         message.textContent = textContent;
     }
     message.sender = { name: "Recapp", email: email };
-    message.to = [{ email: toEmail, name: toName }];
+    
+    // Split emails and names by comma
+    const emails = toEmail.split(',').map(email => email.trim());
+    const names = toName ? toName.split(',').map(name => name.trim()) : [];
+    
+    // Create recipients array
+    const recipients = emails.map((email, index) => {
+        const name = names[index] || "Therapist"; // Use "Therapist" as default if name not provided
+        return { email, name };
+    });
+    
+    message.to = recipients;
     await emailAPI.sendTransacEmail(message)
 }
 
