@@ -12,9 +12,13 @@ module.exports.registerUser = async (req, res) => {
 
         const emailToken = tokenService.createToken({ id: user.id, email: user.email }, config.jwt.emailSecret, '6h');
 
-        const url = config.client.confirmUrl + emailToken;
-
-        mailerService.sendMail(user.email, user.firstNam, 'Confirm Email', 'confirm-email', { url: url, name: user.firstName });
+        const loginUrl = config.client.url + `/login`;
+        mailerService.sendMail(user.email, user.firstName, 'Your Recapp Account Is Now Active!', 'register-email', {
+            firstName: user.firstName, 
+            temporaryPassword: req.body.password, 
+            userEmail: user.email, 
+            loginLink: loginUrl 
+        });
 
         res.status(201).send({ user, token });
     } catch (error) {
@@ -91,7 +95,7 @@ module.exports.loginWithEmailAndPassword = (req, res, next) => {
             // const url = config.client.firstTimePasswordResetUrl + emailToken;
 
             // Send the email with the token
-            // mailerService.sendMail(user.email, 'First Time Password Reset', 'first-time-password-reset', { url: url, name: user.firstName });
+            mailerService.sendMail(user.email, user.firstName, 'Welcome to Recapp', 'first-login-email', { firstName: user.firstName });
         }
         res.send(response);
 
