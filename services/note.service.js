@@ -31,6 +31,7 @@ const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
     const notes =  await Note.find(filter).select({ 
         "_id": 1,
+        'summary': 1,
         "clientName": 1,
         "title": 1,
         "visitType": 1,

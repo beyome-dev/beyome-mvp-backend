@@ -71,4 +71,6 @@ router.route('/password-reset/first-login')
 router.route('/change-password/')
     .post([requireAuth, celebrate(userValidation.changePasswordSchema, opts)], userController.firstTimePasswordReset);
 
+router.route('/client-request/:username').post(userController.clientRequest);
+
 module.exports = router;

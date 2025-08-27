@@ -332,3 +332,28 @@ module.exports.changePassword = async (req, res) => {
     }
 }
 
+// @desc    Send client request to a user
+// @route   POST /api/users/client-request/:id
+// @access  Public
+module.exports.clientRequest = async (req, res) => {
+    try {
+        const { fullName, phone, email, agenda } = req.body;
+        const user = await userService.getUserProfileByUsername(req.params.username);
+        await mailerService.sendMail(
+            user.email, user.firstName, 
+            'New 15-Minute Intro Call Request From',
+            'client-request', // Template name
+            {
+                therapistName: user.firstName,
+                fullName,
+                email,
+                phone,
+                agenda: agenda || 'N/A'
+            }
+        );
+
+        res.status(200).send({ message: 'success' });
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+}
