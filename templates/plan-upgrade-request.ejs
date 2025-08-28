@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plan Upgrade Request</title>
+</head>
+<body style="margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; background-color:#f8f9fa; color:#333;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f8f9fa; padding:20px;">
+    <tr>
+      <td align="center">
+        <table width="600" border="0" cellspacing="0" cellpadding="20" style="background:#ffffff; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="font-size:16px; line-height:1.6; color:#333;">
+              <p style="margin:0 0 16px 0;">Hi Team,</p>
+
+              <p style="margin:0 0 16px 0;">
+                A user has requested an upgrade from their current plan.  
+                Here are the details:
+              </p>
+
+              <table width="100%" cellpadding="8" cellspacing="0" border="0" style="border-collapse:collapse; margin:16px 0;">
+                <tr>
+                  <td style="font-weight:bold; width:150px; border-bottom:1px solid #eee;">First Name:</td>
+                  <td style="border-bottom:1px solid #eee;"><%= firstName ? firstName : "N/A" %></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:bold; border-bottom:1px solid #eee;">Last Name:</td>
+                  <td style="border-bottom:1px solid #eee;"><%= lastName ? lastName : "N/A" %></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:bold; border-bottom:1px solid #eee;">Email:</td>
+                  <td style="border-bottom:1px solid #eee;"><%= email ? email : "N/A" %></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:bold; border-bottom:1px solid #eee;">Phone:</td>
+                  <td style="border-bottom:1px solid #eee;"><%= phone ? phone : "N/A" %></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:bold; border-bottom:1px solid #eee;">User ID:</td>
+                  <td style="border-bottom:1px solid #eee;"><%= userId ? userId : "N/A" %></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:bold;">Requested Plan:</td>
+                  <td><%= upgradePlan ? upgradePlan : "N/A" %></td>
+                </tr>
+              </table>
+
+              <p style="margin:16px 0;">
+                Please review and process this request accordingly.
+              </p>
+
+              <p style="margin:0;">Best regards,<br/><strong>Recapp System</strong></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

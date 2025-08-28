@@ -143,3 +143,53 @@ module.exports.getClientData = async (req, res) => {
         res.status(400).json({ message: error.message });
     }
 };
+
+// @desc Upload profile picture
+// @route POST /api/clients/:id/upload-consent-form
+// @access Private
+module.exports.uploadConsentForm = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).send({ 
+                message: 'No file uploaded or invalid file type. Please upload an doc/image file (PDF, MSDOC, JPEG, PNG, GIF, WebP) under 30MB.' 
+            });
+        }
+        if (!req.params.id) {
+             return res.status(400).send({ 
+               message: 'Please specify the client details' 
+            });
+        }
+        if (!req.query.type || (req.query.type != 'recapp' && req.query.type != 'therapist')) {
+            return res.status(400).send({ 
+                message: 'Please specify the type as either "recapp" or "therapist" in the query parameters.' 
+            });
+        }
+        // Generate the file URL
+        const baseUrl = req.protocol + '://' + req.get('host');
+        const fileUrl = `${baseUrl}/api/uploads/${req.file.filename}`;
+
+        // Update user's profile image URL
+        const updatedClient = await clientService.updateConsentForm(req.params.id, fileUrl,req.query.type);
+
+        res.status(200).send({
+            message: 'Consent form uploaded successfully',
+            fileUrl: fileUrl,
+            user: updatedClient
+        });
+    } catch (error) {
+        // Handle multer errors specifically
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).send({ 
+                message: 'File too large. Please upload an image file under 30MB.' 
+            });
+        }
+        
+        if (error.message && error.message.includes('Only image files')) {
+            return res.status(400).send({ 
+                message: 'Invalid file type. Please upload an image file (PDF, MSDOC, JPEG, PNG, GIF, WebP).' 
+            });
+        }
+        
+        res.status(400).send({ message: error.message });
+    }
+}

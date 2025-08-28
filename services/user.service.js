@@ -13,7 +13,7 @@ const getDiscoverableUsers = async () => {
     const users = await User.find({ 
         enableDiscovery: true,
         userType: { $in: ['therapist', 'psychiatrist'] } // Only therapists and psychiatrists
-    }).select('firstName lastName title profileImageUrl specialty age yearsOfExperience languages areaOfExpertise username -_id');
+    }).select('firstName lastName title profileImageUrl specialty age yearsOfExperience languages areaOfExpertise username email -_id');
     return users;
 }
 

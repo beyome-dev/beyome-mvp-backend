@@ -14,37 +14,41 @@ const storage = multer.diskStorage({
     }
 });
 
-// File filter for profile pictures
-const profilePictureFilter = (req, file, cb) => {
-    // Check file type
-    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-        return cb(new Error('Only image files (JPEG, PNG, GIF, WebP) are allowed'), false);
-    }
-    
-    // Check file extension
-    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    const fileExtension = path.extname(file.originalname).toLowerCase();
-    
-    if (!allowedExtensions.includes(fileExtension)) {
-        return cb(new Error('Only image files (JPEG, PNG, GIF, WebP) are allowed'), false);
-    }
-    
-    cb(null, true);
-};
+// Dynamic file filter middleware generator
+function createUploadMiddleware({ allowedMimeTypes, allowedExtensions, limits }) {
+    const fileFilter = (req, file, cb) => {
+        if (allowedMimeTypes && !allowedMimeTypes.includes(file.mimetype)) {
+            return cb(new Error(`Only files of types: ${allowedMimeTypes.join(', ')} are allowed`), false);
+        }
+        if (allowedExtensions) {
+            const fileExtension = path.extname(file.originalname).toLowerCase();
+            if (!allowedExtensions.includes(fileExtension)) {
+                return cb(new Error(`Only files with extensions: ${allowedExtensions.join(', ')} are allowed`), false);
+            }
+        }
+        cb(null, true);
+    };
 
-// General upload configuration
-const upload = multer({ storage });
+    return multer({
+        storage,
+        fileFilter,
+        limits
+    });
+}
 
-// Profile picture specific upload configuration
-const profilePictureUpload = multer({
-    storage: storage,
-    fileFilter: profilePictureFilter,
+
+
+// For profile pictures
+const profilePictureUpload = createUploadMiddleware({
+    allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
+    allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
     limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB limit
-        files: 1 // Only allow 1 file
+        fileSize: 5 * 1024 * 1024, // 5MB
+        files: 1
     }
 });
 
-module.exports = { upload, profilePictureUpload };
+// General upload (no restrictions)
+const upload = multer({ storage });
+
+module.exports = { upload, profilePictureUpload, createUploadMiddleware };

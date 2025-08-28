@@ -4,6 +4,7 @@ const { celebrate } = require('celebrate');
 const { opts, clientValidation } = require('../validations');
 const { authMiddleware } = require('../middlewares');
 const { requireAuth, hasRole } = authMiddleware;
+const { createUploadMiddleware } = require('../middlewares/multer.middleware');
 
 const router = Router();
 
@@ -39,4 +40,20 @@ router.route('/names')
         hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')
     ], clientController.getClientNames)
 
+    // Profile picture upload route with file size and type limits
+router.route('/:id/upload-consent-form')
+    .post([requireAuth, createUploadMiddleware({
+        allowedMimeTypes: [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+            'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ],
+        allowedExtensions: [
+            '.jpg', '.jpeg', '.png', '.gif', '.webp',
+            '.pdf', '.doc', '.docx'
+        ],
+        limits: {
+            fileSize: 30 * 1024 * 1024, // 30MB
+            files: 2
+        }
+    }).single("file")], clientController.uploadConsentForm);
 module.exports = router;

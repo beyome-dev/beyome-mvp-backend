@@ -417,6 +417,31 @@ const getClientsWithData = async (filter = {}, page = 1, limit = 10, handler) =>
     };
 }
 
+// Function to update user's profile image URL
+const updateConsentForm = async (clientId, fileUrl, type) => {
+    let updateData = {}
+    if (type === 'therapist') {
+        updateData.therapistConsentSigned = true;
+        updateData.therapistConsentDate = new Date();
+        updateData.therapistConsentUrl = fileUrl;
+    } else if (type === 'recapp') {
+        updateData.recappConsentSigned = true;
+        updateData.recappConsentDate = new Date();
+        updateData.recappConsentUrl = fileUrl;
+    }
+    const client = await Client.findByIdAndUpdate(
+        clientId, 
+        updateData,
+        { new: true }
+    )
+    
+    if (!client) {
+        throw new Error('Client not found');
+    }
+    
+    return client;
+}
+
 module.exports = {
     createClient,
     getClientById,
@@ -425,6 +450,7 @@ module.exports = {
     getClientNames,
     getClients,
     getClientDataByID,
-    getClientsWithData
+    getClientsWithData,
+    updateConsentForm
 }
 

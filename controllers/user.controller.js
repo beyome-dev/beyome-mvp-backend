@@ -357,3 +357,33 @@ module.exports.clientRequest = async (req, res) => {
         res.status(400).send({ message: error.message });
     }
 }
+
+// @desc    Send client request to a user
+// @route   POST /api/users/plan-upgrade
+// @access  Private
+module.exports.planUpgrade = async (req, res) => {
+    try {
+        const { plan } = req.body;
+
+        if (!req.user || !req.user.id) {
+            return res.status(404).send({ message: 'user not found' });
+        }
+        await mailerService.sendMail(
+            config.team.email,  config.team.name, // Internal team email
+            'Plan updagrade request from '+req.user.firstName,
+            'plan-upgrade-request', // Template name
+            {
+                firstName: req.user.firstName,
+                lastName: req.user.lastName,
+                email: req.user.email,
+                phone: req.user.phone,
+                userId: req.user._id,
+                upgradePlan: plan || 'N/A',
+            }
+        );
+
+        res.status(200).send({ message: 'success' });
+    } catch (error) {
+        res.status(400).send({ message: error.message });
+    }
+}

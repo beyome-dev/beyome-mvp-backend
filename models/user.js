@@ -314,12 +314,16 @@ const UserSchema = new Schema({
             'early-access',     // For the beta phase
             'starter',          // For new users limit with 500 session
             'professional',     // For single user with unlimited acces
-            'clinic',           // For single clinic, included multiple users and managed by organization admin
+            'teams',            // For single clinic, included multiple users and managed by organization admin
             'enterprise',       // For multi clinic, included multiple users and clinics. Managed by organization admin
             'demo',             // For demo use
             'internal'          // For internal testing and other in house usage
         ],
         default: 'early-access'
+    },
+    planDueDate: {
+        type: Date,
+        default: null,
     },
     twoFactorAuth: {
         type: Boolean,

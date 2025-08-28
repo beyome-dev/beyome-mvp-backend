@@ -162,12 +162,25 @@ const ClientSchema = new Schema({
             }
         }
     ],
-    consentSigned: {
+    therapistConsentSigned: {
         type: Boolean,
         default: false
     },
-    consentDate: {
+    therapistConsentDate: {
         type: Date
+    },
+    therapistConsentUrl: {
+        type: String
+    },
+    recappConsentSigned: {
+        type: Boolean,
+        default: false
+    },
+    recappConsentDate: {
+        type: Date
+    },
+    recappConsentUrl: {
+        type: String
     },
     tags:   {
         type: [String],

@@ -73,4 +73,7 @@ router.route('/change-password/')
 
 router.route('/client-request/:username').post(userController.clientRequest);
 
+router.route('/plan-upgrade')
+    .post([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], userController.planUpgrade);
+
 module.exports = router;
