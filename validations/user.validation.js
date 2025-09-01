@@ -3,6 +3,7 @@ const { Joi, Segments, CelebrateError } = require('celebrate');
 const passwordMessage = 'password must contain at least one uppercase letter, one lowercase letter, and one numeric digit';
 
 const specialtyEnum = [
+    'Therapist',
     'Clinical Psychologist',
     'Counseling Psychologist',
     'Child Psychologist',

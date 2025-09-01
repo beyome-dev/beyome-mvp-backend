@@ -125,6 +125,7 @@ const UserSchema = new Schema({
     specialty: {
         type: String,
         enum: [
+            'Therapist',
             'Clinical Psychologist',
             'Counseling Psychologist',
             'Child Psychologist',
