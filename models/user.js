@@ -115,6 +115,9 @@ const UserSchema = new Schema({
             message: (props) => `${props.value} is not a valid phone number`
         }
     },
+    dateOfBirth: {
+        type: Date,
+    },
     age: {
         type: Number,
         default: 0
@@ -150,7 +153,6 @@ const UserSchema = new Schema({
         ],
         required: false
     },
-    
     organization: {
         type: String,
     },
@@ -178,6 +180,10 @@ const UserSchema = new Schema({
     price: {
         type: Number,
         required: false
+    },
+    scalablePrice : {
+        type: Boolean,
+        default: false,
     },
     yearsOfExperience: {
         type: Number,
