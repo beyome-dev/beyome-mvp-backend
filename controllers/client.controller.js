@@ -25,7 +25,7 @@ module.exports.getClients = async (req, res) => {
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
 
-        filters = req.user.clientType === "receptionist" || req.user.clientType === "org_admin"
+        filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
             ? { organization: req.user.organization, ...filters }
             : { handler: req.user._id, ...filters };
         const clients = await clientService.getClients(filters, page, limit, req.user);
@@ -45,7 +45,7 @@ module.exports.getClientById = async (req, res) => {
             page = parseInt(page) || 1;
             limit = parseInt(limit) || 10;
 
-            filters = req.user.clientType === "receptionist" || req.user.clientType === "org_admin"
+            filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
                 ? { organization: req.user.organization, ...filters }
                 : { handler: req.user._id, ...filters };
             const client = await clientService.getClientsWithData(filters, page, limit, req.user);
@@ -56,7 +56,7 @@ module.exports.getClientById = async (req, res) => {
             page = parseInt(page) || 1;
             limit = parseInt(limit) || 10;
 
-            filters = req.user.clientType === "receptionist" || req.user.clientType === "org_admin"
+            filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
                 ? { organization: req.user.organization, ...filters }
                 : { handler: req.user._id, ...filters };
 
@@ -108,7 +108,7 @@ module.exports.getClientNames = async (req, res) => {
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
 
-        filters = req.user.clientType === "receptionist" || req.user.clientType === "org_admin"
+        filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
             ? { organization: req.user.organization, ...filters }
             : { handler: req.user._id, ...filters };
 
@@ -125,7 +125,7 @@ module.exports.getClientsWithInfo = async (req, res) => {
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
 
-        filters = req.user.clientType === "receptionist" || req.user.clientType === "org_admin"
+        filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
             ? { organization: req.user.organization, ...filters }
             : { handler: req.user._id, ...filters };
         const client = await clientService.getClientsWithData(filters, page, limit, req.user);

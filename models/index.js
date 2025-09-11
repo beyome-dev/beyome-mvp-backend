@@ -7,6 +7,7 @@ const Booking = require('./booking');
 const Waitlist = require('./waitlist');
 const Checklist = require('./checklist');
 const UserLoginLog = require('./userLoginLog');
+const Config = require('./config')
 
 module.exports = {
     User,
@@ -17,5 +18,6 @@ module.exports = {
     Client,
     Waitlist,
     Checklist,
-    UserLoginLog
+    UserLoginLog,
+    Config,
 }

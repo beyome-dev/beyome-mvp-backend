@@ -196,8 +196,8 @@ const saveAudio = async (file, query, user) => {
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
         let promptFilter = { formatName: "SOAP", aiEngine: "Gemini" }
-        if (prompt != '' && prompt != undefined) {
-            promptFilter = { _id: new mongoose.Types.ObjectId(prompt) }
+        if (typeof prompt === 'string' && prompt.trim() !== '') {
+            promptFilter = { _id: mongoose.Types.ObjectId.createFromHexString(prompt) }
         }
         const promptData = await Prompt.findOne(promptFilter); 
         if (!promptData) throw new Error("Prompt data not found");
@@ -210,7 +210,7 @@ const saveAudio = async (file, query, user) => {
         const note = new Note({
             title: `Clinical Note for ${clientData.firstName} ${clientData.lastName}`,
             visitType: "Follow up",
-            visitDate: new Date(),
+            visitDate: visitDate,
             summary: "Generating...",
             subjective: "Generating...",
             objective: "Generating...",
@@ -229,7 +229,8 @@ const saveAudio = async (file, query, user) => {
             status: "pending",
             assessment: 'Generating...',
             plan: 'Generating...',
-            inputContentType: contentType,
+            inputContentType: "audio",
+            noteType: contentType,
         });
         const noteData = await note.save();
 
@@ -260,6 +261,94 @@ const saveAudio = async (file, query, user) => {
         throw error;
     }
 };
+
+const manualNoteGeneration = async (input, client, booking, type, prompt, user, io) => {
+    try {
+        let visitDate = new Date();
+        if (booking) {
+            const bookingData = await bookingService.getBookingById(booking);
+            if (!bookingData) {
+                throw new Error("Booking not found");
+            }
+            if (bookingData.handler._id.toString() != user._id.toString()) {
+                throw new Error("Not authorized to access this booking");
+            }
+            // Combine booking.date and booking.time (assumed format: "HH:mm")
+            if (bookingData.date && bookingData.time) {
+                // booking.date is a Date or ISO string, booking.time is "HH:mm"
+                const datePart = new Date(bookingData.date);
+                const [hours, minutes] = bookingData.time.split(':').map(Number);
+
+                // Set IST time
+                datePart.setHours(hours, minutes, 0, 0);
+
+                // Convert IST to UTC (IST is UTC+5:30)
+                // Subtract 5 hours and 30 minutes
+                datePart.setMinutes(datePart.getMinutes() - 330);
+
+                visitDate = new Date(datePart);
+            } else {
+                visitDate = bookingData.date ? new Date(bookingData.date) : new Date();
+            }
+            client = bookingData.client._id;
+        } 
+        let clientData =await clientService.getClientById(client);
+        if (!clientData) {
+            throw new Error("Client not found");
+        }
+        let promptFilter = { formatName: "SOAP", aiEngine: "Gemini" }
+        if (prompt != '' && prompt != undefined) {
+            promptFilter = { _id: new mongoose.Types.ObjectId(prompt) }
+        }
+        const promptData = await Prompt.findOne(promptFilter); 
+        if (!promptData) throw new Error("Prompt data not found");
+        let contentType = "Citation Note"
+        if (type === "dictation") {
+            contentType = "Dictation";
+        } else if (req.query.type === "recording") {
+            contentType = "Recording";
+        }
+        const note = new Note({
+            title: `Clinical Note for ${clientData.firstName} ${clientData.lastName}`,
+            visitType: "Follow up",
+            visitDate: visitDate,
+            summary: "Generating...",
+            subjective: "Generating...",
+            objective: "Generating...",
+            inputContent: input,
+            outputContent: "Generating...",
+            formattedOutputContent: "Generating...",
+            sessionTranscript: input,
+            clientInstructions: "Generating...",
+            noteFormat: promptData.formatName,
+            tags: ["soap", `${clientData.firstName} ${clientData.lastName}`],
+            user: user._id,
+            client: clientData._id,
+            booking: booking,
+            organization: user.organization,
+            prompt: new mongoose.Types.ObjectId(promptData._id),
+            status: "processing",
+            assessment: 'Generating...',
+            plan: 'Generating...',
+            inputContentType: "text",
+            noteType: contentType,
+        });
+        const updatedNote = await note.save();
+
+        if (booking) {
+            await Booking.findByIdAndUpdate(booking, { dictationNote: noteData._id, status: "generating-note" }, { new: false });
+        }
+        // Call Salad API for transcription
+        generateSOAPNote(input, updatedNote._id, io);
+
+        return {
+            note: updatedNote
+        };
+    } catch (error) {
+        console.error('Error saving file:', error.message);
+        throw error;
+    }
+}
 
 // Function to request transcription from Salad API
 const requestTranscription = async (fileUrl, noteId) => {
@@ -350,7 +439,7 @@ const generateSOAPNote = async (transcript, noteId, io) => {
             }
             await Booking.findByIdAndUpdate(note.booking, { status: "completed" }, { new: false });
         }
-        generateClientSummaryAndUpdateFromNote(note)
+        await generateClientSummaryAndUpdateFromNote(note)
         return note;
     } catch (error) {
         const note = await Note.findByIdAndUpdate(noteId, {
@@ -713,4 +802,5 @@ module.exports = {
     reprocessNote,
     extractSpeakerSentencesFromTimestamps,
     generateTherapyNotePDF,
+    manualNoteGeneration,
 }

@@ -8,11 +8,27 @@ const PromptSchema = new Schema({
         unique: true,
         required: true
     },
+    shortDescription: {
+        type: String,
+        required: true
+    },
+    longDescription: {
+        type: String,
+        required: true
+    },
     promptText: {
         type: [String]
     },
     systemInstructions: {
         type: String,
+        required: true
+    },
+    categories: {
+        type: [String],
+        required: true
+    },
+    specialtyTypes: {
+        type: [String],
         required: true
     },
     aiEngine: {
@@ -27,6 +43,10 @@ const PromptSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
+    },
+    organization: {
+        type: Schema.Types.ObjectId,
+        ref: 'Organization',
     }
 }, { timestamps: true });
 

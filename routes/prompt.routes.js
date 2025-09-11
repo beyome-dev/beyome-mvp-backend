@@ -14,6 +14,9 @@ router.route('/')
         requireAuth,
         hasRole('platform_admin'),
     ], promptController.createPrompt);
+    
+router.route('/enabled')
+    .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], promptController.getEnabledPrompts)
 
 router.route('/profile')
     .get([requireAuth], (req, res) => res.status(404).send('Not implemented'))

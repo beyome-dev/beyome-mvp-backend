@@ -39,6 +39,11 @@ const NoteSchema = new Schema({
     inputContentType: {
         type: String,
         required: true,
+        enum: ['audio', 'text'],
+    },
+    noteType:{
+        type: String,
+        required: true,
         enum: ['Recording', 'Dictation', 'Citation Note'],
     },// eg. Recording, Dictation, Citation Note
     outputContent: {

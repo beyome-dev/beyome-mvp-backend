@@ -42,33 +42,37 @@ const processRunningJobs = async (io) => {
                 await Note.findByIdAndUpdate(note._id, { status: 'failed' });
                 continue;
             }
-
-            if (!note.saladJobId) {
-                await Note.findByIdAndUpdate(note._id, { status: 'failed' });
-                console.warn(`Skipping note ${note._id} - No Salad Job ID found.`);
-                continue;
-            }
-
-            try {
-                // Fetch job status from Salad API
-                const response = await axios.get(`${SALAD_API_URL}${note.saladJobId}`, {
-                    headers: { 'Salad-Api-Key': SALAD_API_KEY }
-                });
-
-                if (response.status === 200 && response.data.status === 'succeeded') {
-                    console.log(`Job ${note.saladJobId} succeeded, processing SOAP note...`);
-                    if (response.data.output.error && response.data.output.error != '') {
-                        throw new Error(response.data.output.error);
+            if (note.inputContentType == 'text') {
+                await noteService.generateSOAPNote(note.inputContent, note._id, io);
+            } else {
+                try {
+                    let transcript = note.transcript
+                    if (!transcript) {
+                        if (!note.saladJobId) {
+                            await Note.findByIdAndUpdate(note._id, { status: 'failed' });
+                            console.warn(`Skipping note ${note._id} - No Salad Job ID found.`);
+                            continue;
+                        }
+                        // Fetch job status from Salad API
+                        const response = await axios.get(`${SALAD_API_URL}${note.saladJobId}`, {
+                        headers: { 'Salad-Api-Key': SALAD_API_KEY }
+                        });
+                        if (response.status === 200 && response.data.status === 'succeeded') {
+                            console.log(`Job ${note.saladJobId} succeeded, processing SOAP note...`);
+                            if (response.data.output.error && response.data.output.error != '') {
+                                throw new Error(response.data.output.error);
+                            }
+                            transcript = noteService.extractSpeakerSentencesFromTimestamps(response.data);
+                            // Call service function with socket.io instance
+                    
+                        } else {
+                            console.log(`Job ${note.saladJobId} status: ${response.data.status}`);
+                        }
                     }
-                    const transcript = noteService.extractSpeakerSentencesFromTimestamps(response.data);
-                    // Call service function with socket.io instance
                     await noteService.generateSOAPNote(transcript, note._id, io);
-                } else {
-                    console.log(`Job ${note.saladJobId} status: ${response.data.status}`);
+                } catch (error) {
+                    console.error(`Error fetching job ${note.saladJobId}:`, error.message);
                 }
-
-            } catch (error) {
-                console.error(`Error fetching job ${note.saladJobId}:`, error.message);
             }
         }
     } catch (error) {

@@ -29,6 +29,30 @@ module.exports.saveAudio = async (req, res) => {
     }
 };
 
+module.exports.CreateManualNote = async(req, res) => {
+  try {
+
+      const {input, client, booking, type, prompt} = req.body
+    if (!client && !booking) {
+        return res.status(400).json({ message: 'Require client/booking reference' });
+      }
+
+       // Get the Socket.io instance
+      const io = req.app.get('socketio');
+
+      const result = await noteService.manualNoteGeneration(input, client, booking, type, prompt, req.user, io);
+      if (!result) {
+        return res.status(400).json({ message: 'Failed to process recording'});
+      }
+      return res.status(201).json({
+        message: 'Note has started generating',
+        note: result.note ? result.note : null
+      });
+  } catch (error) {
+
+  }
+}
+
 // @desc Listen to Salad API webhook response
 // @route POST /api/webhook/salad?id=<note id>
 // @access Public

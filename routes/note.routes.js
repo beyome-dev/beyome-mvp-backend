@@ -44,9 +44,16 @@ router.route('/saveAudio')
         upload.single('audio')
     ], noteController.saveAudio);
 
+router.route('/manual-note')
+    .post([
+        requireAuth,
+        roleMiddleware
+    ],noteController.CreateManualNote)
+
 router.route('/:id/download')
     .get([requireAuth,
         roleMiddleware,
     ], noteController.downloadTherapyNotePDF)
+
     
 module.exports = router;

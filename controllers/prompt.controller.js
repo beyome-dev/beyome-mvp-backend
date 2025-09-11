@@ -5,7 +5,8 @@ const {
     getPrompts,
     getPromptById,
     updatePrompt,
-    deletePrompt
+    deletePrompt,
+    getEnabledPrompts
 } = require('../services/prompt.service');
 
 // Create a new prompt
@@ -26,14 +27,35 @@ exports.getPrompts = async (req, res) => {
         let fields = null;
         if (!req.user.isAdmin) {
             filter = { approved: true, ...filter };
-            fields = 'formatName'; // Only return the name field for non-admins
+            fields = 'formatName shortDescription categories'; // Only return the name field for non-admins
         }
         const result = await getPrompts({
             page: Number(page) || 1,
             limit: Number(limit) || 10,
             filter,
             fields
-        });
+        }, req.user);
+        res.status(200).json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+
+exports.getEnabledPrompts = async (req, res) => {
+    try {
+        let { page, limit, ...filter } = req.query;
+        let fields = null;
+        if (!req.user.isAdmin) {
+            filter = { approved: true, ...filter };
+            fields = 'formatName shortDescription categories'; // Only return the name field for non-admins
+        }
+        const result = await getEnabledPrompts({
+            page: Number(page) || 1,
+            limit: Number(limit) || 10,
+            filter,
+            fields
+        }, req.user);
         res.status(200).json(result);
     } catch (err) {
         res.status(400).json({ error: err.message });

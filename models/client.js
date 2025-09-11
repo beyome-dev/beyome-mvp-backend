@@ -80,7 +80,8 @@ const ClientSchema = new Schema({
         required: false
     },
     organization: {
-        type: String,
+        type: Schema.Types.ObjectId,
+        ref: 'Organization',
     },
     picture: {
         type: String,

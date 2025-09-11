@@ -3,8 +3,16 @@ const bcrypt = require('bcryptjs');
 const moment = require('moment-timezone');
 const calendatService = require("./utilityServices/google/googleCalendar.service");
 
-const getUsers = async (id) => {
-    const users = await User.find({}).select('-password');
+const getUsers = async (user) => {
+    let filter = {}
+    if (user && user.userType != 'platform_admin') {
+        if (user.userType === "receptionist" || user.userType === "org_admin" || user.organization) {
+            filter = { organization: user.organization }
+        } else {
+            throw new Error('Unauthorized user');
+        }   
+    }
+    const users = await User.find(filter).select('-password');
     return users;
 }
 

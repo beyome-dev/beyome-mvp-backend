@@ -153,7 +153,7 @@ module.exports.createUser = async (req, res) => {
 // @access  Private/Admin
 module.exports.getUsers = async (req, res) => {
     try {
-        const users = await userService.getUsers();
+        const users = await userService.getUsers(req.user);
         res.status(200).send(users);
     } catch (error) {
         res.status(400).send({ message: error.message });

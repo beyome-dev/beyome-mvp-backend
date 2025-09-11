@@ -10,7 +10,7 @@ const { profilePictureUpload } = require('../middlewares/multer.middleware');
 const router = Router();
 
 router.route('/')
-    .get([requireAuth, hasRole('platform_admin')], userController.getUsers)
+    .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], userController.getUsers)
     .post([
         requireAuth,
         hasRole('platform_admin'),
