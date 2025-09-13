@@ -1,4 +1,4 @@
-const { userService, tokenService, mailerService } = require('../services');
+const { userService, tokenService, mailerService, configService } = require('../services');
 const passport = require('passport');
 const config = require('../config');
 
@@ -8,9 +8,16 @@ const config = require('../config');
 module.exports.registerUser = async (req, res) => {
     try {
         const user = await userService.registerUser(req.body);
+        configService.createConfig({
+                "scope": "user",
+                "role": "default",
+                "backgroundColor": "#FFFFFF",
+                "fontColor": "#000000",
+                "promptIds": []
+        }, user)
         const token = tokenService.createToken({ id: user.id, email: user.email });
 
-        const emailToken = tokenService.createToken({ id: user.id, email: user.email }, config.jwt.emailSecret, '6h');
+        // const emailToken = tokenService.createToken({ id: user.id, email: user.email }, config.jwt.emailSecret, '6h');
 
         const loginUrl = config.client.url + `/login`;
         mailerService.sendMail(user.email, user.firstName, 'Your Recapp Account Is Now Active!', 'register-email', {
@@ -79,15 +86,26 @@ module.exports.resetPassword = async (req, res) => {
 // @route POST /api/auth/login
 // @access Public
 module.exports.loginWithEmailAndPassword = (req, res, next) => {
-    passport.authenticate('local', { session: false }, (error, user, info) => {
+    passport.authenticate('local', { session: false }, async (error, user, info) => {
         if (error) { return res.status(500).send({ message: error.message }); }
 
         if (!user) {
             return res.status(500).send({ message: info.message })
         }
+        let config = await configService.GetUserConfig(user)
+        if (!config) {
+            config = await configService.createConfig({
+                "scope": "user",
+                "role": "default",
+                "backgroundColor": "#FFFFFF",
+                "fontColor": "#000000",
+                "promptIds": []
+            }, user)
+        }
         let response = {
             user: user,
             token: tokenService.createToken({ id: user.id, email: user.email }),
+            config: config
         }
         if (!user.hasResetPassword) {
             // Create a one-time token for first-time password reset

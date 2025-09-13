@@ -26,7 +26,7 @@ router.route('/profile')
     ], (req, res) => res.status(404).send('Not implemented'));
 
 router.route('/:id')
-    .get([requireAuth, hasRole('platform_admin')], promptController.getPromptById)
+    .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], promptController.getPromptById)
     .delete([requireAuth, hasRole('platform_admin')], promptController.deletePrompt)
     .put([
         requireAuth,

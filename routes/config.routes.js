@@ -20,7 +20,7 @@ router.route('/')
 router.route('/:id')
     .get([requireAuth, roleMiddleware], configController.getConfig)
     .put([requireAuth, roleMiddleware], configController.updateConfig)
-    .delete([requireAuth, hasRole('platform_admin', 'org_admin')], configController.deleteConfig);
+    .delete([requireAuth, hasRole('platform_admin')], configController.deleteConfig);
 
 
 module.exports = router;

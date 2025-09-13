@@ -3,12 +3,19 @@ const { authController } = require('../controllers');
 const passport = require('passport');
 const { celebrate } = require('celebrate');
 const { opts, userValidation } = require('../validations');
+const bookingController = require('../controllers/booking.controller');
+const { authMiddleware } = require('../middlewares');
+const { requireAuth, hasRole } = authMiddleware;
 
 const router = Router();
 
 // local auth
 router.route('/register')
-    .post(celebrate(userValidation.registerSchema, opts), authController.registerUser);
+    .post([
+        requireAuth, 
+        hasRole('platform_admin'),
+        celebrate(userValidation.registerSchema, opts)
+    ], authController.registerUser);
 
 router.route('/login')
     .post(celebrate(userValidation.loginSchema, opts), authController.loginWithEmailAndPassword);

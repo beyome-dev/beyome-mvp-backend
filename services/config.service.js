@@ -21,8 +21,12 @@ function canModifyConfig(user, config) {
 }
 
 async function createConfig(data, user) {
-  // user can only create their own user config or org config if admin
+  // Check if user already has a config when creating user-scope config
   if (data.scope === 'user') {
+    const existingConfig = await Config.findOne({ scope: 'user', user: user._id });
+    if (existingConfig) {
+      throw new Error('User already has a config');
+    }
     data.user = user._id; // force ownership
   } else if (data.scope === 'organization') {
     // must be admin of that org
@@ -32,6 +36,14 @@ async function createConfig(data, user) {
       user.role !== 'admin'
     ) {
       throw new Error('Not authorized to create organization config');
+    }
+    // Check if org already has a config
+    const existingOrgConfig = await Config.findOne({ 
+      scope: 'organization', 
+      organization: data.organization 
+    });
+    if (existingOrgConfig) {
+      throw new Error('Organization already has a config');
     }
   }
 
