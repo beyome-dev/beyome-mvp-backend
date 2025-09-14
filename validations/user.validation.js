@@ -161,6 +161,63 @@ const waitlistSchema = {
     }),
 }
 
+const updateProfileSchema = {
+    [Segments.BODY]: Joi.object().keys({
+        firstName: Joi.string().optional(),
+        lastName: Joi.string().optional(),
+        // username: Joi.string().alphanum().min(3).max(30).optional(),
+        email: Joi.string().email().optional(),
+        age: Joi.number().integer().min(18).max(120).optional(),
+        password: Joi.string().regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{6,30}$/).optional(),
+        picture: Joi.string().optional(),
+        phone: Joi.string().optional(),
+        office_location: Joi.string().optional(),
+        // specialty: Joi.string().valid(...specialtyEnum).optional(),
+        // organization: Joi.string().optional(),
+        calendarSettings: Joi.object().keys({
+            syncEnabled: Joi.boolean().optional(),
+            syncAppointments: Joi.boolean().optional(),
+            reminderMinutes: Joi.number().integer().min(0).max(1440).optional(),
+        }).optional(),
+        // New profile fields
+        title: Joi.string().optional(),
+        therapeuticBio: Joi.string().optional(),
+        price: Joi.number().positive().optional(),
+        scalablePrice: Joi.boolean().optional(),
+        yearsOfExperience: Joi.number().integer().min(0).optional(),
+        personalStory: Joi.string().optional(),
+        culturalBackground: Joi.string().optional(),
+        credentials: Joi.array().items(credentialSchema).optional(),
+        languages: Joi.array().items(Joi.string()).optional(),
+        areaOfExpertise: Joi.array().items(Joi.string()).optional(),
+        therapeuticApproaches: Joi.array().items(therapeuticApproachSchema).optional(),
+        therapeuticPhilosophy: Joi.string().optional(),
+        specializations: Joi.array().items(specializationSchema).optional(),
+        ageGroupsServed: Joi.array().items(Joi.string()).optional(),
+        officeLocations: Joi.array().items(officeLocationSchema).optional(),
+        sessionTypes: Joi.array().items(Joi.string()).optional(),
+        linkTree: Joi.array().items(linkTreeSchema).optional(),
+        schedulingAvailability: Joi.boolean().optional(),
+        responseTime: Joi.string().optional(),
+        personalInterests: Joi.array().items(personalInterestSchema).optional(),
+        faq: Joi.array().items(faqSchema).optional(),
+        // enableDiscovery: Joi.boolean().optional(),
+        // isDoctor: Joi.boolean().optional(),
+        tags: Joi.array().items(Joi.string()).optional(),
+        // Social media fields
+        linkedin: Joi.string().uri().optional(),
+        instagram: Joi.string().optional(),
+        twitter: Joi.string().optional(),
+        youtube: Joi.string().optional(),
+        tiktok: Joi.string().optional(),
+        facebook: Joi.string().optional(),
+        website: Joi.string().uri().optional(),
+        otherSocials: Joi.array().items(Joi.string()).optional(),
+        itineraries: Joi.array().items(itinerarySchema).optional(),
+    }),
+}
+
+
 const updateSchema = {
     [Segments.BODY]: Joi.object().keys({
         firstName: Joi.string().optional(),
@@ -215,6 +272,10 @@ const updateSchema = {
         website: Joi.string().uri().optional(),
         otherSocials: Joi.array().items(Joi.string()).optional(),
         itineraries: Joi.array().items(itinerarySchema).optional(),
+        currentPlan: Joi.string().valid('early-access','starter','professional','teams', 'enterprise','demo','internal').optional(),
+        hasActivePlan: Joi.boolean().optional(),
+        planDueDate: Joi.string().optional(),
+        isDoctor: Joi.boolean().optional(),
     }),
 }
 
@@ -263,5 +324,6 @@ module.exports = {
     waitlistSchema,
     googleTokenSchema,
     createClientSchema,
-    changePasswordSchema
+    changePasswordSchema,
+    updateProfileSchema
 }

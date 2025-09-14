@@ -29,7 +29,7 @@ router.route('/profile')
     .get([requireAuth], userController.getUserProfile)
     .put([
         requireAuth,
-        celebrate(userValidation.updateSchema, opts),
+        celebrate(userValidation.updateProfileSchema, opts),
     ], userController.updateUserProfile);
 
 // Profile picture upload route with file size and type limits
@@ -44,10 +44,10 @@ router.route('/confirmation/:token')
 
 router.route('/:id')
     .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], userController.getUserById)
-    .delete([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], userController.deleteUser)
+    .delete([requireAuth, hasRole('platform_admin')], userController.deleteUser)
     .put([
         requireAuth,
-        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
+        hasRole('platform_admin'),
         celebrate(userValidation.updateSchema, opts)
     ], userController.updateUser);
 
