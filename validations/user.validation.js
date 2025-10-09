@@ -274,7 +274,7 @@ const updateSchema = {
         itineraries: Joi.array().items(itinerarySchema).optional(),
         currentPlan: Joi.string().valid('early-access','starter','professional','teams', 'enterprise','demo','internal').optional(),
         hasActivePlan: Joi.boolean().optional(),
-        planDueDate: Joi.string().optional(),
+        planDueDate: Joi.date().iso().optional(),
         isDoctor: Joi.boolean().optional(),
     }),
 }
