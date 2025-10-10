@@ -1,5 +1,5 @@
 const config = require('../config');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+// const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
@@ -8,13 +8,66 @@ const clientService = require('./client.service');
 const bookingService = require("./booking.service");
 const { Client, Booking, Note, Prompt } = require('../models');
 const puppeteer = require('puppeteer');
+const { VertexAI } = require('@google-cloud/vertexai');
 
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs';
 const SALAD_API_KEY = config.salad.apiKey;
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
-const AI_MODEL = config.google.aiModel 
-const GEMINI_API_KEY = config.google.apiKey 
+// const AI_MODEL = config.google.aiModel 
+// const GEMINI_API_KEY = config.google.apiKey;
 const uploadDir = path.join(__dirname, '../uploads');
+const PROJECT_ID =  config.google.projectID;
+const LOCATION =  config.google.projectLocation || 'us-central1';
+
+
+// Initialize clients
+const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
+// const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+/**
+ * Default clinical system instruction
+ * This is used for all clinical documentation
+ */
+const DEFAULT_CLINICAL_INSTRUCTION = `You are a professional medical documentation assistant specialized in creating clinical notes. 
+
+Your responsibilities:
+- Generate structured, professional clinical documentation following standard medical formatting
+- Use appropriate medical terminology while maintaining clarity
+- Organize information using SOAP (Subjective, Objective, Assessment, Plan) format when applicable
+- Maintain patient confidentiality and professional tone
+- Be precise and comprehensive in documenting medical information
+- Follow clinical documentation best practices
+- Use standard medical abbreviations appropriately
+- Structure notes for easy review by healthcare professionals
+
+Always maintain:
+- Professional medical writing style
+- Clear, concise language
+- Proper medical documentation standards
+- Logical flow of information
+- Accurate representation of the clinical encounter
+
+IMPORTANT COMPLIANCE NOTES:
+- Do not fabricate or assume medical information not present in the transcript
+- Clearly indicate when information is missing with [Not mentioned] or [Not documented]
+- Maintain HIPAA compliance by not adding patient identifiers unless present in transcript
+- Use professional medical language appropriate for the medical record`;
+
+/**
+ * Get or create a model with specific system instructions
+ */
+function getModelWithInstructions(systemInstruction = null) {
+  if (!systemInstruction) {
+    systemInstruction = DEFAULT_CLINICAL_INSTRUCTION;
+  }
+  return vertexAI.getGenerativeModel({
+    model: config.google.aiModel || 'gemini-2.5-flash',
+    systemInstruction: {
+      role: 'system',
+      parts: [{ text: systemInstruction }]
+    }
+  });
+}
 
 // Ensure upload directory exists
 if (!fs.existsSync(uploadDir)) {
@@ -405,30 +458,28 @@ const generateSOAPNote = async (transcript, noteId, io) => {
         }
         const promptText = `${prompt.promptText[0]}\n${transcript}`;
 
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({
-            model: AI_MODEL,
-            systemInstruction: prompt.systemInstructions,
-        });
+        
+        const model = getModelWithInstructions(prompt.systemInstructions);
 
         // Generate SOAP note
         let result = await model.generateContent(promptText);
-        const soapNote = result.response.text();
+        const soapNote = extractTextFromResponse(result);
         io.emit('soapNoteGenerated', { soapNote });
 
         // Generate summary with a unique prompt to avoid repetition
         const summaryPrompt = `Summarize the following clinical note in 2–4 sentences, focusing on the client's current concerns, therapeutic focus, and progress. Use a different wording and structure than the original note. Do not copy sentences verbatim.\n\nClinical Note:\n${soapNote}`;
+
         const summaryResult = await model.generateContent(summaryPrompt);
-        const summary = summaryResult.response.text();
+        const summary = extractTextFromResponse(summaryResult);
 
         // Generate client instruction with a unique prompt to avoid repetition
         const instructionPrompt = `Write a follow-up message for the client after a therapy session, based on the clinical note below. Make sure the message is warm, professional, and supportive. Do not repeat sentences from the note. Instead, paraphrase and use a different structure. Avoid medical jargon and clinical labels.\n\nClinical Note:\n${soapNote}`;
         const instructionResult = await model.generateContent(instructionPrompt);
-        const clientInstruction = instructionResult.response.text();
+        const clientInstruction = extractTextFromResponse(instructionResult);
 
         const titlePrompt = `Create a title for the session after a therapy session, based on the clinical note below. Make sure the title does not exceed more than 8 words and it is easily understandable and identifieable for a therapist in first glance.\n\nClinical Note:\n${soapNote}`;
         const titleResult = await model.generateContent(titlePrompt);
-        const title = titleResult.response.text();
+        const title =  extractTextFromResponse(titleResult);
 
         note = await processGeminiResponse(note, soapNote, transcript, title, summary, clientInstruction);
 
@@ -458,12 +509,37 @@ const generateSOAPNote = async (transcript, noteId, io) => {
     }
 };
 
+/**
+ * Extract text from response (handles different model response formats)
+ * @param {any} result - The generation result
+ * @returns {string} - Extracted text
+ */
+function extractTextFromResponse(result) {
+  try {
+        let responseText;
+        if (typeof result.response.text === 'function') {
+          responseText = result.response.text();
+        } else if (result.response.candidates && result.response.candidates[0]) {
+          responseText = result.response.candidates[0].content.parts[0].text;
+        } else {
+          responseText = JSON.stringify(result.response);
+        }
+    if (responseText && responseText.length > 0) {
+        return responseText;
+    }
+    
+    // If all else fails, throw a helpful error
+    throw new Error('Unable to extract text from response. Response format: ' + JSON.stringify(result.response).substring(0, 200));
+    
+  } catch (error) {
+    console.error('Error extracting text from response:', error);
+    throw error;
+  }
+}
+
 const generateClientSummaryAndUpdateFromNote = async (note) => {
     try {
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({
-            model: AI_MODEL,
-           systemInstruction: `You are a therapy progress summarization assistant.
+         const model = getModelWithInstructions(`You are a therapy progress summarization assistant.
 
 Your task is to generate a clear, concise, professional **clinician-facing progress summary** of a client's therapy across sessions for the therapist to review before the client's next visit.
 
@@ -479,8 +555,7 @@ You will receive:
 1. A summary of prior sessions.
 2. A summary of the latest session.
 
-Using these, generate a 3–5 sentence **clinician-facing progress summary** without copying sentences verbatim from the inputs. Focus on synthesizing the client's progress and current clinical focus to inform continued treatment planning.`
-});
+Using these, generate a 3–5 sentence **clinician-facing progress summary** without copying sentences verbatim from the inputs. Focus on synthesizing the client's progress and current clinical focus to inform continued treatment planning.`);
 
         const clientData = await clientService.getClientById(note.client);
         if (!clientData) return;
@@ -510,7 +585,7 @@ Do not copy sentences verbatim. Synthesize and paraphrase, providing a clear ove
         const promptText = clientData.summary ? oldHistoryPrompt + summaryGenPrompt : summaryGenPrompt;
 
         const result = await model.generateContent(promptText);
-        const newSummary = result.response.text();
+        const newSummary = extractTextFromResponse(result);
 
          return await Client.findByIdAndUpdate(note.client, { summary: newSummary }, { new: true });
     } catch (error) { 
@@ -562,6 +637,12 @@ const processGeminiResponse = async (note, geminiResponse, transcript, title, su
         note.formattedOutputContent = formatTherapyNoteToHTML(strippedResponse)
         note.originialOutputContent = geminiResponse
         note.originalSessionTranscript = transcript
+        if (!note.noteType) {
+            note.noteType = note.inputContentType
+        }
+        if (note.inputContent) {
+            note.inputContent = note.sessionTranscript.length > 1000 ? 'audio' : 'text'
+        }
         const updatedNote = await note.save();
         return updatedNote;
     } catch (error) {
@@ -649,24 +730,41 @@ const reprocessNote = async (noteId, params, io) => {
         let note = await Note.findById(noteId);
         if (!note) throw new Error('Note not found');
 
-        if (!note.saladJobId) {
-            await Note.findByIdAndUpdate(note._id, { status: 'failed' });
-            throw new Error("No Salad Job ID found")
-        }
-        const response = await axios.get(`${SALAD_API_URL}/${note.saladJobId}`, {
-            headers: { 'Salad-Api-Key': SALAD_API_KEY }
-        });
-        if (response.status === 200 && response.data.status === 'succeeded') {
-            // Call service function with socket.io instance
-
-            const transcript = extractSpeakerSentencesFromTimestamps(response.data);
-            note = await generateSOAPNote(transcript, note._id, io);
-            return note;
+        if (note.inputContentType == 'text') {
+            note = await generateSOAPNote(note.inputContent, note._id, io);
         } else {
-            throw new Error(`Error fetching job status from salad: ${response.data.status}`);
+            let transcript = note.sessionTranscript;
+            if (!transcript) {
+                if (!note.saladJobId) {
+                    await Note.findByIdAndUpdate(note._id, { status: 'failed' });
+                    throw new Error('No Salad Job ID found');
+                }
+
+                // Fetch job status from Salad API
+                const response = await axios.get(`${SALAD_API_URL}${note.saladJobId}`, {
+                    headers: { 'Salad-Api-Key': SALAD_API_KEY }
+                });
+
+                if (response.status === 200 && response.data.status === 'succeeded') {
+                    if (response.data.output.error && response.data.output.error != '') {
+                        throw new Error(response.data.output.error);
+                    }
+                    transcript = extractSpeakerSentencesFromTimestamps(response.data);
+                } else {
+                    throw new Error(`Transcription job status: ${response.data.status}`);
+                }
+            }
+            note = await generateSOAPNote(transcript, note._id, io);
         }
+
+        return note;
+
     } catch (error) {
-        throw new Error(`Error fetching job status: ${error.message}`);
+        await Note.findByIdAndUpdate(noteId, { 
+            status: 'failed',
+            failureReason: error.message 
+        });
+        throw error;
     }
 }
 
