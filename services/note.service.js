@@ -734,7 +734,7 @@ const reprocessNote = async (noteId, params, io) => {
             note = await generateSOAPNote(note.inputContent, note._id, io);
         } else {
             let transcript = note.sessionTranscript;
-            if (!transcript) {
+            if (!transcript || transcript.trim() === "" || transcript.trim() === 'Generating...') {
                 if (!note.saladJobId) {
                     await Note.findByIdAndUpdate(note._id, { status: 'failed' });
                     throw new Error('No Salad Job ID found');

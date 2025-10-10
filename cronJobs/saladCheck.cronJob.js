@@ -64,12 +64,12 @@ const processRunningJobs = async (io) => {
                             }
                             transcript = await noteService.extractSpeakerSentencesFromTimestamps(response.data);
                             // Call service function with socket.io instance
-                    
+                            await noteService.generateSOAPNote(transcript, note._id, io);
                         } else {
                             console.log(`Job ${note.saladJobId} status: ${response.data.status}`);
+                            continue;
                         }
                     }
-                    await noteService.generateSOAPNote(transcript, note._id, io);
                 } catch (error) {
                     console.error(`Error fetching job ${note.saladJobId}:`, error.message);
                 }
