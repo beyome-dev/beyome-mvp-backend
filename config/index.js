@@ -20,6 +20,8 @@ module.exports = {
         emailSecret: process.env.JWT_EMAIL_SECRET,
     },
     google: {
+        projectID: process.env.GOOGLE_PROJECT_ID,
+        projectLocation: process.env.GOOGLE_PROJECT_LOCATION,
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         apiKey: process.env.GOOGLE_API_KEY,

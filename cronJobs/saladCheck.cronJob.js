@@ -46,7 +46,7 @@ const processRunningJobs = async (io) => {
                 await noteService.generateSOAPNote(note.inputContent, note._id, io);
             } else {
                 try {
-                    let transcript = note.transcript
+                    let transcript = note.sessionTranscript
                     if (!transcript) {
                         if (!note.saladJobId) {
                             await Note.findByIdAndUpdate(note._id, { status: 'failed' });
