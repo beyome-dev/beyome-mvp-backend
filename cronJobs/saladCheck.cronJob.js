@@ -47,7 +47,7 @@ const processRunningJobs = async (io) => {
             } else {
                 try {
                     let transcript = note.sessionTranscript
-                    if (!transcript) {
+                    if (!transcript || transcript.trim() === "" || transcript.trim() === 'Generating...') {
                         if (!note.saladJobId) {
                             await Note.findByIdAndUpdate(note._id, { status: 'failed' });
                             console.warn(`Skipping note ${note._id} - No Salad Job ID found.`);
