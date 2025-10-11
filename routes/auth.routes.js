@@ -12,8 +12,6 @@ const router = Router();
 // local auth
 router.route('/register')
     .post([
-        requireAuth, 
-        hasRole('platform_admin'),
         celebrate(userValidation.registerSchema, opts)
     ], authController.registerUser);
 
