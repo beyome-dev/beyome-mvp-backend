@@ -82,7 +82,7 @@ const sendMail = async (toEmail, toName, subject, templateName, data) => {
     }));
 
     try {
-        await brevoSendMail(toEmail, toName, subject, compiledTemplate(data), attachments);
+        await brevoSendMail(toEmail, toName, subject, compiledTemplate(data), null, attachments);
         // await transporter.sendMail(mailOptions);
         // console.log(`Email sent to ${to}`);
         // return { success: true };
