@@ -92,9 +92,9 @@ module.exports.loginWithEmailAndPassword = (req, res, next) => {
         if (!user) {
             return res.status(500).send({ message: info.message })
         }
-        let config = await configService.GetUserConfig(user)
-        if (!config) {
-            config = await configService.createConfig({
+        let userConfig = await configService.GetUserConfig(user)
+        if (!userConfig) {
+            userConfig = await configService.createConfig({
                 "scope": "user",
                 "role": "default",
                 "backgroundColor": "#FFFFFF",
@@ -105,7 +105,7 @@ module.exports.loginWithEmailAndPassword = (req, res, next) => {
         let response = {
             user: user,
             token: tokenService.createToken({ id: user.id, email: user.email }),
-            config: config
+            config: userConfig
         }
         if (!user.hasResetPassword) {
             // Create a one-time token for first-time password reset
