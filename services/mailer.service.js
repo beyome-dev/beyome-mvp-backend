@@ -102,7 +102,7 @@ const brevoSendMail = async (toEmail, toName, subjec, htmlContent, textContent) 
     if (textContent) {
         message.textContent = textContent;
     }
-    message.sender = { name: "Recapp", email: email };
+    message.sender = { name: "Recapp", email: email || "care@recapp.me" };
     
     // Split emails and names by comma
     const emails = toEmail.split(',').map(email => email.trim());

@@ -7,6 +7,7 @@ const config = require('../config');
 // @access Public
 module.exports.registerUser = async (req, res) => {
     try {
+        const password = req.body.password;
         const user = await userService.registerUser(req.body);
         configService.createConfig({
                 "scope": "user",
@@ -22,7 +23,7 @@ module.exports.registerUser = async (req, res) => {
         const loginUrl = config.client.url + `/login`;
         mailerService.sendMail(user.email, user.firstName, 'Your Recapp Account Is Now Active!', 'register-email', {
             firstName: user.firstName, 
-            temporaryPassword: req.body.password, 
+            temporaryPassword: password, 
             userEmail: user.email, 
             loginLink: loginUrl 
         });
