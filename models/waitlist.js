@@ -43,6 +43,10 @@ const waitlistSchema = new mongoose.Schema({
         enum: ['pending', 'approved', 'rejected'],
         default: 'pending',
     },
+    activationDate: {
+        type: Date,
+        default: Date.now,
+    },
     createdAt: {
         type: Date,
         default: Date.now,

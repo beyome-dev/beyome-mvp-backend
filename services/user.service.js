@@ -2,6 +2,8 @@ const { User, Booking, UserLoginLog } = require('../models');
 const bcrypt = require('bcryptjs');
 const moment = require('moment-timezone');
 const calendatService = require("./utilityServices/google/googleCalendar.service");
+const mailerService = require('./mailer.service');
+const config = require('../config');
 
 const getUsers = async (user) => {
     let filter = {}
@@ -79,7 +81,8 @@ const registerUser = async (userData) => {
     if (user) {
         throw new Error('email already exists');
     }
-
+    console.log("Registering user:", userData);
+    let password = userData.password;
     const salt = await bcrypt.genSalt();
     userData.password = await bcrypt.hash(userData.password, salt);
 
@@ -87,6 +90,15 @@ const registerUser = async (userData) => {
     let userObj = newUser.toObject();
     delete userObj.password;
     delete userObj.googleTokens;
+
+    const loginUrl = config.client.url + `/login`;
+     mailerService.sendMail(userData.email, userData.firstName, 'Welcome to Recapp: Enjoy Full Access for 7 Days', 'register-email', {
+        firstName: userData.firstName, 
+        temporaryPassword: password, 
+        userEmail: userData.email, 
+        loginLink: loginUrl 
+    });
+
     return userObj;
 }
 

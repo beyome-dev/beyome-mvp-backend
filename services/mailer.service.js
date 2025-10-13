@@ -7,16 +7,8 @@ const email = config.email.user;
 const password = config.email.password;
 const { TransactionalEmailsApi, SendSmtpEmail } = require("@getbrevo/brevo");
 
-// const transporter = nodemailer.createTransport({
-//     service: service,
-//     auth: {
-//         user: email,
-//         pass: password
-//     }
-// });
 
 
-// if you want to attach an image to the ejs file uncomment the attachment lines
 const getAttachments = (templateName) => {
     switch (templateName) {
         case 'register-email':
@@ -24,7 +16,7 @@ const getAttachments = (templateName) => {
                 filename: 'demo_kit.pdf',
                 path: './public/docs/demo_kit.pdf',
                 cid: 'email_logo'
-            },]
+            }]
         case 'forgot-password-email':
             return [];
         default:
@@ -43,8 +35,9 @@ const brevoSendMail = async (toEmail, toName, subjec, htmlContent, textContent, 
     if (textContent) {
         message.textContent = textContent;
     }
-
-    message.attachment = attachments;
+    if (attachments && attachments.length > 0) {
+        message.attachment = attachments;
+    }
     message.sender = { name: "Recapp", email: email || "care@recapp.me" };
     
     // Split emails and names by comma
@@ -64,13 +57,6 @@ const brevoSendMail = async (toEmail, toName, subjec, htmlContent, textContent, 
 const sendMail = async (toEmail, toName, subject, templateName, data) => {
     const template = fs.readFileSync(`./templates/${templateName}.ejs`, 'utf-8');
     const compiledTemplate = ejs.compile(template);
-
-    // const mailOptions = {
-    //     from: email, 
-    //     to: to,
-    //     subject: subject,
-    //     html: compiledTemplate(data),
-    // };
 
      // Get attachments based on template
     const attachments = getAttachments(templateName).map(attachment => ({

@@ -45,9 +45,9 @@ const convertMultipleWaitlistsToUsers = async (waitlistIds, approvedByUserId) =>
                 firstName: entry.firstName,
                 lastName: entry.lastName,
                 email: entry.email,
-                phoneNumber: entry.phoneNumber,
+                phone: entry.phone,
                 specialty: entry.specialty,
-                organization: entry.organization,
+                // organization: entry.organization,
                 password: randomPassword,
             };
 
@@ -82,7 +82,7 @@ const convertWaitlistToUser = async (waitlistId, approvedByUserId) => {
         firstName: entry.firstName,
         lastName: entry.lastName,
         email: entry.email,
-        phoneNumber: entry.phoneNumber,
+        phone: entry.phone,
         specialty: entry.specialty,
         organization: entry.organization,
         password: randomPassword,

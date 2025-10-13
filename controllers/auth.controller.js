@@ -20,13 +20,13 @@ module.exports.registerUser = async (req, res) => {
 
         // const emailToken = tokenService.createToken({ id: user.id, email: user.email }, config.jwt.emailSecret, '6h');
 
-        const loginUrl = config.client.url + `/login`;
-        mailerService.sendMail(user.email, user.firstName, 'Welcome to Recapp: Enjoy Full Access for 7 Days', 'register-email', {
-            firstName: user.firstName, 
-            temporaryPassword: password, 
-            userEmail: user.email, 
-            loginLink: loginUrl 
-        });
+        // const loginUrl = config.client.url + `/login`;
+        // mailerService.sendMail(user.email, user.firstName, 'Welcome to Recapp: Enjoy Full Access for 7 Days', 'register-email', {
+        //     firstName: user.firstName, 
+        //     temporaryPassword: password, 
+        //     userEmail: user.email, 
+        //     loginLink: loginUrl 
+        // });
 
         res.status(201).send({ user, token });
     } catch (error) {

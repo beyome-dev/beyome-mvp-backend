@@ -158,6 +158,7 @@ const waitlistSchema = {
         phone: Joi.string().required(),
         specialty: Joi.string().valid(...specialtyEnum).required(),
         organization: Joi.string().allow(''),
+        disableClientMail: Joi.boolean().optional()
     }),
 }
 

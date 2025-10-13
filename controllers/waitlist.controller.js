@@ -6,7 +6,12 @@ exports.createWaitlistEntry = async (req, res) => {
     try {
         await waitlistService.createWaitlistEntry(req.body);
 
-        const { firstName, lastName, email, phone, specialty, organization } = req.body;
+        const { 
+            firstName, lastName, 
+            email, phone, 
+            specialty, organization, 
+            disableClientMail 
+        } = req.body;
         // Send email to the internal team
         await mailerService.sendMail(
             config.team.email,  config.team.name, // Internal team email
@@ -21,7 +26,7 @@ exports.createWaitlistEntry = async (req, res) => {
                 organization: organization || 'N/A',
             }
         );
-        if (email) {
+        if (email && !disableClientMail) {
             await mailerService.sendMail(
                 email, firstName,
                 `Welcome Aboard, ${firstName} — Here’s How to Get Started`,
