@@ -148,47 +148,51 @@ const getAllNotesMinimal = async (filter = {}, page = 1, limit = 10) => {
 const getNoteById = async(noteId, user) => {
     const note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
-    if (note.user.toString() !== user._id.toString()) throw new Error('Not authorized');
+    if (note.user.toString() !== user._id.toString() && user.userType != 'platform_admin') throw new Error('Not authorized');
     return note;
 }
 
 const updateNote = async(noteId, data, user) => {
-    const note = await Note.findById(noteId);
+    let note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
 
     // Ensure only the user who created the note can edit
-    if (note.user.toString() !== user._id.toString()) throw new Error('Not authorized');
+    if (note.user.toString() !== user._id.toString() && user.userType != 'platform_admin') throw new Error('Not authorized');
 
-    // Define fields that are allowed to be updated
-    const allowedFields = [
-        "title",
-        'summary',
-        'subjective',
-        'objective',
-        'assessment',
-        'plan',
-        'outputContent',
-        'sessionTranscript',
-        'clientInstructions',
-        'tags',
-        'userFeedback',
-        'doctorFeedback',
-    ];
-
-    // Filter data to keep only allowed fields
-    const filteredData = Object.keys(data).reduce((acc, key) => {
-        if (allowedFields.includes(key)) acc[key] = data[key];
-        return acc;
-    }, {});
-
-    // Prevent accidental overwrites of sensitive fields
-    if (Object.keys(filteredData).length === 0) throw new Error('No valid fields to update');
+    let noteDataTobeUpdated = data
+    if (user.userType != 'platform_admin') {
+         // Define fields that are allowed to be updated
+        const allowedFields = [
+            'title',
+            'summary',
+            'subjective',
+            'objective',
+            'assessment',
+            'plan',
+            'outputContent',
+            'sessionTranscript',
+            'clientInstructions',
+            'tags',
+            'userFeedback',
+            'doctorFeedback',
+            "prompt"
+        ];
+        // Filter data to keep only allowed fields
+        noteDataTobeUpdated = Object.keys(data).reduce((acc, key) => {
+            if (allowedFields.includes(key)) acc[key] = data[key];
+            return acc;
+        }, {});
+    }
 
     if (data.outputContent) {
-        filteredData.formattedOutputContent = formatTherapyNoteToHTML(data.outputContent)
+        noteDataTobeUpdated.formattedOutputContent = formatTherapyNoteToHTML(data.outputContent)
     }
+    
+    // Prevent accidental overwrites of sensitive fields
+    if (Object.keys(noteDataTobeUpdated).length === 0) throw new Error('No valid fields to update');
+
     // Perform the update
-    return await Note.findByIdAndUpdate(noteId, filteredData, { new: true });
+    return await Note.findByIdAndUpdate(noteId, noteDataTobeUpdated, { new: true });
 }
 
 const deleteNote = async(noteId, user) => {
@@ -445,17 +449,20 @@ const requestTranscription = async (fileUrl, noteId) => {
  * @param {string} transcript - The transcript text from Salad.
  * @param {object} io - The Socket.io instance to emit the result.
  */
-const generateSOAPNote = async (transcript, noteId, io) => {
+const generateSOAPNote = async (transcript, noteId, io, promptId) => {
     try {
         let note = await Note.findById(noteId);
         if (!note) {
             throw new Error("Note not found or failed to update.");
         }
-
+        if (promptId) {
+            note.prompt = promptId
+        }
         const prompt = await Prompt.findById(note.prompt);
         if (!prompt._id) {
             throw new Error("No prompt found");
         }
+        note.noteFormat = prompt.formatName
         const promptText = `${prompt.promptText[0]}\n${transcript}`;
 
         
@@ -640,9 +647,6 @@ const processGeminiResponse = async (note, geminiResponse, transcript, title, su
         if (!note.noteType) {
             note.noteType = note.inputContentType
         }
-        if (note.inputContent) {
-            note.inputContent = note.sessionTranscript.length > 1000 ? 'audio' : 'text'
-        }
         const updatedNote = await note.save();
         return updatedNote;
     } catch (error) {
@@ -731,7 +735,7 @@ const reprocessNote = async (noteId, params, io) => {
         if (!note) throw new Error('Note not found');
 
         if (note.inputContentType == 'text') {
-            note = await generateSOAPNote(note.inputContent, note._id, io);
+            note = await generateSOAPNote(note.inputContent, note._id, io, params.prompt);
         } else {
             let transcript = note.sessionTranscript;
             if (!transcript || transcript.trim() === "" || transcript.trim() === 'Generating...') {
@@ -750,11 +754,13 @@ const reprocessNote = async (noteId, params, io) => {
                         throw new Error(response.data.output.error);
                     }
                     transcript = extractSpeakerSentencesFromTimestamps(response.data);
+                    note = await generateSOAPNote(transcript, note._id, io, params.prompt);
                 } else {
                     throw new Error(`Transcription job status: ${response.data.status}`);
                 }
+            } else {
+                 note = await generateSOAPNote(transcript, note._id, io, params.prompt);
             }
-            note = await generateSOAPNote(transcript, note._id, io);
         }
 
         return note;

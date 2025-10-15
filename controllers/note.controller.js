@@ -110,7 +110,7 @@ module.exports.reprocessNote = async (req, res) => {
           note: note,
       });
   } catch (error) {
-      console.error('Webhook Error:', error.message);
+      console.error('Reprocess Note Error:', error.message);
       res.status(500).json({ message: 'Server error' });
   }
 };
@@ -129,7 +129,9 @@ module.exports.getAllNotes = async(req, res) => {
       let { page, limit, ...filters } = req.query;
       page = parseInt(page) || 1;
       limit = parseInt(limit) || 10;
-      filters.user = new mongoose.Types.ObjectId(req.user._id)
+      // if (user.userType != 'platform_admin') {
+        filters.user = new mongoose.Types.ObjectId(req.user._id)
+      // }
       const notes = await noteService.getAllNotes(filters, page, limit);
       res.status(200).json(notes);
     } catch (err) {

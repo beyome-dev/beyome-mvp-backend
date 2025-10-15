@@ -69,6 +69,8 @@ const processRunningJobs = async (io) => {
                             console.log(`Job ${note.saladJobId} status: ${response.data.status}`);
                             continue;
                         }
+                    } else {
+                        await noteService.generateSOAPNote(transcript, note._id, io);
                     }
                 } catch (error) {
                     console.error(`Error fetching job ${note.saladJobId}:`, error.message);

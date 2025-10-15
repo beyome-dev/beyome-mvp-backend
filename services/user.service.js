@@ -81,11 +81,13 @@ const registerUser = async (userData) => {
     if (user) {
         throw new Error('email already exists');
     }
-    console.log("Registering user:", userData);
     let password = userData.password;
     const salt = await bcrypt.genSalt();
     userData.password = await bcrypt.hash(userData.password, salt);
 
+    if (!userData.planDueDate) {
+        userData.planDueDate = moment().add(7, 'days').toDate();
+    }
     const newUser = await User.create(userData);
     let userObj = newUser.toObject();
     delete userObj.password;
