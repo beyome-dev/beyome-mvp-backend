@@ -2,9 +2,8 @@ const cron = require('node-cron');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const config = require('../config');
-const Note = require('../models/note');
-const Booking = require("../models/booking");
-const {noteService} = require('../services');
+const { noteService } = require('../services');
+const { Note, Booking, Recording } = require('../models');
 
 const SALAD_API_KEY = config.salad.apiKey;
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs/';
@@ -84,10 +83,36 @@ const processRunningJobs = async (io) => {
 
 // Schedule the cron job to run every 1 minute
 const startCronJob = (io) => {
-    cron.schedule('* * * * *', () => processRunningJobs(io), {
+    cron.schedule('* * * * *', () => checkForSaladResults(io), {
         scheduled: true,
         timezone: 'UTC' // Adjust if needed
     });
 };
+
+const checkForSaladResults = async (io) => {
+    
+     // Fetch all recordings with status "Running" or with bookingId in bookingIds
+    let runningRecordings = await Recording.find({ transcriptionStatus: 'processing' });
+
+    for (const recording of runningRecordings) {
+        try {
+            if (!recording.transcriptionMetadata?.jobId) {
+                await Recording.findByIdAndUpdate(recording._id, { transcriptionStatus: 'failed' });
+                console.warn(`Skipping note ${recording._id} - No Salad Job ID found.`);
+                continue;
+            }
+            // Fetch job status from Salad API
+            const transcriptionResult = await fetchTranscriptionStatus(recording.transcriptionMetadata.jobId);
+
+            // Update recording with transcription
+            recording.transcriptionText = transcriptionResult.transcriptionText;
+            recording.transcriptionStatus = transcriptionResult.transcriptionStatus;
+            recording.transcriptionMetadata = transcriptionResult.transcriptionMetadata
+            await recording.save();
+        } catch (error) {
+            await Recording.findByIdAndUpdate(recording._id, { transcriptionStatus: 'failed' });
+        }
+    }
+}
 
 module.exports = startCronJob;

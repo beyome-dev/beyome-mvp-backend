@@ -7,6 +7,7 @@ const promptController = require('./prompt.controller');
 const waitlistController = require('./waitlist.controller');
 const checklistController = require('./checklist.controller');
 const configController = require('./config.controller');
+const sessionController = require('./session.controller');
 
 module.exports = {
     authController,
@@ -17,5 +18,6 @@ module.exports = {
     promptController,
     waitlistController,
     checklistController,
-    configController
+    configController,
+    sessionController
 }

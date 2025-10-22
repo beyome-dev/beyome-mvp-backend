@@ -8,6 +8,8 @@ const Waitlist = require('./waitlist');
 const Checklist = require('./checklist');
 const UserLoginLog = require('./userLoginLog');
 const Config = require('./config')
+const Session = require('./session');
+const Recording = require('./recording');
 
 module.exports = {
     User,
@@ -20,4 +22,6 @@ module.exports = {
     Checklist,
     UserLoginLog,
     Config,
+    Session,
+    Recording,
 }

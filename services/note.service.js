@@ -2,16 +2,15 @@ const config = require('../config');
 // const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require('path');
 const fs = require('fs');
-const axios = require('axios');
+
 const mongoose = require('mongoose');
 const clientService = require('./client.service');
 const bookingService = require("./booking.service");
+const { requestTranscription } = require('../services/audioProcessing/transcribeAudio.service');
 const { Client, Booking, Note, Prompt } = require('../models');
 const puppeteer = require('puppeteer');
 const { VertexAI } = require('@google-cloud/vertexai');
 
-const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs';
-const SALAD_API_KEY = config.salad.apiKey;
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 // const AI_MODEL = config.google.aiModel 
 // const GEMINI_API_KEY = config.google.apiKey;
@@ -406,42 +405,6 @@ const manualNoteGeneration = async (input, client, booking, type, prompt, user, 
         throw error;
     }
 }
-
-// Function to request transcription from Salad API
-const requestTranscription = async (fileUrl, noteId) => {
-    try {
-       
-        const response = await axios.post(
-            SALAD_API_URL,
-            {
-                input: {
-                    url: fileUrl,
-                    return_as_file: false,
-                    language_code: "en",
-                    sentence_level_timestamps: false,
-                    word_level_timestamps: false,
-                    diarization: false,
-                    sentence_diarization: true,
-                    srt: false,
-                    summarize: 0,
-                    overall_sentiment_analysis: false
-
-                },
-                webhook: WEBHOOK_URL+`?id=${noteId}`
-            },
-            {
-                headers: {
-                    'Salad-Api-Key': SALAD_API_KEY,
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        return response.data;
-    } catch (error) {
-        console.error('Salad API Error:', error.response?.data || error.message);
-        throw new Error('Error requesting transcription');
-    }
-};
 
 
 /**

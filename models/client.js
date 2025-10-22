@@ -12,9 +12,9 @@ const ClientSchema = new Schema({
     nickName: {
         type: String
     },
-    anonymous: {
-        type: Boolean,
-        default: false,
+        clientNumber: {
+        type: String,
+        required: true
     },
     email: {
         type: String,
@@ -183,7 +183,40 @@ const ClientSchema = new Schema({
     recappConsentUrl: {
         type: String
     },
-    tags:   {
+    status: {
+        type: String,
+        enum: ['active', 'inactive', 'unknown'],
+        default: 'unknown',
+        index: true
+    },
+    // Client-specific metadata
+  metadata: {
+    diagnosis: [String],
+    medications: [String],
+    allergies: [String],
+    emergencyContact: {
+      name: String,
+      phone: String,
+      relationship: String
+    },
+    insuranceInfo: {
+      provider: String,
+      policyNumber: String,
+      groupNumber: String
+    },
+    referralSource: String,
+    intakeDate: Date,
+    customFields: Schema.Types.Mixed
+  },
+
+  // Session statistics (denormalized for quick access)
+  stats: {
+    totalSessions: { type: Number, default: 0 },
+    lastSessionDate: Date,
+    firstSessionDate: Date
+  },
+
+   tags:   {
         type: [String],
         default: []
     },

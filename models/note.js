@@ -13,74 +13,20 @@ const NoteSchema = new Schema({
         type: String,
         required: true
     },
-    summary: {
-        type: String, 
-    },
-    subjective: { 
-        type: String, 
-        required: true 
-    },
-    objective: { 
-        type: String, 
-        required: true 
-    },
-    assessment: { 
-        type: String, 
-        required: true 
-    },
-    plan: { 
-        type: String, 
-        required: true 
-    },
-    inputContent: {
+    noteType: {
         type: String,
-        required: true
-    },
-    inputContentType: {
-        type: String,
-        required: true,
-        enum: ['audio', 'text'],
-    },
-    noteType:{
-        type: String,
-        required: true,
-        enum: ['Recording', 'Dictation', 'Citation Note'],
-    },// eg. Recording, Dictation, Citation Note
-    outputContent: {
-        type: String,
-        required: true
-    },
-    formattedOutputContent: {
-        type: String,
-        required: true
-    },
-    originialOutputContent: {
-        type: String,
-        required: false
-    },
-    sessionTranscript: {
-        type: String
-    },
-    originalSessionTranscript: {
-        type: String
-    },
-    clientInstructions: {
-        type: String
-    },
-    userFeedback: {
-        type: String
-    },
-    doctorFeedback: {
-        type: String
-    },
-    noteFormat: {
-        type: String,
-        required: true,
+        enum: ['SOAP', 'DAP', 'BIRP', 'progress', 'intake', 'discharge', 'custom'],
         default: 'SOAP'
     },
     tags: {
         type: [String],
         required: true
+    },
+    sessionId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Session',
+        required: true,
+        index: true
     },
     user: {
         type: Schema.Types.ObjectId,
@@ -104,18 +50,68 @@ const NoteSchema = new Schema({
         ref: 'Prompt',
         required: true
     },
+
+
+     // Structured content based on template
+    content: {
+        // SOAP format example
+        subjective: String,
+        objective: String,
+        assessment: String,
+        plan: String,
+    
+        // DAP format example
+        data: String,
+        analysis: String,
+        // plan: String, (reused from above)
+    
+        // Custom fields
+        customSections: [{
+            label: String,
+            content: String,
+            order: Number
+        }]
+    },
+    // Full text for search
+    rawContent: String,
+  
     status: {
         type: String,
-        required: true,
-        default: 'pending',
-        enum: ['pending', 'completed', 'failed', 'processing'],
-    },// Eg. completed, failed, processing
-    saladJobId: {
-        type: String
+        enum: ['draft', 'finalized', 'signed', 'amended'],
+        default: 'draft',
+        index: true
     },
-    failureReason: {
-        type: String
+    version: {
+        type: Number,
+        default: 1
     },
+
+    // Track which recordings were used
+    generatedFromRecordings: [{
+        recordingId: { type: Schema.Types.ObjectId, ref: 'Recording' },
+        recordingType: String,
+        usedAt: Date
+    }],
+
+     // AI metadata
+  aiGenerated: { type: Boolean, default: false },
+  aiMetadata: {
+    model: String,
+    promptId: Schema.Types.ObjectId,
+    generatedAt: Date,
+    editedByUser: { type: Boolean, default: false },
+    confidence: Number,
+    tokensUsed: Number
+  },
+
+  // Signature and compliance
+  signedAt: Date,
+  signedBy: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  signature: String,
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Note', NoteSchema);
