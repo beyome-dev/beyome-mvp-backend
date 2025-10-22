@@ -122,6 +122,8 @@ app.post(
 app.use(validationMiddleware.handleValidationError);
 app.use(apiKeyMiddleware)
 
+console.log("JWT Secret : ", config.jwt.secret);
+
 // DB Connection
 async function connectDB() {
     try {
