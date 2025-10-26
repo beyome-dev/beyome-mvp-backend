@@ -118,9 +118,11 @@ const uploadRecording = async (sessionId, audioFile, duration, user) => {
     
     // Queue for transcription (async)
     // await queueTranscription(recording._id);
-    await requestTranscription(recording.audioUrl, sessionId);
-    
-    recording.transcriptionStatus = 'processing'
+    const transcriptionResult = await requestTranscription(recording.audioUrl, sessionId);
+    // Update recording with transcription
+    recording.transcriptionText = transcriptionResult.transcriptionText;
+    recording.transcriptionStatus = transcriptionResult.transcriptionStatus;
+    recording.transcriptionMetadata = transcriptionResult.transcriptionMetadata
     await recording.save();
 
     return {

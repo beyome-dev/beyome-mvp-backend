@@ -15,7 +15,7 @@ const NoteSchema = new Schema({
     },
     noteType: {
         type: String,
-        enum: ['SOAP', 'DAP', 'BIRP', 'progress', 'intake', 'discharge', 'custom'],
+        // enum: ['SOAP', 'DAP', 'BIRP', 'progress', 'intake', 'discharge', 'custom'],
         default: 'SOAP'
     },
     tags: {
@@ -51,7 +51,7 @@ const NoteSchema = new Schema({
         required: true
     },
 
-
+    
      // Structured content based on template
     content: {
         // SOAP format example
@@ -72,12 +72,17 @@ const NoteSchema = new Schema({
             order: Number
         }]
     },
+    formattedContent: {
+        type: String,
+        required: true
+    },
+
     // Full text for search
     rawContent: String,
   
     status: {
         type: String,
-        enum: ['draft', 'finalized', 'signed', 'amended'],
+        enum: ['pending','draft', 'finalized', 'signed', 'amended'],
         default: 'draft',
         index: true
     },
@@ -98,6 +103,7 @@ const NoteSchema = new Schema({
   aiMetadata: {
     model: String,
     promptId: Schema.Types.ObjectId,
+    completePrompt: String,
     generatedAt: Date,
     editedByUser: { type: Boolean, default: false },
     confidence: Number,

@@ -59,7 +59,7 @@ module.exports.CreateManualNote = async(req, res) => {
 module.exports.saladWebhook = async (req, res) => {
     try {
         const saladResponse = req.body;
-        const noteId = req.query.id
+        const recordingId = req.query.id
         // // Assuming the transcript text is available in saladResponse.transcript
         // const transcript = saladResponse.transcript;
 
@@ -67,8 +67,8 @@ module.exports.saladWebhook = async (req, res) => {
             return res.status(400).json({ message: 'Transcript data is missing' });
         }
 
-        if (!noteId) {
-            return res.status(400).json({ message: 'Note data is missing' });
+        if (!recordingId) {
+            return res.status(400).json({ message: 'Recording Id is missing' });
         }
         // Get the Socket.io instance
         const io = req.app.get('socketio');
@@ -76,9 +76,8 @@ module.exports.saladWebhook = async (req, res) => {
         if (response.data.output.error && response.data.output.error != '') {
             throw new Error(response.data.output.error);
         }
-        const transcript = noteService.extractSpeakerSentencesFromTimestamps(response.data);
-        // Generate SOAP note and emit to frontend
-        const note = await noteService.generateSOAPNote(transcript, noteId, io);
+        //TODO: Update recorfing with transcript data
+
 
         res.status(200).json({ 
             message: 'Webhook received and SOAP note generated',

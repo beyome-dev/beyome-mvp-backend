@@ -45,11 +45,11 @@ const requestTranscription = async (fileUrl, recordingId) => {
 
 const fetchTranscriptionStatus = async (jobId) => {
     try {
-        const response = await axios.get(`${SALAD_API_URL}${jobId}`, {
+        const response = await axios.get(`${SALAD_API_URL}/${jobId}`, {
             headers: { 'Salad-Api-Key': SALAD_API_KEY }
         });
         
-            return await formatTranscriptResponseFromTool(response.data);
+        return await formatTranscriptResponseFromTool(response.data);
     } catch (error) {
         console.error('Salad API Error:', error.response?.data || error.message);
         throw new Error('Error fetching transcription status');
@@ -67,6 +67,7 @@ const formatTranscriptResponseFromTool = async (transcriptData) => {
             transcriptionText: "Generating...",
             transcriptionStatus: 'processing',
             transcriptionMetadata: {
+                jobId: transcriptData.id,
                 provider: 'salad',
                 model: 'salad',
                 language: 'en',
@@ -104,21 +105,18 @@ const formatTranscriptResponseFromTool = async (transcriptData) => {
     });
 
     return {
-        transcriptionText: transcriptData.output.text,
+        transcriptionText: speakerSentences,
         transcriptionStatus: 'completed',
         duration: transcriptData.output?.duration_in_seconds,
         transcriptionMetadata: {
+            jobId: transcriptData.id,
             provider: 'salad',
             model: 'salad',
             language: 'en',
-            confidence: transcriptData.segments?.reduce((acc, s) => acc + (s.confidence || 0), 0) / 
-                    (response.data.segments?.length || 1),
+            // confidence: transcriptData.segments?.reduce((acc, s) => acc + (s.confidence || 0), 0) / 
+            //         (response.data.segments?.length || 1),
             sentiment: analyzeSentiment(transcriptData.output.overall_sentiment),
-            timestamps: response.data.segments?.map(s => ({
-                text: s.text,
-                start: s.start,
-                end: s.end
-            })),
+            timestamps: timpeStamps,
             speakerLabels: speakerLabels,
             processedAt: new Date(),
             processingTime: (new Date(transcriptData.update_time) - new Date(transcriptData.create_time)) / 1000
