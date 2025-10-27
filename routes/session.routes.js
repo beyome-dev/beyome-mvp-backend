@@ -30,4 +30,6 @@ router.route('/:id')
     ], sessionController.updateSession)
     .delete([requireAuth, roleMiddleware], sessionController.deleteSession);
 
+router.route('/:id/generate-note')
+    .post([requireAuth, roleMiddleware], sessionController.generateNote);
 module.exports = router;

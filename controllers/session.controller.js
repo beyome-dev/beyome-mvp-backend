@@ -91,6 +91,19 @@ async function deleteSession(req, res) {
     }
 }
 
+async function generateNote(req, res) {
+    try {
+        const sessionId = req.params.id;
+        const body = req.body;
+
+        const note = await sessionService.genreateNote(sessionId, body, req.user);
+        return res.status(200).json({ success: true, data: note });
+    } catch (error) {
+        console.error('Controller genreateNote error:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+    }
+
+}
 
 
 // ...existing code...
@@ -101,4 +114,5 @@ module.exports = {
     getAllSessions,
     updateSession,
     deleteSession,
+    generateNote
 };

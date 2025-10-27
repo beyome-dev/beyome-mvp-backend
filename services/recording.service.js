@@ -107,7 +107,7 @@ const uploadRecording = async (sessionId, audioFile, duration, user) => {
           recordingType: 'session_recording',
           duration: recording.duration,
           recordedAt: recording.recordedAt,
-          hasSummary: false
+          // hasSummary: false
         }
       },
       $inc: {

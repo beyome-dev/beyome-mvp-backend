@@ -1,14 +1,14 @@
-const config = require('../config');
+const config = require('../../config');
 // const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require('path');
 const fs = require('fs');
 
 const mongoose = require('mongoose');
-const clientService = require('./client.service');
-const bookingService = require("./booking.service");
-const { requestTranscription } = require('../services/audioProcessing/transcribeAudio.service');
-const { Client, Booking, Note, Prompt } = require('../models');
-const puppeteer = require('puppeteer');
+const clientService = require('../client.service');
+const bookingService = require("../booking.service");
+const { requestTranscription } = require('../audioProcessing/transcribeAudio.service');
+const { Client, Booking, Note, Prompt } = require('../../models');
+
 const { VertexAI } = require('@google-cloud/vertexai');
 
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
@@ -73,37 +73,91 @@ function getModelWithInstructions(systemInstruction = null) {
 /**
  * Generates a SOAP note based on the provided transcript data.
  * @param {string} transcript - The transcript text from Salad.
- * @param {object} io - The Socket.io instance to emit the result.
  */
-const generateSOAPNote = async (transcript, noteId, io, promptId) => {
-    try {
-        let note = await Note.findById(noteId);
-        if (!note) {
-            throw new Error("Note not found or failed to update.");
+const generateSOAPNote = async (session, promptId, user) => {
+    if (!session) {
+        throw new Error("Session data is required to generate a note.");
+    }
+    if (!promptId) {
+            throw new Error("Template ID is required.");
+    }
+        const transcript = session.recordings
+            .filter(r => (r.recordingType === 'session_recording' || r.recordingType === 'dictation') && r.recordingId?.transcriptionText)
+            .map(r => {
+                const prefix = r.recordingType === 'session_recording' ? 'Session Recording: ' : 'Dictation: ';
+                return prefix + r.recordingId.transcriptionText.trim();
+            })
+            .join('\n\n');
+
+        if (!transcript || transcript.trim() === '') {
+            throw new Error('No valid transcription or dictation recordings found for this session');
         }
-        if (promptId) {
-            note.prompt = promptId
-        }
-        const prompt = await Prompt.findById(note.prompt);
-        if (!prompt._id) {
-            throw new Error("No prompt found");
-        }
-        note.noteFormat = prompt.formatName
-        const promptText = `${prompt.promptText[0]}\n${transcript}`;
+
+    const template = await Prompt.findById(promptId);
+    if (!template) {
+        throw new Error("No prompt found");
+    }
+
+    let note = new Note({
+        title: `Clinical Note for ${session.clientId.firstName} ${session.clientId.lastName}`,
+        noteType: template.formatName,
+        tags: ["soap", `${session.clientId.firstName} ${session.clientId.lastName}`],
+        sessionId: session._id,
+        user: user._id,
+        client: session.clientId._id,
+        organization: user.organization,
+        prompt: template._id,
+        version: 1,
+        content: {
+            subjective: "Generating...",
+            objective: "Generating...",
+            assessment: "Generating...",
+            plan: "Generating...",
+            data: "Generating...",
+            analysis: "Generating...",
+            customSections: [
+        //         {
+        //     label: String,
+        //     content: String,
+        //     order: Number
+        // }
+            ]
+        },
+        rawContent: "Generating...",
+        formattedContent: "Generating...",
+        status: "pending",
+        generatedFromRecordings: session.recordings.map(rec => ({
+            recordingId: rec.recordingId._id,
+            recordingType: rec.recordingType,
+            usedAt: new Date()
+        })),
+
+        // AI metadata
+        //   aiGenerated: { type: Boolean, default: false },
+        //   aiMetadata: {
+        //     model: String,
+        //     promptId: Schema.Types.ObjectId,
+        //     generatedAt: Date,
+        //     editedByUser: { type: Boolean, default: false },
+        //     confidence: Number,
+        //     tokensUsed: Number
+        //   },
+    });
+        
+        const promptText = `${template.promptText[0]}\n${transcript}`;
 
         
-        const model = getModelWithInstructions(prompt.systemInstructions);
+        const model = getModelWithInstructions(template.systemInstructions);
 
         // Generate SOAP note
         let result = await model.generateContent(promptText);
         const soapNote = extractTextFromResponse(result);
-        io.emit('soapNoteGenerated', { soapNote });
 
-        // Generate summary with a unique prompt to avoid repetition
-        const summaryPrompt = `Summarize the following clinical note in 2–4 sentences, focusing on the client's current concerns, therapeutic focus, and progress. Use a different wording and structure than the original note. Do not copy sentences verbatim.\n\nClinical Note:\n${soapNote}`;
+        // // Generate summary with a unique prompt to avoid repetition
+        // const summaryPrompt = `Summarize the following clinical note in 2–4 sentences, focusing on the client's current concerns, therapeutic focus, and progress. Use a different wording and structure than the original note. Do not copy sentences verbatim.\n\nClinical Note:\n${soapNote}`;
 
-        const summaryResult = await model.generateContent(summaryPrompt);
-        const summary = extractTextFromResponse(summaryResult);
+        // const summaryResult = await model.generateContent(summaryPrompt);
+        // const summary = extractTextFromResponse(summaryResult);
 
         // Generate client instruction with a unique prompt to avoid repetition
         const instructionPrompt = `Write a follow-up message for the client after a therapy session, based on the clinical note below. Make sure the message is warm, professional, and supportive. Do not repeat sentences from the note. Instead, paraphrase and use a different structure. Avoid medical jargon and clinical labels.\n\nClinical Note:\n${soapNote}`;
@@ -114,8 +168,8 @@ const generateSOAPNote = async (transcript, noteId, io, promptId) => {
         const titleResult = await model.generateContent(titlePrompt);
         const title =  extractTextFromResponse(titleResult);
 
-        note = await processGeminiResponse(note, soapNote, transcript, title, summary, clientInstruction);
-
+        note = await processGeminiResponse(note, soapNote, transcript, title, clientInstruction);
+        note.status = 'draft';
         if (note.booking) {
             const booking = await bookingService.getBookingById(note.booking);
             if (!booking) {
@@ -123,23 +177,7 @@ const generateSOAPNote = async (transcript, noteId, io, promptId) => {
             }
             await Booking.findByIdAndUpdate(note.booking, { status: "completed" }, { new: false });
         }
-        await generateClientSummaryAndUpdateFromNote(note)
         return note;
-    } catch (error) {
-        const note = await Note.findByIdAndUpdate(noteId, {
-            status: 'failed',
-            failureReason: error.message,
-        });
-        if (note.booking) {
-            const booking = await bookingService.getBookingById(note.booking);
-            if (!booking) {
-                throw new Error("Booking not found");
-            }
-            await Booking.findByIdAndUpdate(note.booking, { status: "completed" }, { new: false });
-        }
-        console.error('Error generating SOAP note:', error.message);
-        return note;
-    }
 };
 
 /**
@@ -169,8 +207,67 @@ function extractTextFromResponse(result) {
     throw error;
   }
 }
+const generateSessionSummary = async (session) => {
+    try {
+        // combine transcripts into multiline strings (each recording on a new line)
+    const sessionTranscript = (session.recordings || [])
+        .filter(r => r.recordingType === 'session_recording' && r.recordingId?.transcriptionText)
+        .map(r => r.recordingId.transcriptionText.trim())
+        .join('\n');
 
-const generateClientSummaryAndUpdateFromNote = async (note) => {
+    const dictationTranscript = (session.recordings || [])
+        .filter(r => r.recordingType === 'dictation' && r.recordingId?.transcriptionText)
+        .map(r => r.recordingId.transcriptionText.trim())
+        .join('\n');
+
+         const model = getModelWithInstructions(`You are a therapy progress summarization assistant.
+
+Your task is to generate a clear, concise, professional **clinician-facing progress summary** of a client's therapy session across different recordings for the therapist to review before the client's next visit.
+
+Focus on:
+- Identifying patterns, improvements, setbacks, and key themes.
+- Highlighting relevant symptoms, behavioral patterns, or psychosocial factors.
+- Using professional, precise language, including appropriate clinical terminology where needed.
+- Avoiding casual, warm, or direct address to the client.
+- Presenting the information in a clear, structured narrative that the clinician can review quickly.
+
+
+Using these, generate a 3–5 sentence **clinician-facing progress summary** without copying sentences verbatim from the inputs. Focus on synthesizing the client's progress and current clinical focus to inform continued treatment planning.`);
+
+        const oldHistoryPrompt = `You are a therapy progress summarization assistant.
+
+Below is the session's recording transcript:
+"""
+${sessionTranscript}
+"""
+`;
+
+        const summaryGenPrompt = `Below is the dictation done by the therapist about the session:
+"""
+${dictationTranscript}
+"""
+
+Generate a **clinician-facing progress summary** in 3–5 sentences, focusing on:
+- The client's evolving concerns, goals, and progress.
+- Patterns, improvements, setbacks, and key themes.
+- Relevant symptoms, behavioral patterns, or psychosocial factors.
+- Using professional and precise language for therapist reference.
+- Avoid direct address or casual encouragement.
+
+Do not copy sentences verbatim. Synthesize and paraphrase, providing a clear overview for treatment planning.`;
+
+        const promptText = dictationTranscript ? oldHistoryPrompt + summaryGenPrompt : summaryGenPrompt;
+
+        const result = await model.generateContent(promptText);
+
+         return extractTextFromResponse(result);
+    } catch (error) { 
+        console.error("Failed to update client summary:", error);
+        throw error;
+    }
+};
+
+const generateClientSummaryAndUpdateFromNote = async (session) => {
     try {
          const model = getModelWithInstructions(`You are a therapy progress summarization assistant.
 
@@ -190,7 +287,7 @@ You will receive:
 
 Using these, generate a 3–5 sentence **clinician-facing progress summary** without copying sentences verbatim from the inputs. Focus on synthesizing the client's progress and current clinical focus to inform continued treatment planning.`);
 
-        const clientData = await clientService.getClientById(note.client);
+        const clientData = await clientService.getClientById(session.clientId._id ? session.clientId._id : session.clientId);
         if (!clientData) return;
 
         const oldHistoryPrompt = `You are a therapy progress summarization assistant.
@@ -203,7 +300,7 @@ ${clientData.summary}
 
         const summaryGenPrompt = `Below is the summary from the latest session:
 """
-${note.summary}
+${session.summary}
 """
 
 Generate a **clinician-facing progress summary** in 3–5 sentences, focusing on:
@@ -220,14 +317,14 @@ Do not copy sentences verbatim. Synthesize and paraphrase, providing a clear ove
         const result = await model.generateContent(promptText);
         const newSummary = extractTextFromResponse(result);
 
-         return await Client.findByIdAndUpdate(note.client, { summary: newSummary }, { new: true });
+         return await Client.findByIdAndUpdate(session.clientId, { summary: newSummary }, { new: true });
     } catch (error) { 
         console.error("Failed to update client summary:", error);
         throw error;
     }
 };
 
-const processGeminiResponse = async (note, geminiResponse, transcript, title, summary, clientInstruction) => {
+const processGeminiResponse = async (note, geminiResponse, transcript, title, clientInstruction) => {
     try {
         if (!note || !geminiResponse) {
             throw new Error("Missing required parameters: noteId or geminiResponse");
@@ -255,26 +352,16 @@ const processGeminiResponse = async (note, geminiResponse, transcript, title, su
             .replace(/\*\*Title:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/, '')
             .replace(/\*\*Visit type:\*\*\s*([\s\S]+?)(?=\n\n\*\*|$)/, '')
             .replace(/\*\*Client Instruction Email:\*\*\s*\n([\s\S]+)/, '');
-    
+
+
         note.title = title ? title.replace(/^\s*\*+\s*/, '').replace(/\s*\*+\s*$/, '') : note.title;
-        note.visitType = visitType
-        note.subjective = subjective
-        note.objective = objective
-        note.assessment = assessment
-        note.plan = plan
-        note.clientInstructions = clientInstruction != '' && clientInstruction != undefined ? clientInstruction : clientInstructions
-        note.status= "completed", // Mark note as completed
-        note.sessionTranscript = transcript
-        note.summary = summary
-        note.outputContent = strippedResponse
-        note.formattedContent = formatTherapyNoteToHTML(strippedResponse)
-        note.originialOutputContent = geminiResponse
-        note.originalSessionTranscript = transcript
-        if (!note.noteType) {
-            note.noteType = note.inputContentType
-        }
-        const updatedNote = await note.save();
-        return updatedNote;
+        note.rawContent = strippedResponse
+        note.formattedContent = formatTherapyNoteToHTML(strippedResponse);
+        note.content.subjective = subjective;
+        note.content.objective = objective;
+        note.content.assessment = assessment;
+        note.content.plan = plan;
+        return note;
     } catch (error) {
         console.error("Error processing Gemini response:", error);
         throw new Error("Failed to process the response.");
@@ -331,3 +418,9 @@ function formatTherapyNoteToHTML(text) {
     // Return single-line HTML content without wrapper
     return htmlLines.join('').replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
 }
+
+module.exports = {
+    generateSOAPNote,
+    generateSessionSummary,
+    generateClientSummaryAndUpdateFromNote
+};

@@ -45,14 +45,14 @@ const sessionSchema = new Schema({
         },
         duration: Number,
         recordedAt: Date,
-        hasSummary: { type: Boolean, default: false }
+        // hasSummary: { type: Boolean, default: false }
     }],
   
     // Session-specific data
     metadata: {
         mood: {
-        start: Number, // 1-10 scale
-        end: Number
+            start: Number, // 1-10 scale
+            end: Number
         },
         sessionGoals: [String],
         homework: [String],
