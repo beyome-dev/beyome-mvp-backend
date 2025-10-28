@@ -23,50 +23,6 @@ const LOCATION =  config.google.projectLocation || 'us-central1';
 const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
 // const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-/**
- * Default clinical system instruction
- * This is used for all clinical documentation
- */
-const DEFAULT_CLINICAL_INSTRUCTION = `You are a professional medical documentation assistant specialized in creating clinical notes. 
-
-Your responsibilities:
-- Generate structured, professional clinical documentation following standard medical formatting
-- Use appropriate medical terminology while maintaining clarity
-- Organize information using SOAP (Subjective, Objective, Assessment, Plan) format when applicable
-- Maintain patient confidentiality and professional tone
-- Be precise and comprehensive in documenting medical information
-- Follow clinical documentation best practices
-- Use standard medical abbreviations appropriately
-- Structure notes for easy review by healthcare professionals
-
-Always maintain:
-- Professional medical writing style
-- Clear, concise language
-- Proper medical documentation standards
-- Logical flow of information
-- Accurate representation of the clinical encounter
-
-IMPORTANT COMPLIANCE NOTES:
-- Do not fabricate or assume medical information not present in the transcript
-- Clearly indicate when information is missing with [Not mentioned] or [Not documented]
-- Maintain HIPAA compliance by not adding patient identifiers unless present in transcript
-- Use professional medical language appropriate for the medical record`;
-
-/**
- * Get or create a model with specific system instructions
- */
-function getModelWithInstructions(systemInstruction = null) {
-  if (!systemInstruction) {
-    systemInstruction = DEFAULT_CLINICAL_INSTRUCTION;
-  }
-  return vertexAI.getGenerativeModel({
-    model: config.google.aiModel || 'gemini-2.5-flash',
-    systemInstruction: {
-      role: 'system',
-      parts: [{ text: systemInstruction }]
-    }
-  });
-}
 
 // Ensure upload directory exists
 if (!fs.existsSync(uploadDir)) {
@@ -99,6 +55,7 @@ const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
         "originalSessionTranscript": 1,
         "originialOutputContent": 1,
         "formattedContent": 1,
+        "noteType": 1,
     })
     .sort({ visitDate: -1 })
     .skip(skip)
@@ -123,6 +80,7 @@ const getAllNotesMinimal = async (filter = {}, page = 1, limit = 10) => {
         "visitType": 1,
         "visitDate": 1,
         "status": 1,
+        "noteType": 1,
     })
     .sort({ visitDate: -1 })
     .skip(skip)
