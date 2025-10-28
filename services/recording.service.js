@@ -194,10 +194,6 @@ const updateRecordingMetadata = async (recordingId, data, user) => {
         unknownClient.status = 'active';
         unknownClient.clientNumber = clientData.clientNumber || 
           `${clientData.lastName}${Date.now()}`.toLowerCase();
-        unknownClient.metadata = {
-          ...unknownClient.metadata,
-          ...clientData.metadata
-        };
         
         await unknownClient.save()//{ session: mongoSession });
         updatedClient = unknownClient;
