@@ -317,7 +317,8 @@ const createSessionSummary = async (recording) => {
     if (!session) {
         throw new Error('Session not found for summary generation');
     }
-    const summary = await generateSessionSummary(session)
+    const { summary, title } = await generateSessionSummary(session)
+    session.title = title;
     if (session.metadata) {
        session.metadata.summary = summary;
     } else {

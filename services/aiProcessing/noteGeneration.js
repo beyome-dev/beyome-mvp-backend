@@ -252,9 +252,13 @@ const generateSessionSummary = async (session) => {
     - Key concerns and therapeutic goals
     - Patterns and clinical observations
     - Progress and treatment recommendations`;
-        const result = await model.generateContent(promptText);
+        let result = await model.generateContent(promptText);
 
-         return extractTextFromResponse(result);
+        const summary = extractTextFromResponse(result);
+        if (session.recordings.length == 1) {
+            result = await model.generateContent("Generate a concise title for the following session summary:\n\n" + summary);
+        }
+        return { summary: summary, title: extractTextFromResponse(result) }; ;
     } catch (error) { 
         console.error("Failed to update client summary:", error);
         throw error;

@@ -35,7 +35,7 @@ const sessionSchema = new Schema({
         index: true
     },
     location: String,
-  
+    title: String,
     // Embedded recording metadata (summary info only)
     recordings: [{
         recordingId: { type: Schema.Types.ObjectId, ref: 'Recording' },
