@@ -110,37 +110,38 @@ const generateRandomSuffix = (length = 4) => {
 };
 
 const createClient = async (clientData, handlerID, byPassCheck) => {
-    if (clientData.anonymous) {
-        let unique = false;
-        let attempts = 0;
-        let generatedFirstName = '';
-        let generatedLastName = '';
+    // if (clientData.anonymous) {
+    //     let unique = false;
+    //     let attempts = 0;
+    //     let generatedFirstName = '';
+    //     let generatedLastName = '';
 
-        while (!unique && attempts < 10) {
-            generatedFirstName = `Anon${generateRandomSuffix(6)}`;
-            generatedLastName = generateRandomSuffix(5);
+    //     while (!unique && attempts < 10) {
+    //         generatedFirstName = `Anon${generateRandomSuffix(6)}`;
+    //         generatedLastName = generateRandomSuffix(5);
 
-            const existing = await Client.findOne({
-                handler: handlerID,
-                firstName: generatedFirstName,
-                lastName: generatedLastName
-            });
+    //         const existing = await Client.findOne({
+    //             handler: handlerID,
+    //             firstName: generatedFirstName,
+    //             lastName: generatedLastName
+    //         });
 
-            if (!existing) {
-                unique = true;
-            } else {
-                attempts++;
-            }
-        }
+    //         if (!existing) {
+    //             unique = true;
+    //         } else {
+    //             attempts++;
+    //         }
+    //     }
 
-        if (!unique) {
-            throw new Error('Unable to generate a unique anonymous client name after 10 attempts. Please try again or contact support.');
-        }
+    //     if (!unique) {
+    //         throw new Error('Unable to generate a unique anonymous client name after 10 attempts. Please try again or contact support.');
+    //     }
 
-        clientData.firstName = generatedFirstName;
-        clientData.lastName = generatedLastName;
-    }
+    //     clientData.firstName = generatedFirstName;
+    //     clientData.lastName = generatedLastName;
+    // }
 
+    
     if (!clientData.firstName && !clientData.lastName) {
         throw new Error('Nick name, First Name or Last Name are required');
     }
@@ -151,6 +152,8 @@ const createClient = async (clientData, handlerID, byPassCheck) => {
         clientData.lastName = clientData.lastName.trim();
         clientData.nickName = `${clientData.lastName}, ${clientData.firstName}`;
     }
+    clientData.clientNumber = clientData.clientNumber || 
+          `${clientData.lastName}${Date.now()}`.toLowerCase();
 
     if (!byPassCheck && (clientData.email || clientData.phone)) {
         let query = { handler: handlerID, $or: [] };
