@@ -50,6 +50,9 @@ const sessionSchema = new Schema({
   
     // Session-specific data
     metadata: {
+        summary: {
+            type: String, 
+        },
         mood: {
             start: Number, // 1-10 scale
             end: Number

@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 
 const config = require('../config');
 const { Session, Recording, Client } = require('../models');
-const { requestTranscription } = require('../services/audioProcessing/transcribeAudio.service');
-
+const { requestTranscription, fetchTranscriptionStatus } = require('../services/audioProcessing/transcribeAudio.service');
+const { generateSessionSummary, generateClientSummaryAndUpdateFromNote } = require('../services/aiProcessing/noteGeneration');
 
 const startRecordingSession = async (user) => {
 // const session = await mongoose.startSession();
@@ -254,6 +254,7 @@ const updateRecordingMetadata = async (recordingId, data, user) => {
 //     mongoSession.endSession();
 //   }
 }
+
 const updateRecordingTranscriptionMetadata = async (transcriptionResult) => {
     // Update recording with transcription
     recording.transcriptionText = transcriptionResult.text;
@@ -269,9 +270,68 @@ const updateRecordingTranscriptionMetadata = async (transcriptionResult) => {
     };
 }
 
+const checkAndUpdateRecordingTranscription = async (recordingId) => {
+    const recording = await Recording.findById(recordingId);
+    if (!recording) {
+        throw new Error('Recording not found');
+    }
+    try {
+      if (!recording.transcriptionMetadata?.jobId) {
+        throw error = new Error('No Salad Job ID found in transcriptionMetadata');
+      }
+      // Fetch job status from Salad API
+      const transcriptionResult = await fetchTranscriptionStatus(recording.transcriptionMetadata.jobId);
+      if (transcriptionResult.transcriptionStatus === 'processing') {
+          console.log(`Job ${recording.transcriptionMetadata.jobId} still processing...`);
+          throw new Error('Job ${recording.transcriptionMetadata.jobId} still processing...');
+      }
+      // Update recording with transcription
+      recording.transcriptionText = transcriptionResult.transcriptionText;
+      recording.transcriptionStatus = transcriptionResult.transcriptionStatus;
+      recording.transcriptionMetadata = transcriptionResult.transcriptionMetadata
+      recording.transcriptionError = null;
+      await recording.save();
+      try {
+          await createSessionSummary(recording);  
+      } catch (error) {
+          console.error(`Error generating summary for recording ${recording._id}:`, error.message);
+          throw error;
+      }
+    } catch (error) {
+      await Recording.findByIdAndUpdate(recording._id, { 
+          transcriptionStatus: 'failed',
+          transcriptionError: {
+              message: error.message,
+              code: 'SALAD_API_ERROR',
+              timestamp: new Date()
+          }
+      });
+      throw error;
+    }
+}
+
+const createSessionSummary = async (recording) => {
+    const session = await Session.findById(recording.sessionId)
+        .populate("clientId")
+        .populate("recordings.recordingId");
+    if (!session) {
+        throw new Error('Session not found for summary generation');
+    }
+    const summary = await generateSessionSummary(session)
+    if (session.metadata) {
+       session.metadata.summary = summary;
+    } else {
+         session.metadata = { summary };
+    }
+    
+    await session.save();
+    await generateClientSummaryAndUpdateFromNote(session)
+}
+
 module.exports = {
     startRecordingSession,
     uploadRecording,
     updateRecordingMetadata,
-    updateRecordingTranscriptionMetadata
+    updateRecordingTranscriptionMetadata,
+    checkAndUpdateRecordingTranscription
 }

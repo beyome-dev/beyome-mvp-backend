@@ -1,4 +1,5 @@
 const { Client, Booking, Note } = require('../models');
+const sessionService = require('./session.service');
 const moment = require('moment-timezone');
 
 const getClients = async (id) => {
@@ -83,6 +84,7 @@ const deleteClientById = async (id, handler) => {
         }
         await Client.findByIdAndDelete(id);
 
+        await sessionService.deleteSessionForUser(id, handler);
         // Delete all bookings for this client
         let bookings = await Booking.find({ client: id, handler: handler._id })
         await Booking.deleteMany({client: id, handler: handler._id});

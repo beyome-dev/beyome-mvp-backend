@@ -4,7 +4,6 @@ const path = require('path');
 const fs = require('fs');
 
 const mongoose = require('mongoose');
-const clientService = require('../client.service');
 const bookingService = require("../booking.service");
 const { requestTranscription } = require('../audioProcessing/transcribeAudio.service');
 const { Client, Booking, Note, Prompt } = require('../../models');
@@ -74,7 +73,7 @@ function getModelWithInstructions(systemInstruction = null) {
  * Generates a SOAP note based on the provided transcript data.
  * @param {string} transcript - The transcript text from Salad.
  */
-const generateSOAPNote = async (session, promptId, user) => {
+const generateNote = async (session, promptId, user) => {
     if (!session) {
         throw new Error("Session data is required to generate a note.");
     }
@@ -209,55 +208,50 @@ function extractTextFromResponse(result) {
 }
 const generateSessionSummary = async (session) => {
     try {
-        // combine transcripts into multiline strings (each recording on a new line)
-    const sessionTranscript = (session.recordings || [])
-        .filter(r => r.recordingType === 'session_recording' && r.recordingId?.transcriptionText)
-        .map(r => r.recordingId.transcriptionText.trim())
-        .join('\n');
+    
+        if (session.recordings.length == 0) {
+            throw new Error("No recordings found for the session");
+        }
 
-    const dictationTranscript = (session.recordings || [])
-        .filter(r => r.recordingType === 'dictation' && r.recordingId?.transcriptionText)
-        .map(r => r.recordingId.transcriptionText.trim())
-        .join('\n');
+        // Get all session recordings and their transcripts
+        const recordings = session.recordings.map(r => ({
+            type: r.recordingType,
+            text: r.recordingId?.transcriptionText || ''
+        })).filter(r => r.text);
 
-         const model = getModelWithInstructions(`You are a therapy progress summarization assistant.
+        if (recordings.length === 0) {
+            throw new Error('No transcripts available for summary generation');
+        }
 
-Your task is to generate a clear, concise, professional **clinician-facing progress summary** of a client's therapy session across different recordings for the therapist to review before the client's next visit.
+        // Separate session recordings and dictations
+        const sessionTranscript = recordings
+            .filter(r => r.type === 'session_recording')
+            .map(r => r.text)
+            .join('\n\n');
 
-Focus on:
-- Identifying patterns, improvements, setbacks, and key themes.
-- Highlighting relevant symptoms, behavioral patterns, or psychosocial factors.
-- Using professional, precise language, including appropriate clinical terminology where needed.
-- Avoiding casual, warm, or direct address to the client.
-- Presenting the information in a clear, structured narrative that the clinician can review quickly.
+        const dictationTranscript = recordings
+            .filter(r => r.type === 'dictation')
+            .map(r => r.text)
+            .join('\n\n');
 
+        const model = getModelWithInstructions(`You are a therapy progress summarization assistant.
+    Your task is to generate a clear, concise, professional clinician-facing progress summary.
+    Focus on synthesizing key information, patterns, and clinical observations.
+    Use professional language and avoid direct client address.`);
 
-Using these, generate a 3–5 sentence **clinician-facing progress summary** without copying sentences verbatim from the inputs. Focus on synthesizing the client's progress and current clinical focus to inform continued treatment planning.`);
+        let promptText;
+        if (sessionTranscript && dictationTranscript) {
+            promptText = `Session Recording:\n${sessionTranscript}\n\nTherapist Dictation:\n${dictationTranscript}`;
+        } else if (sessionTranscript) {
+            promptText = `Session Recording:\n${sessionTranscript}`;
+        } else {
+            promptText = `Therapist Dictation:\n${dictationTranscript}`;
+        }
 
-        const oldHistoryPrompt = `You are a therapy progress summarization assistant.
-
-Below is the session's recording transcript:
-"""
-${sessionTranscript}
-"""
-`;
-
-        const summaryGenPrompt = `Below is the dictation done by the therapist about the session:
-"""
-${dictationTranscript}
-"""
-
-Generate a **clinician-facing progress summary** in 3–5 sentences, focusing on:
-- The client's evolving concerns, goals, and progress.
-- Patterns, improvements, setbacks, and key themes.
-- Relevant symptoms, behavioral patterns, or psychosocial factors.
-- Using professional and precise language for therapist reference.
-- Avoid direct address or casual encouragement.
-
-Do not copy sentences verbatim. Synthesize and paraphrase, providing a clear overview for treatment planning.`;
-
-        const promptText = dictationTranscript ? oldHistoryPrompt + summaryGenPrompt : summaryGenPrompt;
-
+        promptText += `\n\nGenerate a professional 3-5 sentence clinical summary focusing on:
+    - Key concerns and therapeutic goals
+    - Patterns and clinical observations
+    - Progress and treatment recommendations`;
         const result = await model.generateContent(promptText);
 
          return extractTextFromResponse(result);
@@ -287,7 +281,7 @@ You will receive:
 
 Using these, generate a 3–5 sentence **clinician-facing progress summary** without copying sentences verbatim from the inputs. Focus on synthesizing the client's progress and current clinical focus to inform continued treatment planning.`);
 
-        const clientData = await clientService.getClientById(session.clientId._id ? session.clientId._id : session.clientId);
+        const clientData = await Client.findById(session.clientId._id ? session.clientId._id : session.clientId);
         if (!clientData) return;
 
         const oldHistoryPrompt = `You are a therapy progress summarization assistant.
@@ -317,7 +311,7 @@ Do not copy sentences verbatim. Synthesize and paraphrase, providing a clear ove
         const result = await model.generateContent(promptText);
         const newSummary = extractTextFromResponse(result);
 
-         return await Client.findByIdAndUpdate(session.clientId, { summary: newSummary }, { new: true });
+        return await Client.findByIdAndUpdate(session.clientId, { summary: newSummary }, { new: true });
     } catch (error) { 
         console.error("Failed to update client summary:", error);
         throw error;
@@ -420,7 +414,7 @@ function formatTherapyNoteToHTML(text) {
 }
 
 module.exports = {
-    generateSOAPNote,
+    generateNote,
     generateSessionSummary,
-    generateClientSummaryAndUpdateFromNote
+    generateClientSummaryAndUpdateFromNote,
 };

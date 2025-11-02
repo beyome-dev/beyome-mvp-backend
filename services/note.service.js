@@ -375,7 +375,7 @@ const manualNoteGeneration = async (input, client, session, booking, type, promp
             await Booking.findByIdAndUpdate(booking, { dictationNote: noteData._id, status: "generating-note" }, { new: false });
         }
         // Call Salad API for transcription
-        generateSOAPNote(input, updatedNote._id, io);
+        generateNote(input, updatedNote._id, io);
 
         return {
             note: updatedNote
@@ -398,7 +398,7 @@ const reprocessNote = async (noteId, params, io) => {
         if (!note) throw new Error('Note not found');
 
         if (note.inputContentType == 'text') {
-            note = await generateSOAPNote(note.inputContent, note._id, io, params.prompt);
+            note = await generateNote(note.inputContent, note._id, io, params.prompt);
         } else {
             let transcript = note.sessionTranscript;
             if (!transcript || transcript.trim() === "" || transcript.trim() === 'Generating...') {
@@ -416,12 +416,12 @@ const reprocessNote = async (noteId, params, io) => {
                     if (response.data.output.error && response.data.output.error != '') {
                         throw new Error(response.data.output.error);
                     }
-                    // note = await generateSOAPNote(transcript, note._id, io, params.prompt);
+                    // note = await generateNote(transcript, note._id, io, params.prompt);
                 } else {
                     throw new Error(`Transcription job status: ${response.data.status}`);
                 }
             } else {
-                 note = await generateSOAPNote(transcript, note._id, io, params.prompt);
+                 note = await generateNote(transcript, note._id, io, params.prompt);
             }
         }
 

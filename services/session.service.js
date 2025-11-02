@@ -1,8 +1,8 @@
-const { Note, Prompt, Session } = require("../models");
+const { Note, Prompt, Session, Recording } = require("../models");
 const clientService = require('./client.service');
 const userService = require('./user.service');
 const calendatService = require("./utilityServices/google/googleCalendar.service");
-const { generateSOAPNote } = require("./aiProcessing/noteGeneration");
+const { generateNote } = require("./aiProcessing/noteGeneration");
 const moment = require('moment-timezone');
 
 // Create a new session
@@ -111,18 +111,19 @@ async function deleteSession(id, data, user) {
     // if (data.googleEventId !== "" && user.googleTokens?.access_token) {
     //    await calendatService.removeSessionEvent(data.googleEventId, user.googleTokens)
     // }
+    await Recording.deleteMany({ sessionId: id });
     return await Session.findByIdAndDelete(id);
 }
 
 // Delete a session by client ID and therapistId ID
 async function deleteSessionForUser(clientId, user) {
-    let sessions = await Session.find({ client: clientId, therapistId: user._id })
-    sessions = sessions.map(session => {
-        if (session.googleEventId !== "" && user.googleTokens?.access_token) {
-            calendatService.removeSessionEvent(session.googleEventId, user.googleTokens)
-        }
-    });
-    return await Session.deleteMany({client: clientId, therapistId: user._id});
+
+    const sessions = await Session.find({ clientId, therapistId: user._id }).select('_id');
+    const sessionIds = sessions.map(s => s._id);
+    if (sessionIds.length > 0) {
+        await Recording.deleteMany({ sessionId: { $in: sessionIds } });
+    }
+    return await Session.deleteMany({ clientId: clientId, therapistId: user._id });
 }
 
 async function genreateNote(sessionId, body, user) {
@@ -144,7 +145,7 @@ async function genreateNote(sessionId, body, user) {
         throw new Error('Template not found');
     }
 
-    const note = await generateSOAPNote(session, templateId, user);
+    const note = await generateNote(session, templateId, user);
 
     return Note.create(note);
 }

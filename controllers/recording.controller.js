@@ -28,7 +28,7 @@ const  uploadRecording = async (req, res) => {
     }
 }
 
- const updateRecordingMetadata = async (req, res) => {
+const updateRecordingMetadata = async (req, res) => {
     try {
       const recordingId = req.params.id;
       const data = req.body;
@@ -41,8 +41,20 @@ const  uploadRecording = async (req, res) => {
     }
 }
 
+const checkRecordingStatus = async (req, res) => {
+    try {
+      const recordingId = req.params.id;
+
+      const result = await recordingService.checkAndUpdateRecordingTranscription(recordingId);
+      return res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      console.error('Controller updateRecordingTranscriptionMetadata error:', error);
+      return res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+    }
+}
 module.exports = {
     startRecordingSession,
     uploadRecording,
-    updateRecordingMetadata
+    updateRecordingMetadata,
+    checkRecordingStatus
 };

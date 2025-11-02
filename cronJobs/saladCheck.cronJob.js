@@ -3,7 +3,8 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 const config = require('../config');
 const { fetchTranscriptionStatus } = require('../services/audioProcessing/transcribeAudio.service');
-const { Recording } = require('../models');
+const { generateSessionSummary, generateClientSummaryAndUpdateFromNote } = require('../services/aiProcessing/noteGeneration');
+const { Recording, Session  } = require('../models');
 
 
 const FIVE_HOURS = 5 * 60 * 60 * 1000; 
@@ -41,7 +42,7 @@ const FIVE_HOURS = 5 * 60 * 60 * 1000;
 //                 continue;
 //             }
 //             if (note.inputContentType == 'text') {
-//                 await noteService.generateSOAPNote(note.inputContent, note._id, io);
+//                 await noteService.generateNote(note.inputContent, note._id, io);
 //             } else {
 //                 try {
 //                     let transcript = note.sessionTranscript
@@ -62,13 +63,13 @@ const FIVE_HOURS = 5 * 60 * 60 * 1000;
 //                             }
 //                             transcript = await noteService.extractSpeakerSentencesFromTimestamps(response.data);
 //                             // Call service function with socket.io instance
-//                             await noteService.generateSOAPNote(transcript, note._id, io);
+//                             await noteService.generateNote(transcript, note._id, io);
 //                         } else {
 //                             console.log(`Job ${note.saladJobId} status: ${response.data.status}`);
 //                             continue;
 //                         }
 //                     } else {
-//                         await noteService.generateSOAPNote(transcript, note._id, io);
+//                         await noteService.generateNote(transcript, note._id, io);
 //                     }
 //                 } catch (error) {
 //                     console.error(`Error fetching job ${note.saladJobId}:`, error.message);
@@ -109,6 +110,11 @@ const checkForSaladResults = async (io) => {
             recording.transcriptionStatus = transcriptionResult.transcriptionStatus;
             recording.transcriptionMetadata = transcriptionResult.transcriptionMetadata
             await recording.save();
+            try {
+                await createSessionSummary(recording);  
+            } catch (error) {
+                console.error(`Error generating summary for recording ${recording._id}:`, error.message);
+            }
         } catch (error) {
             await Recording.findByIdAndUpdate(recording._id, { 
                 transcriptionStatus: 'failed',
@@ -120,6 +126,24 @@ const checkForSaladResults = async (io) => {
             });
         }
     }
+}
+
+const createSessionSummary = async (recording) => {
+    const session = await Session.findById(recording.sessionId)
+        .populate("clientId")
+        .populate("recordings.recordingId");
+    if (!session) {
+        throw new Error('Session not found for summary generation');
+    }
+    const summary = await generateSessionSummary(session)
+    if (session.metadata) {
+       session.metadata.summary = summary;
+    } else {
+         session.metadata = { summary };
+    }
+    
+    await session.save();
+    await generateClientSummaryAndUpdateFromNote(session)
 }
 
 module.exports = startCronJob;
