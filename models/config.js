@@ -32,6 +32,19 @@ const configSchema = new mongoose.Schema({
   fontColor: { type: String, default: '#000000' },
   promptIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Prompt' }],
 
+  defaultTemplate: { type: mongoose.Schema.Types.ObjectId, ref: 'Prompt' },
+  notificationPreferences: {
+      email: { type: Boolean, default: true },
+      inApp: { type: Boolean, default: true }
+  },
+
+  audioSettings: {
+    autoTranscribe: { type: Boolean, default: true },
+      language: { type: String, default: 'en-US' }
+  },
+
+  theme: String,
+  timezone: String
 }, { timestamps: true });
 
 // Example uniqueness indexes

@@ -9,6 +9,7 @@ const promptService = require('./prompt.service');
 const waitlistService = require('./waitlist.service');
 const checklistService = require('./checklist.service');
 const configService = require('./config.service');
+const recordingService = require('./recording.service');
 
 module.exports = {
     userService,
@@ -21,5 +22,6 @@ module.exports = {
     promptService,
     waitlistService,
     checklistService,
-    configService
+    configService,
+    recordingService
 }

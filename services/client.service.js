@@ -33,10 +33,12 @@ const updateClientById = async (id, clientData, handler) => {
             throw new Error('You cannot change the password of another client');
         }
     }
+    if (clientData.status != 'unknown') {
+        clientData.status = 'active';
+    }
     client = await Client.findByIdAndUpdate(id, clientData);
     if (clientData.firstName != client.firstName || clientData.lastName != client.lastName) {
         const updatedFullName = `${clientData.firstName} ${clientData.lastName}`;
-
         await Booking.updateMany(
             {
                 client: id,
@@ -77,12 +79,14 @@ function isAuthorizedToClient(client, handler) {
 const deleteClientById = async (id, handler) => {
     const client = await Client.findById(id);
     if (client) {
-        // Check if handler is allowed to delete this client
         if (!isAuthorizedToClient(client, handler)) {
             throw new Error('You are not authorized to delete this client');
         }
         await Client.findByIdAndDelete(id);
 
+        // Only require sessionService when needed
+        const sessionService = require('./session.service');
+        await sessionService.deleteSessionForUser(id, handler);
         // Delete all bookings for this client
         let bookings = await Booking.find({ client: id, handler: handler._id })
         await Booking.deleteMany({client: id, handler: handler._id});
@@ -108,37 +112,38 @@ const generateRandomSuffix = (length = 4) => {
 };
 
 const createClient = async (clientData, handlerID, byPassCheck) => {
-    if (clientData.anonymous) {
-        let unique = false;
-        let attempts = 0;
-        let generatedFirstName = '';
-        let generatedLastName = '';
+    // if (clientData.anonymous) {
+    //     let unique = false;
+    //     let attempts = 0;
+    //     let generatedFirstName = '';
+    //     let generatedLastName = '';
 
-        while (!unique && attempts < 10) {
-            generatedFirstName = `Anon${generateRandomSuffix(6)}`;
-            generatedLastName = generateRandomSuffix(5);
+    //     while (!unique && attempts < 10) {
+    //         generatedFirstName = `Anon${generateRandomSuffix(6)}`;
+    //         generatedLastName = generateRandomSuffix(5);
 
-            const existing = await Client.findOne({
-                handler: handlerID,
-                firstName: generatedFirstName,
-                lastName: generatedLastName
-            });
+    //         const existing = await Client.findOne({
+    //             handler: handlerID,
+    //             firstName: generatedFirstName,
+    //             lastName: generatedLastName
+    //         });
 
-            if (!existing) {
-                unique = true;
-            } else {
-                attempts++;
-            }
-        }
+    //         if (!existing) {
+    //             unique = true;
+    //         } else {
+    //             attempts++;
+    //         }
+    //     }
 
-        if (!unique) {
-            throw new Error('Unable to generate a unique anonymous client name after 10 attempts. Please try again or contact support.');
-        }
+    //     if (!unique) {
+    //         throw new Error('Unable to generate a unique anonymous client name after 10 attempts. Please try again or contact support.');
+    //     }
 
-        clientData.firstName = generatedFirstName;
-        clientData.lastName = generatedLastName;
-    }
+    //     clientData.firstName = generatedFirstName;
+    //     clientData.lastName = generatedLastName;
+    // }
 
+    
     if (!clientData.firstName && !clientData.lastName) {
         throw new Error('Nick name, First Name or Last Name are required');
     }
@@ -149,6 +154,8 @@ const createClient = async (clientData, handlerID, byPassCheck) => {
         clientData.lastName = clientData.lastName.trim();
         clientData.nickName = `${clientData.lastName}, ${clientData.firstName}`;
     }
+    clientData.clientNumber = clientData.clientNumber || 
+          `${clientData.lastName}${Date.now()}`.toLowerCase();
 
     if (!byPassCheck && (clientData.email || clientData.phone)) {
         let query = { handler: handlerID, $or: [] };
