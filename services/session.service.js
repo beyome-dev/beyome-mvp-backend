@@ -1,4 +1,4 @@
-const { Note, Prompt, Session, Recording } = require("../models");
+const { Note, Prompt, Session, Recording, Client } = require("../models");
 const clientService = require('./client.service');
 const userService = require('./user.service');
 const calendatService = require("./utilityServices/google/googleCalendar.service");
@@ -87,20 +87,10 @@ async function getAllSessions(filter = {}, page = 1, limit = 10) {
 // Update a session by ID
 async function updateSession(id, data, user) {
     let session = await Session.findById(id);
-    if ((data.date && data.date !== session.date) || (data.time && data.time !== session.time)) {
-        const existingSession = await Session.findOne({
-            date: data.date,
-            time: data.time,
-            therapistId: user._id,
-            organization: data.organization,
-            status: { $nin: ['cancelled', 'no-show', 'removed'] } // Exclude cancelled and no-show sessions
-        });
-        if (existingSession) {
-            throw new Error("A session already exists for the given date and time.");
-        }
-        if (session.googleEventId !== "" && user.googleTokens?.access_token) {
-            const evenID = await calendatService.patchSessionEvent(data.googleEventId, session, user.googleTokens)
-            session.googleEventId = evenID;
+    if (data.clientId && data.clientId !== session.clientId.toString()) {
+        const client = await Client.findById(session.clientId);
+        if (client && client.status === 'unknown') {
+            await Client.findByIdAndDelete(session.clientId);
         }
     }
     return await Session.findByIdAndUpdate(id, data, { new: true });
@@ -149,7 +139,6 @@ async function genreateNote(sessionId, body, user) {
 
     return Note.create(note);
 }
-
 
     
 

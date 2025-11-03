@@ -1,5 +1,4 @@
 const { Client, Booking, Note } = require('../models');
-const sessionService = require('./session.service');
 const moment = require('moment-timezone');
 
 const getClients = async (id) => {
@@ -34,10 +33,12 @@ const updateClientById = async (id, clientData, handler) => {
             throw new Error('You cannot change the password of another client');
         }
     }
+    if (clientData.status != 'unknown') {
+        clientData.status = 'active';
+    }
     client = await Client.findByIdAndUpdate(id, clientData);
     if (clientData.firstName != client.firstName || clientData.lastName != client.lastName) {
         const updatedFullName = `${clientData.firstName} ${clientData.lastName}`;
-
         await Booking.updateMany(
             {
                 client: id,
@@ -78,12 +79,13 @@ function isAuthorizedToClient(client, handler) {
 const deleteClientById = async (id, handler) => {
     const client = await Client.findById(id);
     if (client) {
-        // Check if handler is allowed to delete this client
         if (!isAuthorizedToClient(client, handler)) {
             throw new Error('You are not authorized to delete this client');
         }
         await Client.findByIdAndDelete(id);
 
+        // Only require sessionService when needed
+        const sessionService = require('./session.service');
         await sessionService.deleteSessionForUser(id, handler);
         // Delete all bookings for this client
         let bookings = await Booking.find({ client: id, handler: handler._id })
