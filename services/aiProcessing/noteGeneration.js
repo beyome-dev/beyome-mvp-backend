@@ -1,11 +1,9 @@
 const config = require('../../config');
 // const { GoogleGenerativeAI } = require("@google/generative-ai");
-const path = require('path');
-const fs = require('fs');
+
 
 const mongoose = require('mongoose');
 const bookingService = require("../booking.service");
-const { requestTranscription } = require('../audioProcessing/transcribeAudio.service');
 const { Client, Booking, Note, Prompt } = require('../../models');
 
 const { VertexAI } = require('@google-cloud/vertexai');
@@ -13,7 +11,6 @@ const { VertexAI } = require('@google-cloud/vertexai');
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 // const AI_MODEL = config.google.aiModel 
 // const GEMINI_API_KEY = config.google.apiKey;
-const uploadDir = path.join(__dirname, '../uploads');
 const PROJECT_ID =  config.google.projectID;
 const LOCATION =  config.google.projectLocation || 'us-central1';
 

@@ -14,7 +14,6 @@ const { VertexAI } = require('@google-cloud/vertexai');
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 // const AI_MODEL = config.google.aiModel 
 // const GEMINI_API_KEY = config.google.apiKey;
-const uploadDir = path.join(__dirname, '../uploads');
 const PROJECT_ID =  config.google.projectID;
 const LOCATION =  config.google.projectLocation || 'us-central1';
 
@@ -22,12 +21,6 @@ const LOCATION =  config.google.projectLocation || 'us-central1';
 // Initialize clients
 const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
 // const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-
-// Ensure upload directory exists
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 
 const createNote = async(data) => {
@@ -164,11 +157,7 @@ const deleteNote = async(noteId, user) => {
 const saveAudio = async (file, query, user) => {
     try {
         let { client, booking, type, prompt } = query
-        const filePath = path.join(uploadDir, file.filename);
-        let fileUrl =`${config.APP_URL}/files/${file.filename}`;
-        if (process.env.NODE_ENV === 'development') {
-            fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`
-        }
+        
         let visitDate = new Date();
         if (booking) {
             const bookingData = await bookingService.getBookingById(booking);
@@ -201,8 +190,6 @@ const saveAudio = async (file, query, user) => {
         if (!clientData) {
             throw new Error("Client not found");
         }
-        // Move file to uploads directory
-        fs.renameSync(file.path, filePath);
         let promptFilter = { formatName: "SOAP", aiEngine: "Gemini" }
         if (typeof prompt === 'string' && prompt.trim() !== '') {
             promptFilter = { _id: mongoose.Types.ObjectId.createFromHexString(prompt) }
@@ -248,7 +235,7 @@ const saveAudio = async (file, query, user) => {
         // Call Salad API for transcription
         let transcriptResponse;
         try {
-            transcriptResponse = await requestTranscription(fileUrl, noteData.id);
+            transcriptResponse = await requestTranscription(file, noteData.id);
         } catch (transcriptError) {
             console.error("Error in transcription request:", transcriptError);
             transcriptResponse = null; // Ensure transcriptJobId is handled

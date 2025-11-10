@@ -45,9 +45,15 @@ module.exports = {
         oauthRedirectUrl: process.env.CLIENT_OAUTH_REDIRECT_URL,
         confirmUrl: process.env.CLIENT_CONFIRM_URL,
     },
-    salad: {
-        apiKey: process.env.SALAD_API_KEY,
+    transcriptionConfig: {
+        default: process.env.DEFAULT_TRANSCRIBE_TOOL || 'openai',
+        saladAPIKey: process.env.SALAD_API_KEY,
+        openAIAPIKey: process.env.OPENAI_API_KEY,
+        assemblyAIAPIKey: process.env.ASSEMBLYAI_API_KEY
     },
+    // salad: {
+    //     apiKey: process.env.SALAD_API_KEY,
+    // },
     team: {
         email: process.env.TEAM_EMAIL,
         name:  process.env.TEAM_NAME

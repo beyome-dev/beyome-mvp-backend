@@ -92,7 +92,7 @@ const startCronJob = (io) => {
 const checkForSaladResults = async (io) => {
     
      // Fetch all recordings with status "Running" or with bookingId in bookingIds
-    let runningRecordings = await Recording.find({ transcriptionStatus: 'processing' });
+    let runningRecordings = await Recording.find({ transcriptionStatus: 'processing', provider: 'salad' });
 
     for (const recording of runningRecordings) {
         try {
