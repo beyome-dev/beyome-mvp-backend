@@ -299,8 +299,16 @@ const assemblyAITranscribeAudioService = async (audioFile, recordingId) => {
         audio: audioFile,
         speech_model: "universal",
         speaker_labels: true,
+        language_detection: true,
+        language_detection_options: {
+            expected_languages: ["en", "hi", "kn", "ml", "ta", "te", "si"],
+            fallback_language: "auto",
+            code_switching: true,
+            code_switching_confidence_threshold: 0.5, // Optional parameter - this is set to 0.3 by default
+        },
     };
 
+    
     const transcript = await assemblyAIClient.transcripts.transcribe(params);
 
     if (transcript.status === "error") {
