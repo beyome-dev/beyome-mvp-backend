@@ -293,13 +293,16 @@ const getClientDataByID = async (clientID, handler) => {
             }
         ]);
 
+        let sessions = await Session.find({ client: client._id }).sort({ createdAt: -1 });
+
         const result = stats[0] || {};
         let analysis = {}
         analysis.revenue = result.revenue?.[0]?.total || 0;
         analysis.completedOrPendingCount = result.completedOrPending?.[0]?.count || 0;
         analysis.upcomingCount = result.upcoming?.[0]?.count || 0;
         analysis.pendingReviewCount = result.pendingReview?.[0]?.count || 0;
-
+        analysis.sessions = sessions.length;
+        
         // Assign lastVisit as joined date and time from latestBooking
         if (result.latestBooking && result.latestBooking[0]) {
             const { date, time } = result.latestBooking[0];

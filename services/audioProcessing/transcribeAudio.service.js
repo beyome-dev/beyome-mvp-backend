@@ -28,7 +28,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Function to request transcription from Salad API
-const requestTranscription = async (file, recordingId) => {
+const requestTranscription = async (file, recordingId, tool) => {
     try {
 
         // Upload to Cloud Storage
@@ -46,8 +46,7 @@ const requestTranscription = async (file, recordingId) => {
         // Move file to uploads directory
         fs.renameSync(file.path, filePath);
 
-        console.log(`Requesting transcription using tool: ${transcriptionTool}`);
-        switch (transcriptionTool) {
+        switch (tool ? tool : transcriptionTool) {
             case 'openai':
                 const openAIData = await openaiTranscribeAudioService(filePath, recordingId);
                 return await formatTranscriptResponseFromTool(openAIData, 'openai');
@@ -72,7 +71,7 @@ const fetchTranscriptionStatus = async (jobId) => {
             headers: { 'Salad-Api-Key': SALAD_API_KEY }
         });
         
-        return await formatTranscriptResponseFromTool(response.data);
+        return await formatTranscriptResponseFromTool(response.data, 'salad');
     } catch (error) {
         console.error('Salad API Error:', error.response?.data || error.message);
         throw new Error('Error fetching transcription status');

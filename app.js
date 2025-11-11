@@ -15,6 +15,7 @@ const path = require('path');
 const { noteController } = require('./controllers')
 const {saladCheck, fileManager, bookingCronJob } = require('./cronJobs');
 const axios = require('axios');
+const { tokenService } = require('./services');
 
 // set up passport
 require('./config/passport-config');
@@ -81,6 +82,27 @@ else {
 io.on('connection', (socket) => {
     console.log('Frontend connected:', socket.id);
 
+    const token = socket.handshake.auth.token;
+
+        if (token) {
+            try {
+                const jwt_payload = tokenService.verifyToken(token, config.jwt.secret);
+                socket.data.user = jwt_payload; // Store user data on the socket
+
+                // Join a room with the user's ID
+                const userRoom = jwt_payload.id
+                socket.join(userRoom);
+            
+                console.log(`User ${jwt_payload.id} connected and joined room: ${userRoom}`);
+            } catch (err) {
+                console.error("Invalid token:", err.message);
+                socket.disconnect(); // Disconnect if token is invalid
+            }
+        } else {
+            console.log("No token provided.");
+            socket.disconnect(); // Disconnect if no token is provided
+        }
+        
     socket.on('disconnect', () => {
         console.log('Frontend disconnected:', socket.id);
     });
@@ -121,8 +143,6 @@ app.post(
 // handle celebrate errors and server errors
 app.use(validationMiddleware.handleValidationError);
 app.use(apiKeyMiddleware)
-
-console.log("JWT Secret : ", config.jwt.secret);
 
 // DB Connection
 async function connectDB() {

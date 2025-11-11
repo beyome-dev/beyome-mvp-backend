@@ -2,12 +2,13 @@ const cron = require('node-cron');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const config = require('../config');
-const { fetchTranscriptionStatus } = require('../services/audioProcessing/transcribeAudio.service');
+const { fetchTranscriptionStatus, requestTranscription } = require('../services/audioProcessing/transcribeAudio.service');
 const { generateSessionSummary, generateClientSummaryAndUpdateFromNote } = require('../services/aiProcessing/noteGeneration');
 const { Recording, Session  } = require('../models');
 
 
 const FIVE_HOURS = 5 * 60 * 60 * 1000; 
+const waitUntil = 45 * 60 * 1000;
 
 // /**
 //  * Function to fetch and process running jobs.
@@ -92,29 +93,49 @@ const startCronJob = (io) => {
 const checkForSaladResults = async (io) => {
     
      // Fetch all recordings with status "Running" or with bookingId in bookingIds
-    let runningRecordings = await Recording.find({ transcriptionStatus: 'processing', provider: 'salad' });
+    let runningRecordings = await Recording.find({ transcriptionStatus: 'processing' });
 
     for (const recording of runningRecordings) {
         try {
-            if (!recording.transcriptionMetadata?.jobId) {
-                throw error = new Error('No Salad Job ID found in transcriptionMetadata');
+            if (!recording.transcriptionMetadata) {
+                throw error = new Error('No transcriptionMetadata found');
             }
-            // Fetch job status from Salad API
-            const transcriptionResult = await fetchTranscriptionStatus(recording.transcriptionMetadata.jobId);
-            if (transcriptionResult.transcriptionStatus === 'processing') {
-                console.log(`Job ${recording.transcriptionMetadata.jobId} still processing...`);
+            if (recording.transcriptionMetadata.provider !== 'salad') {
+                if (recording.createdAt.getTime() + waitUntil < Date.now()) {
+                    const audioFile = fs.createReadStream(recording.filePath);
+                    await requestTranscription(audioFile, recording.sessionId, 'salad');
+                }
+            }
+            if (recording.transcriptionMetadata.provider === 'salad') {
+                if (!recording.transcriptionMetadata?.jobId) {
+                    throw error = new Error('No Salad Job ID found in transcriptionMetadata');
+                }
+                // Fetch job status from Salad API
+                const transcriptionResult = await fetchTranscriptionStatus(recording.transcriptionMetadata.jobId);
+                if (transcriptionResult.transcriptionStatus === 'processing') {
+                    console.log(`Job ${recording.transcriptionMetadata.jobId} still processing...`);
+                    continue;
+                }
+                // Update recording with transcription
+                recording.transcriptionText = transcriptionResult.transcriptionText;
+                recording.transcriptionStatus = transcriptionResult.transcriptionStatus;
+                recording.transcriptionMetadata = transcriptionResult.transcriptionMetadata
+                await recording.save();
+            }
+            if (recording.transcriptionStatus !== 'completed') {
                 continue;
             }
-            // Update recording with transcription
-            recording.transcriptionText = transcriptionResult.transcriptionText;
-            recording.transcriptionStatus = transcriptionResult.transcriptionStatus;
-            recording.transcriptionMetadata = transcriptionResult.transcriptionMetadata
-            await recording.save();
+            await Session.findByIdAndUpdate(recording.sessionId, { status: 'completed' });
             try {
                 await createSessionSummary(recording);  
             } catch (error) {
                 console.error(`Error generating summary for recording ${recording._id}:`, error.message);
             }
+            io.to(recording.therapistId.toString()).emit('recordingTranscriptionCompleted', {
+                recordingId: recording._id,
+                transcriptionText: recording.transcriptionText,
+                transcriptionMetadata: recording.transcriptionMetadata
+            });
         } catch (error) {
             await Recording.findByIdAndUpdate(recording._id, { 
                 transcriptionStatus: 'failed',

@@ -1,9 +1,12 @@
 const mongoose = require('mongoose');
+const path = require('path');
+const uploadDir = path.join(__dirname, '../uploads');
 
 const config = require('../config');
 const { Session, Recording, Client } = require('../models');
 const { requestTranscription, fetchTranscriptionStatus } = require('../services/audioProcessing/transcribeAudio.service');
 const { generateSessionSummary, generateClientSummaryAndUpdateFromNote } = require('../services/aiProcessing/noteGeneration');
+const { session } = require('passport');
 
 const startRecordingSession = async (user) => {
 // const session = await mongoose.startSession();
@@ -58,7 +61,7 @@ const startRecordingSession = async (user) => {
 //   }
 }
 
-const uploadRecording = async (sessionId, audioFile, duration, user) => {
+const uploadRecording = async (sessionId, audioFile, duration, user, io) => {
     // Implementation for uploading a recording
     const therapistId = user._id;
     
@@ -80,9 +83,11 @@ const uploadRecording = async (sessionId, audioFile, duration, user) => {
       recordingType: 'session_recording', // default, can be changed later
       audioKey: "nan",//key,
       duration: duration || 0,
+      filename:audioFile.filename,
+      filePath: path.join(uploadDir, audioFile.filename),
       fileSize: audioFile.size,
       format: audioFile.mimetype.split('/')[1],
-      transcriptionStatus: 'pending',
+      transcriptionStatus: 'processing',
       recordedAt: new Date()
     });
     
@@ -90,6 +95,7 @@ const uploadRecording = async (sessionId, audioFile, duration, user) => {
     
     // Update session with embedded recording reference
     await Session.findByIdAndUpdate(sessionId, {
+      status: 'transcribing',
       $push: {
         recordings: {
           recordingId: recording._id,
@@ -106,11 +112,7 @@ const uploadRecording = async (sessionId, audioFile, duration, user) => {
     });
     
     // Process transcription in background (non-blocking)
-    processTranscriptionInBackground(recording._id, audioFile, sessionId);
-    
-    // Update recording with status
-    recording.transcriptionStatus = 'processing';
-    await recording.save();
+    processTranscriptionInBackground(recording, audioFile, sessionId, io);
 
     return {
         recordingId: recording._id,
@@ -120,47 +122,44 @@ const uploadRecording = async (sessionId, audioFile, duration, user) => {
 }
 
 // Background processing function
-const processTranscriptionInBackground = async (recordingId, audioFile, sessionId) => {
+const processTranscriptionInBackground = async (recording, audioFile, sessionId, io) => {
     try {
         // Request transcription
         const transcriptionResult = await requestTranscription(audioFile, sessionId);
         
         // Update recording with transcription results
-        await Recording.findByIdAndUpdate(recordingId, {
+        await Recording.findByIdAndUpdate(recording._id, {
             transcriptionText: transcriptionResult.transcriptionText,
             transcriptionStatus: transcriptionResult.transcriptionStatus,
             transcriptionMetadata: transcriptionResult.transcriptionMetadata
         });
-        
-        console.log(`Transcription completed for recording ${recordingId}`);
+        if (transcriptionResult.transcriptionMetadata?.provider !== 'salad') {
+          await Session.findByIdAndUpdate(recording.sessionId, { status: 'completed' });
+          try {
+              await createSessionSummary(recording);
+          } catch (error) {
+                console.error(`Error generating summary for recording ${recording._id}:`, error.message);
+          }
+          io.to(recording.therapistId.toString()).emit('recordingTranscriptionCompleted', {
+            recordingId: recording._id,
+            sessionId: recording.sessionId,
+            transcriptionStatus: transcriptionResult.transcriptionStatus,
+          });
+        }
     } catch (error) {
         // Update recording with error status
-        await Recording.findByIdAndUpdate(recordingId, {
+        await Recording.findByIdAndUpdate(recording._id, { 
             transcriptionStatus: 'failed',
-            transcriptionMetadata: {
-                error: error.message,
-                failedAt: new Date()
+            transcriptionError: {
+              message: error.message,
+              code: 'TRANSCRIPTION_ERROR',
+              timestamp: new Date()
             }
         });
         
         console.error(`Transcription failed for recording ${recordingId}:`, error);
     }
 };
-// Key changes:
-
-// Immediate return: The function returns the recording details right after saving, without waiting for transcription
-// Background processing: processTranscriptionInBackground is called without await, so it runs asynchronously
-// Error handling: The background function includes try-catch to handle failures and update the recording status accordingly
-// Status updates: The recording document is updated using findByIdAndUpdate once transcription completes
-// For production environments, consider using a proper job queue system like:
-
-// Bull (Redis-based)
-// BullMQ (modern Bull alternative)
-// AWS SQS with workers
-// RabbitMQ
-// This ensures transcription jobs survive server restarts and can be retried on failure.
-
-
 
 
 const updateRecordingMetadata = async (recordingId, data, user) => {

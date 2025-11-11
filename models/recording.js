@@ -22,6 +22,8 @@ const recordingSchema = new Schema({
   },
   
   // Audio file info
+    filename: String,
+    filePath: String, // Local path before upload
     audioUrl: String, // Cloud Storage URL
     audioKey: String, // Cloud key for deletion
     duration: Number, // seconds

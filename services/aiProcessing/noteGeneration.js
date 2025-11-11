@@ -245,17 +245,17 @@ const generateSessionSummary = async (session) => {
             promptText = `Therapist Dictation:\n${dictationTranscript}`;
         }
 
+        const titlePrompt = promptText + '\n\nYou are generating a single, concise session title based only on the transcript. Output exactly one title no longer than 10 words; it must be clear, specific, and meaningful, reflecting the primary topic, emotional tone, or therapeutic focus. Do not provide lists, alternatives, numbering, quotations, or explanations. If multiple themes appear, choose the most central.';
+        let result = await model.generateContent(titlePrompt);
+        const title = extractTextFromResponse(result);
         promptText += `\n\nGenerate a professional 3-5 sentence clinical summary focusing on:
     - Key concerns and therapeutic goals
     - Patterns and clinical observations
     - Progress and treatment recommendations`;
-        let result = await model.generateContent(promptText);
+        result = await model.generateContent(promptText);
 
         const summary = extractTextFromResponse(result);
-        if (session.recordings.length == 1) {
-            result = await model.generateContent("Generate a concise title for the following session summary:\n\n" + summary);
-        }
-        return { summary: summary, title: extractTextFromResponse(result) }; ;
+        return { summary: summary, title: title }; ;
     } catch (error) { 
         console.error("Failed to update client summary:", error);
         throw error;

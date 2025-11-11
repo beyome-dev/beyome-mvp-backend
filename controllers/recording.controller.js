@@ -20,7 +20,10 @@ const  uploadRecording = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Audio file is required (multipart form field "audio")' });
       }
 
-      const result = await recordingService.uploadRecording(sessionId, audioFile, duration, req.user);
+       // Get the Socket.io instance
+      const io = req.app.get('socketio');
+
+      const result = await recordingService.uploadRecording(sessionId, audioFile, duration, req.user, io);
       return res.status(201).json({ success: true, data: result });
     } catch (error) {
       console.error('Controller uploadRecording error:', error);
