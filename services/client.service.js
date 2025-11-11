@@ -1,4 +1,4 @@
-const { Client, Booking, Note } = require('../models');
+const { Client, Booking, Note, Session } = require('../models');
 const moment = require('moment-timezone');
 
 const getClients = async (id) => {
@@ -293,7 +293,7 @@ const getClientDataByID = async (clientID, handler) => {
             }
         ]);
 
-        let sessions = await Session.find({ client: client._id }).sort({ createdAt: -1 });
+        let sessions = await Session.find({ clientId: client._id, therapistId: handler._id }).sort({ createdAt: -1 });
 
         const result = stats[0] || {};
         let analysis = {}
@@ -301,8 +301,10 @@ const getClientDataByID = async (clientID, handler) => {
         analysis.completedOrPendingCount = result.completedOrPending?.[0]?.count || 0;
         analysis.upcomingCount = result.upcoming?.[0]?.count || 0;
         analysis.pendingReviewCount = result.pendingReview?.[0]?.count || 0;
-        analysis.sessions = sessions.length;
-        
+        analysis.totalSessions = sessions.length;
+        analysis.completedSessions = sessions.filter(session => session.status === 'completed').length;
+        analysis.cancelledSessions = sessions.filter(session => session.status === 'cancelled').length;
+
         // Assign lastVisit as joined date and time from latestBooking
         if (result.latestBooking && result.latestBooking[0]) {
             const { date, time } = result.latestBooking[0];
@@ -316,7 +318,8 @@ const getClientDataByID = async (clientID, handler) => {
         client,
         bookings,
         notes,
-        analysis
+        analysis,
+        sessions
     };
 }
 const getClientsWithData = async (filter = {}, page = 1, limit = 10, handler) => {
@@ -392,12 +395,32 @@ const getClientsWithData = async (filter = {}, page = 1, limit = 10, handler) =>
             }
         ]);
 
+const sessionsStats = await Session.aggregate([
+    {
+        $match: {
+            clientId: client._id,
+            therapistId: handler._id
+        }
+    },
+    {
+        $facet: {
+            totalSessions: [{ $count: "count" }],
+            completedSessions: [{ $match: { status: 'completed' } }, { $count: "count" }],
+            cancelledSessions: [{ $match: { status: 'cancelled' } }, { $count: "count" }],
+        }
+    }
+]);
+
         const result = stats[0] || {};
         client = client.toObject ? client.toObject() : client;
         client.revenue = result.revenue?.[0]?.total || 0;
-        client.completedOrPendingCount = result.completedOrPending?.[0]?.count || 0;
-        client.upcomingCount = result.upcoming?.[0]?.count || 0;
-        client.pendingReviewCount = result.pendingReview?.[0]?.count || 0;
+
+        client.completedOrPendingCount = sessionsStats[0].totalSessions?.[0]?.count || 0;
+        client.upcomingCount = sessionsStats[0].completedSessions?.[0]?.count || 0;
+        client.pendingReviewCount = sessionsStats[0].cancelledSessions?.[0]?.count || 0;
+        // client.totalSessions = sessionsStats.totalSessions?.[0]?.count || 0;
+        // client.completedSessions = sessionsStats.completedSessions?.[0]?.count || 0;
+        // client.cancelledSessions = sessionsStats.cancelledSessions?.[0]?.count || 0;
 
         // Assign lastVisit as joined date and time from latestBooking
         if (result.latestBooking && result.latestBooking[0]) {
