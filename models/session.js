@@ -30,7 +30,7 @@ const sessionSchema = new Schema({
     duration: Number, // minutes
     status: {
         type: String,
-        enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
+        enum: ['scheduled', 'in_progress', 'completed', 'cancelled', 'transcribing'],
         default: 'in_progress',
         index: true
     },

@@ -30,7 +30,7 @@ const recordingSchema = new Schema({
     fileSize: Number, // bytes
     format: {
         type: String,
-        enum: ['mp3', 'wav', 'webm', 'm4a', 'ogg', 'mpeg']
+        enum: ['mp3', 'wav', 'webm', 'm4a', 'ogg', 'mpeg','mp4']
     },
   
   // Transcription
