@@ -1,7 +1,4 @@
 const cron = require('node-cron');
-const axios = require('axios');
-const mongoose = require('mongoose');
-const config = require('../config');
 const { fetchTranscriptionStatus, requestTranscription } = require('../services/audioProcessing/transcribeAudio.service');
 const { generateSessionSummary, generateClientSummaryAndUpdateFromNote } = require('../services/aiProcessing/noteGeneration');
 const { Recording, Session  } = require('../models');
@@ -102,7 +99,12 @@ const checkForSaladResults = async (io) => {
             }
             if (recording.transcriptionMetadata.provider !== 'salad') {
                 if (recording.createdAt.getTime() + waitUntil < Date.now()) {
-                    const audioFile = fs.createReadStream(recording.filePath);
+                    const audioFile = {
+                        filename: recording.filename,
+                        path: recording.filePath,
+                        size: recording.fileSize,
+                        mimetype: recording.format
+                    }
                     await requestTranscription(audioFile, recording.sessionId, 'salad');
                 }
             }
