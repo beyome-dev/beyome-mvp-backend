@@ -128,39 +128,76 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
         const transcriptionResult = await requestTranscription(audioFile, sessionId);
         
         // Update recording with transcription results
-        await Recording.findByIdAndUpdate(recording._id, {
-            transcriptionText: transcriptionResult.transcriptionText,
-            transcriptionStatus: transcriptionResult.transcriptionStatus,
-            transcriptionMetadata: transcriptionResult.transcriptionMetadata
-        });
-        if (transcriptionResult.transcriptionMetadata?.provider !== 'salad') {
-          await Session.findByIdAndUpdate(recording.sessionId, { status: 'completed' });
-          try {
-              await createSessionSummary(recording);
-          } catch (error) {
-                console.error(`Error generating summary for recording ${recording._id}:`, error.message);
-          }
-          io.to(recording.therapistId.toString()).emit('recordingTranscriptionCompleted', {
-            recordingId: recording._id,
-            sessionId: recording.sessionId,
-            transcriptionStatus: transcriptionResult.transcriptionStatus,
-          });
-        }
-    } catch (error) {
-        // Update recording with error status
-        await Recording.findByIdAndUpdate(recording._id, { 
-            transcriptionStatus: 'failed',
-            transcriptionError: {
-              message: error.message,
-              code: 'TRANSCRIPTION_ERROR',
-              timestamp: new Date()
-            }
-        });
-        
-        console.error(`Transcription failed for recording ${recordingId}:`, error);
-    }
-};
 
+            await Recording.findByIdAndUpdate(
+                recording._id,
+                {
+                    transcriptionText: transcriptionResult.transcriptionText,
+                    transcriptionStatus: transcriptionResult.transcriptionStatus,
+                    transcriptionMetadata: transcriptionResult.transcriptionMetadata
+                },
+                { new: true }
+            );
+
+            if (transcriptionResult.transcriptionMetadata && transcriptionResult.transcriptionMetadata.provider !== 'salad') {
+                await Session.findByIdAndUpdate(recording.sessionId, { status: 'completed' });
+                // Delete audio file after session is marked completed
+                if (audioFile && audioFile.path) {
+                    const fs = require('fs');
+                    fs.unlink(audioFile.path, (err) => {
+                        if (err) {
+                            console.error(`Error deleting audio file ${audioFile.path}:`, err.message);
+                        }
+                    });
+                }
+
+                
+                try {
+                    // Pass updated recording to ensure it has latest data if required by createSessionSummary
+                    const updatedRecording = await Recording.findById(recording._id);
+                    await createSessionSummary(updatedRecording || recording);
+                } catch (summaryError) {
+                    console.error(`Error generating summary for recording ${recording._id}:`, summaryError.message || summaryError);
+                }
+
+                if (io && recording.therapistId) {
+                    io.to(recording.therapistId.toString()).emit('recordingTranscriptionCompleted', {
+                        recordingId: recording._id,
+                        sessionId: recording.sessionId,
+                        transcriptionStatus: transcriptionResult.transcriptionStatus,
+                    });
+                }
+            }
+        } catch (err) {
+            try {
+                const saladTranscriptionResult = await requestTranscription(audioFile, sessionId, 'salad');
+                await Recording.findByIdAndUpdate(
+                    recording._id,
+                    {
+                        transcriptionText: saladTranscriptionResult.transcriptionText,
+                        transcriptionStatus: saladTranscriptionResult.transcriptionStatus,
+                        transcriptionMetadata: saladTranscriptionResult.transcriptionMetadata
+                    },
+                    { new: true }
+                );
+            } catch (saladError) {
+                console.error(`Error requesting transcription for recording ${recording._id} using salad:`, saladError?.message || saladError);
+                // Update recording with error status
+                await Recording.findByIdAndUpdate(
+                    recording._id,
+                    {
+                        transcriptionStatus: 'failed',
+                        transcriptionError: {
+                            message: saladError.message || (typeof saladError === "string" ? saladError : "Unknown error"),
+                            code: 'TRANSCRIPTION_ERROR',
+                            timestamp: new Date()
+                        }
+                    }
+                );
+                console.error(`Transcription failed for recording ${recording._id}:`, saladError?.message || saladError);
+            }
+        }
+    }
 
 const updateRecordingMetadata = async (recordingId, data, user) => {
 //     const mongoSession = await mongoose.startSession();

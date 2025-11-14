@@ -40,11 +40,11 @@ const requestTranscription = async (file, recordingId, tool) => {
 
         const filePath = path.join(uploadDir, file.filename);
         let fileUrl =`${config.APP_URL}/files/${file.filename}`;
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NODE_ENV === 'development'&& tool ? tool : transcriptionTool == 'salad') {
             fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`
         }
         // Move file to uploads directory
-        fs.renameSync(file.path, filePath);
+        // fs.renameSync(file.path, filePath);
 
         switch (tool ? tool : transcriptionTool) {
             case 'openai':
