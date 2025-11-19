@@ -13,7 +13,7 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const path = require('path');
 const { noteController } = require('./controllers')
-const {saladCheck, fileManager, bookingCronJob } = require('./cronJobs');
+const {saladCheck, fileManager, bookingCronJob, TranscriptionRetryJob } = require('./cronJobs');
 const axios = require('axios');
 const { tokenService } = require('./services');
 
@@ -133,6 +133,11 @@ app.use(passport.initialize());
 saladCheck(io)
 fileManager()
 bookingCronJob()
+
+// Initialize retry job
+const retryJob = new TranscriptionRetryJob(io);
+retryJob.start();
+
 app.use('/api', routes);
 app.post(
     '/api/webhook/salad', 
@@ -169,3 +174,40 @@ connectDB().then(() => {
     const PORT = config.PORT || 8000;
     server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
 });
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, stopping retry job...');
+    retryJob.stop();
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+});
+
+// ============================================
+// Monitoring & Alerting Setup
+// ============================================
+
+/*
+// Optional: Add monitoring with Winston logger
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'logs/transcription-error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/transcription-combined.log' })
+  ]
+});
+
+// Log all transcription attempts
+const logTranscriptionAttempt = async (data) => {
+  logger.info('Transcription attempt', data);
+  
+  // Optional: Send to monitoring service (Sentry, DataDog, etc.)
+  if (data.success === false) {
+    // await sentry.captureException(new Error(data.error));
+  }
+};
+*/

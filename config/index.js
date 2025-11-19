@@ -27,6 +27,13 @@ module.exports = {
         apiKey: process.env.GOOGLE_API_KEY,
         aiModel: process.env.GOOGLE_AI_MODEL,
     },
+    googleCloudStorage: {
+        bucketName: process.env.GCS_BUCKET_NAME,
+        basePath: process.env.GCS_BASE_PATH || 'recapp-mvp/recordings',
+        makePublic: process.env.GCS_MAKE_PUBLIC !== 'false',
+        signedUrlExpirationSeconds: parseInt(process.env.GCS_SIGNED_URL_TTL, 10) || 60 * 60 * 24, // 24h
+        credentialsPath: process.env.GCS_KEY_FILE || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_KEY_PATH,
+    },
     facebook: {
         appID: process.env.FACEBOOK_APP_ID,
         appSecret: process.env.FACEBOOK_APP_SECRET,
@@ -49,8 +56,11 @@ module.exports = {
         default: process.env.DEFAULT_TRANSCRIBE_TOOL || 'openai',
         saladAPIKey: process.env.SALAD_API_KEY,
         openAIAPIKey: process.env.OPENAI_API_KEY,
-        assemblyAIAPIKey: process.env.ASSEMBLYAI_API_KEY
+        assemblyAIAPIKey: process.env.ASSEMBLYAI_API_KEY,
+        googleKeyPath: process.env.GOOGLE_KEY_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE
     },
+    chunkMaxDuration: parseInt(process.env.CHUNK_MAX_DURATION_SECONDS) || 600,
+    chunkOverlap: parseInt(process.env.CHUNK_OVERLAP_SECONDS) || 5,
     // salad: {
     //     apiKey: process.env.SALAD_API_KEY,
     // },
