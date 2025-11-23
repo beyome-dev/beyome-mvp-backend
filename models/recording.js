@@ -14,6 +14,7 @@ const transcriptionAttemptSchema = new Schema({
     enum: ['attempting', 'success', 'failed'],
     required: true
   },
+  jobId: String, // Job/transcript ID from the transcription service (AssemblyAI transcript ID, Salad job ID, etc.)
   error: {
     message: String,
     code: String,
@@ -223,6 +224,7 @@ recordingSchema.methods.addTranscriptionAttempt = function(attemptData) {
     attemptNumber: this.transcriptionAttempts.length + 1,
     tool: attemptData.tool,
     status: attemptData.status,
+    jobId: attemptData.jobId || null, // Store job ID if provided
     error: attemptData.error,
     startedAt: new Date(),
     completedAt: attemptData.status !== 'attempting' ? new Date() : null,
@@ -270,7 +272,10 @@ recordingSchema.methods.markTranscriptionSuccess = function(result) {
 };
 
 recordingSchema.methods.markTranscriptionFailed = function(error, tool) {
-  this.transcriptionStatus = this.shouldRetry() ? 'retrying' : 'failed';
+  // Check if we should retry BEFORE updating status
+  const canRetry = this.shouldRetry();
+  
+  this.transcriptionStatus = canRetry ? 'retrying' : 'failed';
   this.transcriptionError = {
     message: error.message,
     code: error.code || 'TRANSCRIPTION_ERROR',
@@ -293,8 +298,12 @@ recordingSchema.methods.markTranscriptionFailed = function(error, tool) {
     };
   }
   
-  if (this.shouldRetry()) {
+  // Only calculate next retry if we can actually retry
+  if (canRetry) {
     this.calculateNextRetry();
+  } else {
+    // Clear nextRetryAt to prevent it from being picked up again
+    this.retryConfig.nextRetryAt = null;
   }
 };
 
@@ -304,8 +313,13 @@ recordingSchema.statics.findReadyForRetry = function() {
     transcriptionStatus: { $in: ['failed', 'retrying'] },
     'retryConfig.nextRetryAt': { $lte: new Date() },
     'retryConfig.fallbackEnabled': true,
-    // Ensure we only pick documents where currentRetry < maxRetries
-    $expr: { $lt: ['$retryConfig.currentRetry', '$retryConfig.maxRetries'] }
+    // Ensure we only pick documents where currentRetry < maxRetries (strict check)
+    $expr: { 
+      $and: [
+        { $lt: ['$retryConfig.currentRetry', '$retryConfig.maxRetries'] },
+        { $ne: ['$retryConfig.nextRetryAt', null] }
+      ]
+    }
   }).sort({ 'retryConfig.nextRetryAt': 1 });
 };
 

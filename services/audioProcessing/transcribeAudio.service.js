@@ -181,6 +181,10 @@ const requestTranscription = async (file, recordingId, options = {}) => {
   let lastError = null;
   let attemptCount = 0;
 
+  // Track which tools were actually attempted and their job IDs
+  const attemptedTools = [];
+  const toolJobIds = {}; // Map of tool name to job ID
+  
   for (const toolName of toolOrder) {
     if (attemptCount >= maxAttempts) break;
     
@@ -188,6 +192,7 @@ const requestTranscription = async (file, recordingId, options = {}) => {
       console.log(`[Attempt ${attemptCount + 1}] Trying ${toolName} for recording ${recordingId}`);
       
       let result;
+      let jobId = null;
       
       // For Google: Use LongRunningRecognize with GCS URI if available (supports long audio without chunking)
       const useGoogleLongRunning = toolName === 'google' && 
@@ -202,11 +207,15 @@ const requestTranscription = async (file, recordingId, options = {}) => {
           recordingId,
           { cloudStorageObject: file.cloudStorageObject, gcsUri: file.gcsUri || fileUrl }
         );
+        // Google doesn't return a job ID in the same way, but we can track operation name if available
+        jobId = result.transcriptionMetadata?.operationName || null;
       } else if (needsBatching && TRANSCRIPTION_CONFIG[toolName].supports.batch) {
         console.log(`Audio duration (${duration}s) exceeds limit. Using batch processing.`);
         result = await transcribeInBatches(filePath, recordingId, toolName, {
           onChunkProgress
         });
+        // Batch processing doesn't have a single job ID, but we can track it
+        jobId = result.transcriptionMetadata?.jobId || null;
       } else {
         result = await transcribeWithTool(
           toolName, 
@@ -215,24 +224,41 @@ const requestTranscription = async (file, recordingId, options = {}) => {
           recordingId,
           { cloudStorageObject: file.cloudStorageObject, gcsUri: file.gcsUri }
         );
+        // Extract job ID from result metadata
+        jobId = result.transcriptionMetadata?.jobId || null;
+      }
+      
+      // Track successful tool attempt
+      attemptedTools.push(toolName);
+      if (jobId) {
+        toolJobIds[toolName] = jobId;
       }
       
       // Add metadata about which tool was used and attempt number
       result.transcriptionMetadata = {
         ...result.transcriptionMetadata,
         attemptNumber: attemptCount + 1,
-        toolsAttempted: toolOrder.slice(0, toolOrder.indexOf(toolName) + 1),
+        toolsAttempted: attemptedTools,
         batchProcessed: needsBatching
       };
       
-      console.log(`✓ Successfully transcribed with ${toolName}`);
+      console.log(`✓ Successfully transcribed with ${toolName}${jobId ? ` (job ID: ${jobId})` : ''}`);
       return result;
       
     } catch (error) {
+      // Track which tool actually failed (not just the preferred tool)
+      attemptedTools.push(toolName);
       lastError = error;
       attemptCount++;
       
-      console.error(`✗ ${toolName} failed (attempt ${attemptCount}):`, error.message);
+      // Extract job ID from error if available (for async jobs that might have started)
+      let jobId = null;
+      if (error.jobId) {
+        jobId = error.jobId;
+        toolJobIds[toolName] = jobId;
+      }
+      
+      console.error(`✗ ${toolName} failed (attempt ${attemptCount})${jobId ? ` (job ID: ${jobId})` : ''}:`, error.message);
       
       // Log failure for monitoring
       await logTranscriptionAttempt({
@@ -241,8 +267,14 @@ const requestTranscription = async (file, recordingId, options = {}) => {
         attemptNumber: attemptCount,
         success: false,
         error: error.message,
-        duration: duration
+        duration: duration,
+        jobId: jobId
       });
+      
+      // Enhance error with tool information for better debugging
+      error.failedTool = toolName;
+      error.attemptedTools = [...attemptedTools];
+      error.jobId = jobId;
       
       if (!enableFallback) break;
       
@@ -255,10 +287,13 @@ const requestTranscription = async (file, recordingId, options = {}) => {
     }
   }
   
-  // All attempts failed
-  throw new Error(
-    `All transcription attempts failed. Last error: ${lastError?.message || 'Unknown error'}`
-  );
+  // All attempts failed - create error with information about all attempted tools
+  const errorMessage = `All transcription attempts failed. Tools attempted: ${attemptedTools.join(', ')}. Last error (from ${lastError?.failedTool || 'unknown'}): ${lastError?.message || 'Unknown error'}`;
+  const finalError = new Error(errorMessage);
+  finalError.failedTool = lastError?.failedTool || attemptedTools[attemptedTools.length - 1] || 'unknown';
+  finalError.attemptedTools = attemptedTools;
+  finalError.toolJobIds = toolJobIds;
+  throw finalError;
 };
 
 /**
@@ -1164,7 +1199,9 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
           const transcriptId = transcriptResponse.data?.id;
           if (!transcriptId) {
               console.error('[AssemblyAI] Transcript creation response:', JSON.stringify(transcriptResponse.data, null, 2));
-              throw new Error('Failed to get transcript ID from AssemblyAI. Response: ' + JSON.stringify(transcriptResponse.data));
+              const error = new Error('Failed to get transcript ID from AssemblyAI. Response: ' + JSON.stringify(transcriptResponse.data));
+              error.jobId = null;
+              throw error;
           }
 
           console.log(`[AssemblyAI] Transcript ID: ${transcriptId}, polling for completion...`);
@@ -1213,12 +1250,16 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
                               confidence: null
                           };
                       }
-                      throw new Error(`AssemblyAI transcription error: ${transcript.error}`);
+                      const error = new Error(`AssemblyAI transcription error: ${transcript.error}`);
+                      error.jobId = transcriptId;
+                      throw error;
                   } else if (transcript.status === 'queued' || transcript.status === 'processing') {
                       console.log(`[AssemblyAI] Status: ${transcript.status}, waiting...`);
                       await new Promise(resolve => setTimeout(resolve, pollInterval));
                   } else {
-                      throw new Error(`Unknown transcript status: ${transcript.status}`);
+                      const error = new Error(`Unknown transcript status: ${transcript.status}`);
+                      error.jobId = transcriptId;
+                      throw error;
                   }
               } catch (error) {
                   // If it's a network error during polling, log and retry
@@ -1227,12 +1268,18 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
                       await new Promise(resolve => setTimeout(resolve, pollInterval));
                       continue;
                   }
+                  // Preserve job ID in error
+                  if (!error.jobId && transcriptId) {
+                      error.jobId = transcriptId;
+                  }
                   throw error;
               }
           }
 
           if (!transcript || transcript.status !== 'completed') {
-              throw new Error(`AssemblyAI transcription timed out after ${timeout}ms. Last status: ${transcript?.status || 'unknown'}`);
+              const error = new Error(`AssemblyAI transcription timed out after ${timeout}ms. Last status: ${transcript?.status || 'unknown'}`);
+              error.jobId = transcriptId;
+              throw error;
           }
 
           // Return transcript data
@@ -1266,14 +1313,18 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
               };
           }
 
-          // Re-throw with more context
+          // Re-throw with more context, preserving job ID if available
+          const enhancedError = new Error();
           if (error.response) {
-              throw new Error(`AssemblyAI API error (${error.response.status}): ${error.response.data?.error || error.message}`);
+              enhancedError.message = `AssemblyAI API error (${error.response.status}): ${error.response.data?.error || error.message}`;
           } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.message.includes('fetch failed')) {
-              throw new Error(`AssemblyAI network error: ${error.message}. Check your internet connection and API endpoint.`);
+              enhancedError.message = `AssemblyAI network error: ${error.message}. Check your internet connection and API endpoint.`;
           } else {
-              throw new Error(`AssemblyAI transcription failed: ${error.message}`);
+              enhancedError.message = `AssemblyAI transcription failed: ${error.message}`;
           }
+          // Preserve job ID from original error if available
+          enhancedError.jobId = error.jobId || null;
+          throw enhancedError;
       }
   }
   

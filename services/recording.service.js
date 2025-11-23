@@ -250,6 +250,20 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
       throw new Error('Recording not found after transcription');
     }
     
+    // Update the last attempt with job ID if available
+    if (currentRecording.transcriptionAttempts.length > 0) {
+      const lastAttempt = currentRecording.transcriptionAttempts[currentRecording.transcriptionAttempts.length - 1];
+      const jobId = transcriptionResult.transcriptionMetadata?.jobId || null;
+      if (jobId && !lastAttempt.jobId) {
+        lastAttempt.jobId = jobId;
+      }
+      // Update tool if different (in case of fallback)
+      const actualTool = transcriptionResult.transcriptionMetadata?.provider;
+      if (actualTool && lastAttempt.tool !== actualTool) {
+        lastAttempt.tool = actualTool;
+      }
+    }
+    
     // Mark success
     currentRecording.markTranscriptionSuccess(transcriptionResult);
     await currentRecording.save();
@@ -293,10 +307,23 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
       return;
     }
     
-    // Determine which tool failed
-    const failedTool = currentRecording.retryConfig.preferredTool;
+    // Determine which tool actually failed (from error metadata, or fallback to preferred tool)
+    const failedTool = error.failedTool || error.attemptedTools?.[error.attemptedTools.length - 1] || currentRecording.retryConfig.preferredTool;
+    const jobId = error.jobId || error.toolJobIds?.[failedTool] || null;
     
-    // Mark failure
+    // Update the last attempt with job ID if available
+    if (currentRecording.transcriptionAttempts.length > 0) {
+      const lastAttempt = currentRecording.transcriptionAttempts[currentRecording.transcriptionAttempts.length - 1];
+      if (jobId && !lastAttempt.jobId) {
+        lastAttempt.jobId = jobId;
+      }
+      // Also update the tool if it's different from what we recorded
+      if (failedTool && lastAttempt.tool !== failedTool) {
+        lastAttempt.tool = failedTool;
+      }
+    }
+    
+    // Mark failure with the actual tool that failed
     currentRecording.markTranscriptionFailed(error, failedTool);
     await currentRecording.save();
     
@@ -365,6 +392,15 @@ const processRetryQueue = async (io) => {
           cloudStorageUrl: recording.filePath,
           cloudStorageObject: recording.audioKey
         };
+        
+        // Check if we've exceeded max retries before processing
+        if (recording.retryConfig.currentRetry >= recording.retryConfig.maxRetries) {
+          console.log(`Recording ${recording._id} has reached max retries (${recording.retryConfig.currentRetry}/${recording.retryConfig.maxRetries}), skipping...`);
+          recording.transcriptionStatus = 'failed';
+          recording.retryConfig.nextRetryAt = null; // Clear retry time to prevent future picks
+          await recording.save();
+          continue;
+        }
         
         // Process with new attempt
         recording.addTranscriptionAttempt({
