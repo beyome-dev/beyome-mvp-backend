@@ -185,6 +185,44 @@ process.on('SIGTERM', () => {
 });
 
 // ============================================
+// Process Error Handlers - Catch unhandled errors
+// ============================================
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ UNCAUGHT EXCEPTION - App will crash:', {
+    message: error.message,
+    stack: error.stack,
+    name: error.name,
+    timestamp: new Date().toISOString()
+  });
+  // Give time for logging before exit
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ UNHANDLED REJECTION - Promise rejected:', {
+    reason: reason?.message || reason,
+    stack: reason?.stack,
+    promise: promise,
+    timestamp: new Date().toISOString()
+  });
+  // Don't exit on unhandled rejection, but log it
+});
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  if (retryJob) {
+    retryJob.stop();
+  }
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+// ============================================
 // Monitoring & Alerting Setup
 // ============================================
 

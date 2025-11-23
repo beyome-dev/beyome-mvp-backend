@@ -10,7 +10,9 @@ const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
 const { 
   generateSignedReadUrl, 
-  withTemporaryPublicAccess 
+  withTemporaryPublicAccess,
+  uploadChunkToBucket,
+  makeFilePrivateIAM
 } = require('../storage/googleCloudStorage.service');
 
 const uploadDir = config.storagePath;
@@ -444,23 +446,33 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
   const chunks = await splitAudioIntoChunks(filePath, 'default');
   const chunkDir = chunks.length > 0 ? path.dirname(chunks[0].filePath) : null;
   const results = [];
+  const uploadedChunks = []; // Track chunks uploaded to GCS for cleanup
   
   // Get tool-specific format requirements
   const toolChunkConfig = TOOL_CHUNK_CONFIG[toolName] || {};
   const toolFormat = toolChunkConfig.format || 'wav';
   const needsConversion = toolFormat !== 'wav';
   
-  console.log(`Processing ${chunks.length} chunks for recording ${recordingId} using ${toolName}${needsConversion ? ` (converting to ${toolFormat})` : ''}`);
+  // Tools that can use GCS public URLs (skip AssemblyAI upload API)
+  const canUseGCSUrl = ['assemblyai', 'salad'];
+  const useGCSForChunks = canUseGCSUrl.includes(toolName);
+  
+  console.log(`[Batch Processing] Starting batch transcription for recording ${recordingId}`);
+  console.log(`[Batch Processing] Total chunks: ${chunks.length}, Tool: ${toolName}, Use GCS: ${useGCSForChunks}`);
   
   try {
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const sizeInfo = chunk.sizeMB ? ` (${chunk.sizeMB.toFixed(2)} MB)` : '';
-      console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.startTime}s - ${chunk.endTime}s)${sizeInfo}`);
+      const chunkStartTime = Date.now();
+      
+      console.log(`[Batch Processing] Processing chunk ${i + 1}/${chunks.length} (${chunk.startTime}s - ${chunk.endTime}s)${sizeInfo}`);
       
       let chunkFilePath = chunk.filePath;
       let convertedFilePath = null;
       let needsCleanup = false;
+      let chunkGCSObject = null;
+      let chunkPublicUrl = null;
       
       try {
         // Convert to tool-specific format if needed
@@ -469,78 +481,176 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
           const baseName = path.basename(chunk.filePath, path.extname(chunk.filePath));
           convertedFilePath = path.join(basePath, `${baseName}_${toolFormat}.${toolFormat}`);
           
-          console.log(`[Chunking] Converting chunk ${i} from wav to ${toolFormat}...`);
-          await convertAudioFormat(
-            chunk.filePath,
-            convertedFilePath,
-            toolFormat,
-            {
-              audioCodec: toolChunkConfig.audioCodec,
-              audioBitrate: toolChunkConfig.audioBitrate,
-              audioChannels: toolChunkConfig.audioChannels,
-              sampleRate: toolChunkConfig.sampleRate
+          console.log(`[Batch Processing] Converting chunk ${i} from wav to ${toolFormat}...`);
+          try {
+            await convertAudioFormat(
+              chunk.filePath,
+              convertedFilePath,
+              toolFormat,
+              {
+                audioCodec: toolChunkConfig.audioCodec,
+                audioBitrate: toolChunkConfig.audioBitrate,
+                audioChannels: toolChunkConfig.audioChannels,
+                sampleRate: toolChunkConfig.sampleRate
+              }
+            );
+            chunkFilePath = convertedFilePath;
+            needsCleanup = true;
+            console.log(`[Batch Processing] Chunk ${i} converted successfully`);
+          } catch (convertError) {
+            console.error(`[Batch Processing] Failed to convert chunk ${i}:`, convertError.message);
+            throw new Error(`Format conversion failed for chunk ${i}: ${convertError.message}`);
+          }
+        }
+        
+        // Upload chunk to GCS if tool supports it (skip AssemblyAI upload API)
+        if (useGCSForChunks) {
+          try {
+            console.log(`[Batch Processing] Uploading chunk ${i} to GCS for ${toolName}...`);
+            const uploadResult = await uploadChunkToBucket({
+              localPath: chunkFilePath,
+              recordingId: recordingId,
+              chunkIndex: i,
+              filename: path.basename(chunkFilePath),
+              mimetype: `audio/${toolFormat}`,
+              makePublic: true
+            });
+            
+            chunkGCSObject = uploadResult.objectName;
+            chunkPublicUrl = uploadResult.publicUrl;
+            uploadedChunks.push({ objectName: chunkGCSObject, chunkIndex: i });
+            
+            console.log(`[Batch Processing] Chunk ${i} uploaded to GCS successfully`);
+          } catch (uploadError) {
+            console.error(`[Batch Processing] Failed to upload chunk ${i} to GCS:`, uploadError.message);
+            // Fallback to direct upload if GCS upload fails
+            console.log(`[Batch Processing] Falling back to direct upload for chunk ${i}...`);
+            chunkPublicUrl = null;
+          }
+        }
+        
+        // Transcribe chunk
+        console.log(`[Batch Processing] Starting transcription for chunk ${i}...`);
+        try {
+          const chunkResult = await transcribeWithTool(
+            toolName,
+            chunkFilePath,
+            chunkPublicUrl, // Use GCS public URL if available
+            `${recordingId}_chunk_${i}`,
+            { 
+              cloudStorageObject: chunkGCSObject,
+              gcsUri: chunkGCSObject ? `gs://${config.googleCloudStorage?.bucketName}/${chunkGCSObject}` : null
             }
           );
           
-          chunkFilePath = convertedFilePath;
-          needsCleanup = true;
-        }
-        
-        const chunkResult = await transcribeWithTool(
-          toolName,
-          chunkFilePath,
-          null,
-          `${recordingId}_chunk_${i}`
-        );
-        
-        results.push({
-          ...chunkResult,
-          chunkIndex: i,
-          startTime: chunk.startTime,
-          endTime: chunk.endTime
-        });
-
-        if (options?.onChunkProgress) {
-          await options.onChunkProgress({
-            recordingId,
-            toolName,
-            chunkResult,
-            chunk,
+          const chunkDuration = Date.now() - chunkStartTime;
+          console.log(`[Batch Processing] Chunk ${i} transcribed successfully in ${chunkDuration}ms`);
+          
+          results.push({
+            ...chunkResult,
             chunkIndex: i,
-            totalChunks: chunks.length
+            startTime: chunk.startTime,
+            endTime: chunk.endTime
           });
+
+          if (options?.onChunkProgress) {
+            try {
+              await options.onChunkProgress({
+                recordingId,
+                toolName,
+                chunkResult,
+                chunk,
+                chunkIndex: i,
+                totalChunks: chunks.length
+              });
+            } catch (progressError) {
+              console.error(`[Batch Processing] Failed to update chunk progress for chunk ${i}:`, progressError.message);
+              // Don't fail the whole process if progress update fails
+            }
+          }
+        } catch (transcribeError) {
+          console.error(`[Batch Processing] Transcription failed for chunk ${i}:`, {
+            message: transcribeError.message,
+            stack: transcribeError.stack,
+            chunkIndex: i,
+            recordingId
+          });
+          throw transcribeError;
         }
         
         // Clean up converted file if we created one
         if (needsCleanup && convertedFilePath) {
           await fs.unlink(convertedFilePath).catch(err => 
-            console.error(`Failed to delete converted chunk ${i}:`, err)
+            console.error(`[Batch Processing] Failed to delete converted chunk ${i}:`, err.message)
           );
         }
         
+        // Revoke public access for chunk if it was uploaded to GCS
+        if (chunkGCSObject) {
+          try {
+            await makeFilePrivateIAM(chunkGCSObject);
+            console.log(`[Batch Processing] Revoked public access for chunk ${i}`);
+          } catch (revokeError) {
+            console.error(`[Batch Processing] Failed to revoke public access for chunk ${i}:`, revokeError.message);
+            // Don't fail if we can't revoke access
+          }
+        }
+        
       } catch (error) {
-        console.error(`Chunk ${i} failed:`, error.message);
+        console.error(`[Batch Processing] Chunk ${i} processing failed:`, {
+          message: error.message,
+          stack: error.stack,
+          chunkIndex: i,
+          recordingId,
+          chunkFilePath,
+          convertedFilePath
+        });
         
         // Clean up converted file on error
         if (needsCleanup && convertedFilePath) {
           await fs.unlink(convertedFilePath).catch(() => {});
         }
         
+        // Revoke public access if chunk was uploaded
+        if (chunkGCSObject) {
+          await makeFilePrivateIAM(chunkGCSObject).catch(() => {});
+        }
+        
         throw new Error(`Batch processing failed at chunk ${i}: ${error.message}`);
       }
     }
     
+    console.log(`[Batch Processing] All ${chunks.length} chunks processed successfully`);
+    
     // Merge results
     return mergeChunkResults(results);
+  } catch (error) {
+    console.error(`[Batch Processing] Batch processing failed:`, {
+      message: error.message,
+      stack: error.stack,
+      recordingId,
+      processedChunks: results.length,
+      totalChunks: chunks.length
+    });
+    throw error;
   } finally {
+    // Clean up uploaded chunks from GCS
+    for (const uploadedChunk of uploadedChunks) {
+      try {
+        await makeFilePrivateIAM(uploadedChunk.objectName);
+      } catch (err) {
+        console.error(`[Batch Processing] Failed to revoke access for chunk ${uploadedChunk.chunkIndex}:`, err.message);
+      }
+    }
+    
     // Always clean up all chunks and chunk directory, even on error
-    console.log(`[Cleanup] Cleaning up ${chunks.length} chunk files and directory...`);
+    console.log(`[Batch Processing] Cleaning up ${chunks.length} chunk files and directory...`);
     
     // Delete all chunk files
     for (const chunk of chunks) {
       await fs.unlink(chunk.filePath).catch(err => {
         if (err.code !== 'ENOENT') {
-          console.error(`[Cleanup] Failed to delete chunk file ${chunk.filePath}:`, err.message);
+          console.error(`[Batch Processing] Failed to delete chunk file ${chunk.filePath}:`, err.message);
         }
       });
     }
@@ -549,6 +659,8 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
     if (chunkDir) {
       await deleteDirectory(chunkDir);
     }
+    
+    console.log(`[Batch Processing] Cleanup completed`);
   }
 }
 

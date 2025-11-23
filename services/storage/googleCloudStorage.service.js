@@ -99,6 +99,96 @@ const uploadRecordingToBucket = async ({
   };
 };
 
+/**
+ * Upload a chunk file to GCS and make it temporarily public
+ * Returns public URL that can be used for transcription services
+ */
+const uploadChunkToBucket = async ({
+  localPath,
+  recordingId,
+  chunkIndex,
+  filename,
+  mimetype = 'audio/wav',
+  makePublic = true
+}) => {
+  ensureBucket();
+  
+  // Build object name for chunk
+  const safeRecordingId = recordingId || randomUUID();
+  const sanitized = sanitizeFilename(filename) || `chunk_${chunkIndex}.wav`;
+  const uniqueSuffix = Date.now();
+  const destination = `${getBasePath()}/${safeRecordingId}/chunks/${uniqueSuffix}_${sanitized}`;
+
+  try {
+    console.log(`[GCS Chunk Upload] Uploading chunk ${chunkIndex} for recording ${recordingId}...`);
+    
+    await bucket.upload(localPath, {
+      destination,
+      resumable: false,
+      metadata: {
+        contentType: mimetype
+      }
+    });
+
+    const file = bucket.file(destination);
+    let publicUrl;
+
+    if (makePublic) {
+      // Try to make file temporarily public for transcription services
+      try {
+        publicUrl = await makeFilePublicIAM(destination);
+        console.log(`[GCS Chunk Upload] Chunk ${chunkIndex} uploaded and made public: ${publicUrl.substring(0, 80)}...`);
+      } catch (publicError) {
+        console.warn(`[GCS Chunk Upload] Failed to make chunk ${chunkIndex} public:`, publicError.message);
+        // Fallback to signed URL
+        try {
+          const [signedUrl] = await file.getSignedUrl({
+            action: 'read',
+            version: 'v4',
+            expires: Date.now() + 3600000 // 1 hour
+          });
+          publicUrl = signedUrl;
+          console.log(`[GCS Chunk Upload] Using signed URL for chunk ${chunkIndex}`);
+        } catch (signedError) {
+          // If signed URL also fails, use gs:// URI which many transcription services support
+          console.warn(`[GCS Chunk Upload] Failed to generate signed URL for chunk ${chunkIndex}:`, signedError.message);
+          console.log(`[GCS Chunk Upload] Using gs:// URI for chunk ${chunkIndex} (some services support this directly)`);
+          publicUrl = `gs://${storageConfig.bucketName}/${destination}`;
+        }
+      }
+    } else {
+      // Generate signed URL
+      try {
+        const [signedUrl] = await file.getSignedUrl({
+          action: 'read',
+          version: 'v4',
+          expires: Date.now() + 3600000 // 1 hour
+        });
+        publicUrl = signedUrl;
+      } catch (signedError) {
+        // If signed URL fails, use gs:// URI as fallback
+        console.warn(`[GCS Chunk Upload] Failed to generate signed URL:`, signedError.message);
+        console.log(`[GCS Chunk Upload] Using gs:// URI as fallback`);
+        publicUrl = `gs://${storageConfig.bucketName}/${destination}`;
+      }
+    }
+
+    return {
+      objectName: destination,
+      publicUrl,
+      gcsUri: `gs://${storageConfig.bucketName}/${destination}`
+    };
+  } catch (error) {
+    console.error(`[GCS Chunk Upload] Failed to upload chunk ${chunkIndex}:`, {
+      message: error.message,
+      stack: error.stack,
+      recordingId,
+      chunkIndex
+    });
+    throw error;
+  }
+};
+
 const deleteRecordingFromBucket = async (objectName) => {
   if (!objectName) return;
   ensureBucket();
@@ -198,6 +288,11 @@ const makeFilePublicIAM = async (objectName) => {
   const file = bucket.file(objectName);
   
   try {
+    // Check if IAM API is available
+    if (!file.iam || typeof file.iam.getPolicy !== 'function') {
+      throw new Error('IAM API not available - credentials may not be properly configured');
+    }
+    
     // Get current IAM policy using the correct API
     const [policy] = await file.iam.getPolicy();
     
@@ -236,6 +331,12 @@ const makeFilePrivateIAM = async (objectName) => {
   const file = bucket.file(objectName);
   
   try {
+    // Check if IAM API is available
+    if (!file.iam || typeof file.iam.getPolicy !== 'function') {
+      console.warn(`[GCS] IAM API not available, skipping revoke for: ${objectName}`);
+      return;
+    }
+    
     // Get current IAM policy using the correct API
     const [policy] = await file.iam.getPolicy();
     
@@ -281,6 +382,7 @@ const withTemporaryPublicAccess = async (objectName, callback) => {
 
 module.exports = {
   uploadRecordingToBucket,
+  uploadChunkToBucket,
   deleteRecordingFromBucket,
   downloadRecordingFromBucket,
   ensureLocalRecordingFile,
