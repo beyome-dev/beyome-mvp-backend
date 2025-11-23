@@ -98,8 +98,8 @@ const TRANSCRIPTION_CONFIG = {
 
 // Chunk configuration for batch processing
 const CHUNK_CONFIG = {
-  maxDuration: 600, // 10 minutes in seconds
-  overlap: 5, // 5 seconds overlap between chunks
+  maxDuration: config.chunkMaxDuration || 600, // 10 minutes in seconds
+  overlap: config.chunkOverlap || 5, // 5 seconds overlap between chunks
   format: 'wav',
   sampleRate: 16000,
   audioChannels: 1,
@@ -341,24 +341,92 @@ async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, opti
 }
 
 /**
+ * Convert audio file to a specific format
+ */
+async function convertAudioFormat(inputPath, outputPath, targetFormat, options = {}) {
+  const {
+    audioCodec = null,
+    audioBitrate = null,
+    audioChannels = null,
+    sampleRate = 16000
+  } = options;
+
+  return new Promise((resolve, reject) => {
+    const ffmpegCommand = ffmpeg(inputPath)
+      .audioFrequency(sampleRate);
+    
+    if (audioChannels) {
+      ffmpegCommand.audioChannels(audioChannels);
+    }
+    
+    if (audioCodec) {
+      ffmpegCommand.audioCodec(audioCodec);
+    }
+    
+    if (audioBitrate) {
+      ffmpegCommand.audioBitrate(audioBitrate);
+    }
+    
+    ffmpegCommand.toFormat(targetFormat);
+    
+    ffmpegCommand
+      .on('end', resolve)
+      .on('error', reject)
+      .save(outputPath);
+  });
+}
+
+/**
  * Batch processing for long audio files
  */
 async function transcribeInBatches(filePath, recordingId, toolName, options = {}) {
-  // Use tool-specific chunking configuration
-  const chunks = await splitAudioIntoChunks(filePath, toolName);
+  // Always create chunks in common format (wav) first
+  const chunks = await splitAudioIntoChunks(filePath, 'default');
   const results = [];
   
-  console.log(`Processing ${chunks.length} chunks for recording ${recordingId} using ${toolName}`);
+  // Get tool-specific format requirements
+  const toolChunkConfig = TOOL_CHUNK_CONFIG[toolName] || {};
+  const toolFormat = toolChunkConfig.format || 'wav';
+  const needsConversion = toolFormat !== 'wav';
+  
+  console.log(`Processing ${chunks.length} chunks for recording ${recordingId} using ${toolName}${needsConversion ? ` (converting to ${toolFormat})` : ''}`);
   
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     const sizeInfo = chunk.sizeMB ? ` (${chunk.sizeMB.toFixed(2)} MB)` : '';
     console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.startTime}s - ${chunk.endTime}s)${sizeInfo}`);
     
+    let chunkFilePath = chunk.filePath;
+    let convertedFilePath = null;
+    let needsCleanup = false;
+    
     try {
+      // Convert to tool-specific format if needed
+      if (needsConversion) {
+        const basePath = path.dirname(chunk.filePath);
+        const baseName = path.basename(chunk.filePath, path.extname(chunk.filePath));
+        convertedFilePath = path.join(basePath, `${baseName}_${toolFormat}.${toolFormat}`);
+        
+        console.log(`[Chunking] Converting chunk ${i} from wav to ${toolFormat}...`);
+        await convertAudioFormat(
+          chunk.filePath,
+          convertedFilePath,
+          toolFormat,
+          {
+            audioCodec: toolChunkConfig.audioCodec,
+            audioBitrate: toolChunkConfig.audioBitrate,
+            audioChannels: toolChunkConfig.audioChannels,
+            sampleRate: toolChunkConfig.sampleRate
+          }
+        );
+        
+        chunkFilePath = convertedFilePath;
+        needsCleanup = true;
+      }
+      
       const chunkResult = await transcribeWithTool(
         toolName,
-        chunk.filePath,
+        chunkFilePath,
         null,
         `${recordingId}_chunk_${i}`
       );
@@ -381,15 +449,31 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
         });
       }
       
-      // Clean up chunk file
-      await fs.unlink(chunk.filePath).catch(err => 
-        console.error(`Failed to delete chunk ${i}:`, err)
-      );
+      // Clean up converted file if we created one
+      if (needsCleanup && convertedFilePath) {
+        await fs.unlink(convertedFilePath).catch(err => 
+          console.error(`Failed to delete converted chunk ${i}:`, err)
+        );
+      }
       
     } catch (error) {
       console.error(`Chunk ${i} failed:`, error.message);
+      
+      // Clean up converted file on error
+      if (needsCleanup && convertedFilePath) {
+        await fs.unlink(convertedFilePath).catch(() => {});
+      }
+      
       throw new Error(`Batch processing failed at chunk ${i}: ${error.message}`);
     }
+  }
+  
+  // Clean up all common format chunks after processing
+  console.log(`[Chunking] Cleaning up ${chunks.length} common format chunks...`);
+  for (const chunk of chunks) {
+    await fs.unlink(chunk.filePath).catch(err => 
+      console.error(`Failed to delete chunk file ${chunk.filePath}:`, err)
+    );
   }
   
   // Merge results
@@ -398,8 +482,9 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
 
 /**
  * Split audio file into chunks using ffmpeg
+ * Always creates chunks in common format (wav) - tool-specific formats are created on-demand
  * @param {string} filePath - Path to the audio file
- * @param {string} toolName - Name of the transcription tool (for format selection)
+ * @param {string} toolName - Name of the transcription tool (unused, kept for compatibility)
  */
 async function splitAudioIntoChunks(filePath, toolName = 'default') {
   const duration = await getAudioDuration(filePath);
@@ -408,15 +493,15 @@ async function splitAudioIntoChunks(filePath, toolName = 'default') {
   
   await fs.mkdir(chunkDir, { recursive: true });
   
-  const toolChunkConfig = TOOL_CHUNK_CONFIG[toolName] || {};
-  const format = toolChunkConfig.format || CHUNK_CONFIG.format;
-  const maxFileSize = toolChunkConfig.maxFileSize || Infinity;
-  const maxChunkDuration = toolChunkConfig.maxDuration || CHUNK_CONFIG.maxDuration;
-  const audioCodec = toolChunkConfig.audioCodec || null;
-  const audioBitrate = toolChunkConfig.audioBitrate || null;
-  const audioChannels = toolChunkConfig.audioChannels || null;
-  const minSplitDuration = toolChunkConfig.minSplitDuration || 60;
-  const sampleRate = toolChunkConfig.sampleRate || CHUNK_CONFIG.sampleRate;
+  // Always use common format (wav) for initial chunking
+  const format = CHUNK_CONFIG.format; // Always 'wav'
+  const maxChunkDuration = CHUNK_CONFIG.maxDuration;
+  const sampleRate = CHUNK_CONFIG.sampleRate;
+  const audioChannels = CHUNK_CONFIG.audioChannels;
+  
+  // Use the most restrictive maxFileSize across all tools (for OpenAI: 25MB)
+  const maxFileSize = TRANSCRIPTION_CONFIG.openai?.chunking?.maxFileSize || 25 * 1024 * 1024;
+  const minSplitDuration = CHUNK_CONFIG.minSplitDuration;
   
   let startTime = 0;
   let chunkIndex = 0;
@@ -435,12 +520,7 @@ async function splitAudioIntoChunks(filePath, toolName = 'default') {
         ffmpegCommand.audioChannels(audioChannels);
       }
       
-      if (audioCodec) {
-        ffmpegCommand.audioCodec(audioCodec);
-      }
-      if (audioBitrate) {
-        ffmpegCommand.audioBitrate(audioBitrate);
-      }
+      // Use wav format (no codec/bitrate needed for wav)
       ffmpegCommand.toFormat(format);
       
       ffmpegCommand
@@ -449,7 +529,7 @@ async function splitAudioIntoChunks(filePath, toolName = 'default') {
         .save(chunkPath);
     });
     
-    // Check file size and split further if needed (for OpenAI)
+    // Check file size and split further if needed
     const chunkStats = await fs.stat(chunkPath);
     const chunkSizeMB = chunkStats.size / 1024 / 1024;
     
@@ -459,17 +539,17 @@ async function splitAudioIntoChunks(filePath, toolName = 'default') {
       // Delete the oversized chunk
       await fs.unlink(chunkPath);
       
-      // Split this chunk into smaller pieces
+      // Split this chunk into smaller pieces (always in wav format)
       const subChunks = await splitChunkFurther({
         filePath,
         startTime,
         endTime,
         chunkDir,
         baseIndex: chunkIndex,
-        format,
+        format: 'wav', // Always wav
         maxFileSize,
-        audioCodec,
-        audioBitrate,
+        audioCodec: null, // No codec for wav
+        audioBitrate: null, // No bitrate for wav
         audioChannels,
         sampleRate,
         minSplitDuration
@@ -496,12 +576,13 @@ async function splitAudioIntoChunks(filePath, toolName = 'default') {
     startTime = Math.max(0, endTime - CHUNK_CONFIG.overlap);
   }
   
-  console.log(`[Chunking] Created ${chunks.length} chunks (format: ${format})`);
+  console.log(`[Chunking] Created ${chunks.length} chunks in common format (${format})`);
   return chunks;
 }
 
 /**
  * Split a chunk further if it's too large
+ * Always uses wav format for sub-chunks
  */
 async function splitChunkFurther(options) {
   const {
@@ -510,10 +591,10 @@ async function splitChunkFurther(options) {
     endTime,
     chunkDir,
     baseIndex,
-    format,
+    format = 'wav', // Always wav
     maxFileSize,
-    audioCodec,
-    audioBitrate,
+    audioCodec = null, // No codec for wav
+    audioBitrate = null, // No bitrate for wav
     audioChannels,
     sampleRate = CHUNK_CONFIG.sampleRate,
     minSplitDuration = 60
@@ -539,12 +620,7 @@ async function splitChunkFurther(options) {
         ffmpegCommand.audioChannels(audioChannels);
       }
       
-      if (audioCodec) {
-        ffmpegCommand.audioCodec(audioCodec);
-      }
-      if (audioBitrate) {
-        ffmpegCommand.audioBitrate(audioBitrate);
-      }
+      // No codec/bitrate for wav format
       ffmpegCommand.toFormat(format);
       
       ffmpegCommand
@@ -557,7 +633,7 @@ async function splitChunkFurther(options) {
     const subChunkSizeMB = subChunkStats.size / 1024 / 1024;
     
     // If still too large, recurse (but limit recursion depth)
-    if (subChunkStats.size > maxFileSize && (currentEnd - currentStart) > minSplitDuration) { // Don't split below min duration
+    if (subChunkStats.size > maxFileSize && (currentEnd - currentStart) > minSplitDuration) {
       await fs.unlink(subChunkPath);
       const deeperChunks = await splitChunkFurther({
         filePath,
@@ -565,10 +641,10 @@ async function splitChunkFurther(options) {
         endTime: currentEnd,
         chunkDir,
         baseIndex: `${baseIndex}_sub_${subIndex}`,
-        format,
+        format: 'wav', // Always wav
         maxFileSize,
-        audioCodec,
-        audioBitrate,
+        audioCodec: null,
+        audioBitrate: null,
         audioChannels,
         sampleRate,
         minSplitDuration

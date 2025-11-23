@@ -74,7 +74,7 @@ const recordingSchema = new Schema({
   fileSize: Number, // bytes
   format: {
     type: String,
-    enum: ['mp3', 'wav', 'webm', 'm4a', 'ogg', 'mpeg', 'mp4']
+    enum: ['mp3', 'wav', 'webm', 'm4a', 'ogg', 'mpeg', 'mp4', 'x-m4a']
   },
   
   // Enhanced Transcription tracking
