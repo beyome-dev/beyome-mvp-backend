@@ -377,11 +377,37 @@ async function convertAudioFormat(inputPath, outputPath, targetFormat, options =
 }
 
 /**
+ * Delete a directory and all its contents recursively
+ */
+async function deleteDirectory(dirPath) {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        await deleteDirectory(fullPath);
+      } else {
+        await fs.unlink(fullPath);
+      }
+    }
+    
+    await fs.rmdir(dirPath);
+    console.log(`[Cleanup] Deleted directory: ${dirPath}`);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error(`[Cleanup] Failed to delete directory ${dirPath}:`, error.message);
+    }
+  }
+}
+
+/**
  * Batch processing for long audio files
  */
 async function transcribeInBatches(filePath, recordingId, toolName, options = {}) {
   // Always create chunks in common format (wav) first
   const chunks = await splitAudioIntoChunks(filePath, 'default');
+  const chunkDir = chunks.length > 0 ? path.dirname(chunks[0].filePath) : null;
   const results = [];
   
   // Get tool-specific format requirements
@@ -391,93 +417,104 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
   
   console.log(`Processing ${chunks.length} chunks for recording ${recordingId} using ${toolName}${needsConversion ? ` (converting to ${toolFormat})` : ''}`);
   
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    const sizeInfo = chunk.sizeMB ? ` (${chunk.sizeMB.toFixed(2)} MB)` : '';
-    console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.startTime}s - ${chunk.endTime}s)${sizeInfo}`);
-    
-    let chunkFilePath = chunk.filePath;
-    let convertedFilePath = null;
-    let needsCleanup = false;
-    
-    try {
-      // Convert to tool-specific format if needed
-      if (needsConversion) {
-        const basePath = path.dirname(chunk.filePath);
-        const baseName = path.basename(chunk.filePath, path.extname(chunk.filePath));
-        convertedFilePath = path.join(basePath, `${baseName}_${toolFormat}.${toolFormat}`);
-        
-        console.log(`[Chunking] Converting chunk ${i} from wav to ${toolFormat}...`);
-        await convertAudioFormat(
-          chunk.filePath,
-          convertedFilePath,
-          toolFormat,
-          {
-            audioCodec: toolChunkConfig.audioCodec,
-            audioBitrate: toolChunkConfig.audioBitrate,
-            audioChannels: toolChunkConfig.audioChannels,
-            sampleRate: toolChunkConfig.sampleRate
-          }
-        );
-        
-        chunkFilePath = convertedFilePath;
-        needsCleanup = true;
-      }
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const sizeInfo = chunk.sizeMB ? ` (${chunk.sizeMB.toFixed(2)} MB)` : '';
+      console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.startTime}s - ${chunk.endTime}s)${sizeInfo}`);
       
-      const chunkResult = await transcribeWithTool(
-        toolName,
-        chunkFilePath,
-        null,
-        `${recordingId}_chunk_${i}`
-      );
+      let chunkFilePath = chunk.filePath;
+      let convertedFilePath = null;
+      let needsCleanup = false;
       
-      results.push({
-        ...chunkResult,
-        chunkIndex: i,
-        startTime: chunk.startTime,
-        endTime: chunk.endTime
-      });
-
-      if (options?.onChunkProgress) {
-        await options.onChunkProgress({
-          recordingId,
+      try {
+        // Convert to tool-specific format if needed
+        if (needsConversion) {
+          const basePath = path.dirname(chunk.filePath);
+          const baseName = path.basename(chunk.filePath, path.extname(chunk.filePath));
+          convertedFilePath = path.join(basePath, `${baseName}_${toolFormat}.${toolFormat}`);
+          
+          console.log(`[Chunking] Converting chunk ${i} from wav to ${toolFormat}...`);
+          await convertAudioFormat(
+            chunk.filePath,
+            convertedFilePath,
+            toolFormat,
+            {
+              audioCodec: toolChunkConfig.audioCodec,
+              audioBitrate: toolChunkConfig.audioBitrate,
+              audioChannels: toolChunkConfig.audioChannels,
+              sampleRate: toolChunkConfig.sampleRate
+            }
+          );
+          
+          chunkFilePath = convertedFilePath;
+          needsCleanup = true;
+        }
+        
+        const chunkResult = await transcribeWithTool(
           toolName,
-          chunkResult,
-          chunk,
-          chunkIndex: i,
-          totalChunks: chunks.length
-        });
-      }
-      
-      // Clean up converted file if we created one
-      if (needsCleanup && convertedFilePath) {
-        await fs.unlink(convertedFilePath).catch(err => 
-          console.error(`Failed to delete converted chunk ${i}:`, err)
+          chunkFilePath,
+          null,
+          `${recordingId}_chunk_${i}`
         );
+        
+        results.push({
+          ...chunkResult,
+          chunkIndex: i,
+          startTime: chunk.startTime,
+          endTime: chunk.endTime
+        });
+
+        if (options?.onChunkProgress) {
+          await options.onChunkProgress({
+            recordingId,
+            toolName,
+            chunkResult,
+            chunk,
+            chunkIndex: i,
+            totalChunks: chunks.length
+          });
+        }
+        
+        // Clean up converted file if we created one
+        if (needsCleanup && convertedFilePath) {
+          await fs.unlink(convertedFilePath).catch(err => 
+            console.error(`Failed to delete converted chunk ${i}:`, err)
+          );
+        }
+        
+      } catch (error) {
+        console.error(`Chunk ${i} failed:`, error.message);
+        
+        // Clean up converted file on error
+        if (needsCleanup && convertedFilePath) {
+          await fs.unlink(convertedFilePath).catch(() => {});
+        }
+        
+        throw new Error(`Batch processing failed at chunk ${i}: ${error.message}`);
       }
-      
-    } catch (error) {
-      console.error(`Chunk ${i} failed:`, error.message);
-      
-      // Clean up converted file on error
-      if (needsCleanup && convertedFilePath) {
-        await fs.unlink(convertedFilePath).catch(() => {});
-      }
-      
-      throw new Error(`Batch processing failed at chunk ${i}: ${error.message}`);
+    }
+    
+    // Merge results
+    return mergeChunkResults(results);
+  } finally {
+    // Always clean up all chunks and chunk directory, even on error
+    console.log(`[Cleanup] Cleaning up ${chunks.length} chunk files and directory...`);
+    
+    // Delete all chunk files
+    for (const chunk of chunks) {
+      await fs.unlink(chunk.filePath).catch(err => {
+        if (err.code !== 'ENOENT') {
+          console.error(`[Cleanup] Failed to delete chunk file ${chunk.filePath}:`, err.message);
+        }
+      });
+    }
+    
+    // Delete the entire chunk directory
+    if (chunkDir) {
+      await deleteDirectory(chunkDir);
     }
   }
-  
-  // Clean up all common format chunks after processing
-  console.log(`[Chunking] Cleaning up ${chunks.length} common format chunks...`);
-  for (const chunk of chunks) {
-    await fs.unlink(chunk.filePath).catch(err => 
-      console.error(`Failed to delete chunk file ${chunk.filePath}:`, err)
-    );
-  }
-  
-  // Merge results
-  return mergeChunkResults(results);
 }
 
 /**

@@ -259,9 +259,6 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
       status: 'completed' 
     });
     
-    // Clean up audio file
-    await cleanupAudioFile(audioFile);
-    
     // Generate summary
     try {
       await createSessionSummary(currentRecording);
@@ -269,6 +266,9 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
       console.error(`Summary generation error for ${recording._id}:`, summaryError);
       // Don't fail the whole process if summary fails
     }
+    
+    // Clean up audio file and chunks after successful transcription
+    await cleanupAudioFile(audioFile);
     
     // Emit success event
     if (io && currentRecording.therapistId) {
@@ -288,6 +288,8 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
     currentRecording = await Recording.findById(recording._id);
     if (!currentRecording) {
       console.error('Recording not found for error handling');
+      // Still try to clean up files
+      await cleanupAudioFile(audioFile);
       return;
     }
     
@@ -303,7 +305,7 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
       status: currentRecording.transcriptionStatus === 'retrying' ? 'transcribing' : 'failed'
     });
     
-    // If should retry, add to retry queue
+    // If should retry, add to retry queue (don't clean up files yet - might need them for retry)
     if (currentRecording.shouldRetry()) {
       console.log(`Recording ${recording._id} queued for retry at ${currentRecording.retryConfig.nextRetryAt}`);
       
@@ -318,6 +320,9 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
         });
       }
     } else {
+      // Final failure - clean up files since we won't retry
+      await cleanupAudioFile(audioFile);
+      
       // Emit final failure
       if (io && currentRecording.therapistId) {
         io.to(currentRecording.therapistId.toString()).emit('recordingTranscriptionFailed', {
@@ -408,14 +413,69 @@ const processRetryQueue = async (io) => {
 
 /**
  * Clean up audio file after successful transcription
+ * Also cleans up chunk directories if they exist
  */
 const cleanupAudioFile = async (audioFile) => {
-  if (audioFile && audioFile.path) {
+  if (!audioFile) return;
+  
+  // Delete the main audio file
+  if (audioFile.path) {
     try {
       await fs.unlink(audioFile.path);
-      console.log(`Deleted audio file: ${audioFile.path}`);
+      console.log(`[Cleanup] Deleted audio file: ${audioFile.path}`);
     } catch (err) {
-      console.error(`Error deleting audio file ${audioFile.path}:`, err.message);
+      if (err.code !== 'ENOENT') {
+        console.error(`[Cleanup] Error deleting audio file ${audioFile.path}:`, err.message);
+      }
+    }
+  }
+  
+  // Also delete by filename if path is different
+  if (audioFile.filename && audioFile.path !== path.join(uploadDir, audioFile.filename)) {
+    const filenamePath = path.join(uploadDir, audioFile.filename);
+    try {
+      await fs.unlink(filenamePath);
+      console.log(`[Cleanup] Deleted audio file by filename: ${filenamePath}`);
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        console.error(`[Cleanup] Error deleting audio file ${filenamePath}:`, err.message);
+      }
+    }
+  }
+  
+  // Clean up chunk directory if it exists (for batch processing)
+  if (audioFile.path || audioFile.filename) {
+    const baseName = path.basename(
+      audioFile.path || audioFile.filename, 
+      path.extname(audioFile.path || audioFile.filename)
+    );
+    const chunkDir = path.join(uploadDir, 'chunks', baseName);
+    
+    try {
+      const entries = await fs.readdir(chunkDir, { withFileTypes: true });
+      
+      // Delete all files in chunk directory
+      for (const entry of entries) {
+        const fullPath = path.join(chunkDir, entry.name);
+        if (entry.isDirectory()) {
+          // Recursively delete subdirectories
+          const subEntries = await fs.readdir(fullPath, { withFileTypes: true });
+          for (const subEntry of subEntries) {
+            await fs.unlink(path.join(fullPath, subEntry.name)).catch(() => {});
+          }
+          await fs.rmdir(fullPath).catch(() => {});
+        } else {
+          await fs.unlink(fullPath);
+        }
+      }
+      
+      // Delete the chunk directory itself
+      await fs.rmdir(chunkDir);
+      console.log(`[Cleanup] Deleted chunk directory: ${chunkDir}`);
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        console.error(`[Cleanup] Error deleting chunk directory ${chunkDir}:`, err.message);
+      }
     }
   }
 };
