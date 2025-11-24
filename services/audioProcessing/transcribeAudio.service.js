@@ -321,29 +321,61 @@ function getToolExecutionOrder(preferredTool) {
 async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, options = {}) {
   const cloudStorageObject = options?.cloudStorageObject;
   
-  // Tools that require public HTTPS URLs (not signed URLs)
+  // Tools that require public HTTPS URLs (not signed URLs or gs:// URIs)
   const requiresPublicUrl = ['assemblyai', 'salad'];
   
-  // If we have a cloud storage object and the tool requires public URL, make it temporarily public
+  // If we have a cloud storage object and the tool requires public URL
   if (cloudStorageObject && requiresPublicUrl.includes(toolName)) {
-    console.log(`[${toolName}] Making file temporarily public for transcription`);
-    return await withTemporaryPublicAccess(
-      cloudStorageObject,
-      async (publicUrl) => {
-        switch (toolName) {
-          case 'assemblyai':
-            const assemblyAIData = await assemblyAITranscribeAudioService(filePath, publicUrl, recordingId);
-            return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
-            
-          case 'salad':
-            const saladData = await saladTranscribeAudioService(publicUrl, recordingId);
-            return await formatTranscriptResponseFromTool(saladData, 'salad');
-            
-          default:
-            throw new Error(`Tool ${toolName} should not require public URL`);
-        }
+    // Check if we already have a valid HTTPS URL (public or signed)
+    // If fileUrl is already an HTTPS URL, use it directly instead of trying to make it public again
+    if (fileUrl && fileUrl.startsWith('https://')) {
+      console.log(`[${toolName}] Using existing HTTPS URL for transcription`);
+      switch (toolName) {
+        case 'assemblyai':
+          const assemblyAIData = await assemblyAITranscribeAudioService(filePath, fileUrl, recordingId);
+          return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
+          
+        case 'salad':
+          const saladData = await saladTranscribeAudioService(fileUrl, recordingId);
+          return await formatTranscriptResponseFromTool(saladData, 'salad');
+          
+        default:
+          throw new Error(`Tool ${toolName} should not require public URL`);
       }
-    );
+    }
+    
+    // If we don't have an HTTPS URL (e.g., only have gs:// URI), try to make it accessible
+    console.log(`[${toolName}] Making file temporarily public for transcription`);
+    try {
+      return await withTemporaryPublicAccess(
+        cloudStorageObject,
+        async (publicUrl) => {
+          switch (toolName) {
+            case 'assemblyai':
+              const assemblyAIData = await assemblyAITranscribeAudioService(filePath, publicUrl, recordingId);
+              return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
+              
+            case 'salad':
+              const saladData = await saladTranscribeAudioService(publicUrl, recordingId);
+              return await formatTranscriptResponseFromTool(saladData, 'salad');
+            
+            default:
+              throw new Error(`Tool ${toolName} should not require public URL`);
+          }
+        }
+      );
+    } catch (urlError) {
+      // If we can't generate a public URL (e.g., credentials not configured),
+      // fall back to direct file upload for tools that support it
+      if (toolName === 'assemblyai') {
+        console.warn(`[${toolName}] Failed to generate GCS URL (${urlError.message}), falling back to direct file upload`);
+        // AssemblyAI supports direct file upload when fileUrl is null/undefined
+        const assemblyAIData = await assemblyAITranscribeAudioService(filePath, null, recordingId);
+        return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
+      }
+      // For other tools that require URLs, re-throw the error
+      throw urlError;
+    }
   }
   
   // For Google: use signed URL or GCS URI (Google accepts both)

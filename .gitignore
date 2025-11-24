@@ -5,4 +5,5 @@ node_modules
 storage/public
 uploads/
 temp/
+credentials/
 ecosystem.config.js

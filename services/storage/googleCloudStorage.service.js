@@ -362,18 +362,38 @@ const makeFilePrivateIAM = async (objectName) => {
  */
 const withTemporaryPublicAccess = async (objectName, callback) => {
   let madePublic = false;
+  let publicUrl;
   
   try {
-    // Make file public
-    const publicUrl = await makeFilePublicIAM(objectName);
-    madePublic = true;
+    // Try to make file public via IAM first
+    try {
+      publicUrl = await makeFilePublicIAM(objectName);
+      madePublic = true;
+      console.log(`[GCS] Using public URL via IAM for: ${objectName}`);
+    } catch (iamError) {
+      // IAM not available, try signed URL as fallback
+      console.warn(`[GCS] IAM not available, trying signed URL for: ${objectName}`);
+      try {
+        publicUrl = await generateSignedReadUrl(objectName, 3600); // 1 hour expiration
+        console.log(`[GCS] Using signed URL for: ${objectName}`);
+      } catch (signedError) {
+        // Both IAM and signed URLs failed - this means credentials aren't properly configured
+        const error = new Error(
+          `Cannot generate accessible URL for file. IAM failed: ${iamError.message}. Signed URL failed: ${signedError.message}. ` +
+          `Please ensure GCS credentials are properly configured with GOOGLE_APPLICATION_CREDENTIALS or GCS_KEY_FILE.`
+        );
+        error.iamError = iamError.message;
+        error.signedError = signedError.message;
+        throw error;
+      }
+    }
     
-    // Execute callback with the public URL
+    // Execute callback with the accessible URL
     const result = await callback(publicUrl);
     
     return result;
   } finally {
-    // Always revoke access, even if callback fails
+    // Always revoke access if we made it public via IAM, even if callback fails
     if (madePublic) {
       await makeFilePrivateIAM(objectName);
     }

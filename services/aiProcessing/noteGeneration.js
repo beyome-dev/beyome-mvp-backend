@@ -14,9 +14,21 @@ const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 const PROJECT_ID =  config.google.projectID;
 const LOCATION =  config.google.projectLocation || 'us-central1';
 
+// Initialize VertexAI with credentials if available
+const vertexAIOptions = {
+  project: PROJECT_ID,
+  location: LOCATION
+};
+
+// Use credentials file if configured (same as Google Cloud Storage)
+if (config.googleCloudStorage?.credentialsPath) {
+  vertexAIOptions.googleAuthOptions = {
+    keyFilename: config.googleCloudStorage.credentialsPath
+  };
+}
 
 // Initialize clients
-const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
+const vertexAI = new VertexAI(vertexAIOptions);
 // const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 /**
