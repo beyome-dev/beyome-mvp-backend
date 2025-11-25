@@ -4,6 +4,7 @@ const config = require('../../config');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
+const os = require('os');
 const OpenAI = require('openai');
 const { SpeechClient } = require('@google-cloud/speech');
 const ffmpeg = require('fluent-ffmpeg');
@@ -16,6 +17,7 @@ const {
 } = require('../storage/googleCloudStorage.service');
 
 const uploadDir = config.storagePath;
+const chunkWorkspaceRoot = process.env.CHUNK_WORK_DIR || path.join(os.tmpdir(), 'recapp-chunks');
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs';
 
@@ -174,6 +176,13 @@ const ASSEMBLYAI_API_BASE = 'https://api.assemblyai.com/v2';
 // Ensure upload directory exists
 if (!fsSync.existsSync(uploadDir)) {
   fsSync.mkdirSync(uploadDir, { recursive: true });
+}
+
+if (!fsSync.existsSync(chunkWorkspaceRoot)) {
+  fsSync.mkdirSync(chunkWorkspaceRoot, { recursive: true });
+  console.log(`[Chunk Workspace] Created workspace at ${chunkWorkspaceRoot}`);
+} else {
+  console.log(`[Chunk Workspace] Using workspace at ${chunkWorkspaceRoot}`);
 }
 
 /**
@@ -539,7 +548,7 @@ async function deleteDirectory(dirPath) {
  */
 async function transcribeInBatches(filePath, recordingId, toolName, options = {}) {
   // Always create chunks in common format (wav) first
-  const chunks = await splitAudioIntoChunks(filePath, 'default');
+  const chunks = await splitAudioIntoChunks(filePath, recordingId);
   const chunkDir = chunks.length > 0 ? path.dirname(chunks[0].filePath) : null;
   const results = [];
   const uploadedChunks = []; // Track chunks uploaded to GCS for cleanup
@@ -810,12 +819,18 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
  * @param {string} filePath - Path to the audio file
  * @param {string} toolName - Name of the transcription tool (unused, kept for compatibility)
  */
-async function splitAudioIntoChunks(filePath, toolName = 'default') {
+async function splitAudioIntoChunks(filePath, recordingId = 'default') {
   const duration = await getAudioDuration(filePath);
   const chunks = [];
-  const chunkDir = path.join(uploadDir, 'chunks', path.basename(filePath, path.extname(filePath)));
+  const chunkSessionId = `${path.basename(filePath, path.extname(filePath))}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+  const chunkDir = path.join(chunkWorkspaceRoot, chunkSessionId);
   
   await fs.mkdir(chunkDir, { recursive: true });
+  logTranscriptionDiagnostic('chunking:workspace', {
+    recordingId,
+    chunkDir,
+    duration
+  });
   
   // Always use common format (wav) for initial chunking
   const format = CHUNK_CONFIG.format; // Always 'wav'
