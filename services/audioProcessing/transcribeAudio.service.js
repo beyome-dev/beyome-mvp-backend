@@ -8,7 +8,7 @@ const OpenAI = require('openai');
 const { SpeechClient } = require('@google-cloud/speech');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-const { 
+const {
   generateSignedReadUrl, 
   withTemporaryPublicAccess,
   uploadChunkToBucket,
@@ -124,6 +124,43 @@ const TOOL_CHUNK_CONFIG = Object.entries(TRANSCRIPTION_CONFIG).reduce((acc, [too
   return acc;
 }, {});
 
+// Diagnostics helpers
+const TRANSCRIPTION_DIAGNOSTICS_ENABLED = process.env.TRANSCRIPTION_DEBUG !== 'false';
+const bytesToMB = (bytes = 0) => Number((bytes / (1024 * 1024)).toFixed(1));
+
+const getProcessMetrics = () => {
+  const memoryUsage = process.memoryUsage();
+  const metrics = {
+    memoryMB: {
+      rss: bytesToMB(memoryUsage.rss),
+      heapTotal: bytesToMB(memoryUsage.heapTotal),
+      heapUsed: bytesToMB(memoryUsage.heapUsed),
+      external: bytesToMB(memoryUsage.external),
+      arrayBuffers: bytesToMB(memoryUsage.arrayBuffers || 0)
+    },
+    uptimeSeconds: Number(process.uptime().toFixed(1))
+  };
+
+  if (typeof process._getActiveHandles === 'function') {
+    metrics.activeHandles = process._getActiveHandles().length;
+  }
+  if (typeof process._getActiveRequests === 'function') {
+    metrics.activeRequests = process._getActiveRequests().length;
+  }
+
+  return metrics;
+};
+
+const logTranscriptionDiagnostic = (stage, details = {}) => {
+  if (!TRANSCRIPTION_DIAGNOSTICS_ENABLED) {
+    return;
+  }
+  console.log(`[Transcription Diagnostics] ${stage}`, {
+    ...details,
+    metrics: getProcessMetrics()
+  });
+};
+
 // Initialize clients
 const openAIClient = new OpenAI({ apiKey: TRANSCRIPTION_CONFIG.openai.apiKey });
 // AssemblyAI client removed - using direct API calls
@@ -176,9 +213,16 @@ const requestTranscription = async (file, recordingId, options = {}) => {
   // Get file duration
   const duration = await getAudioDuration(filePath);
   const needsBatching = duration > CHUNK_CONFIG.maxDuration;
-
   // Determine transcription strategy
   const toolOrder = getToolExecutionOrder(preferredTool);
+  logTranscriptionDiagnostic('request:start', {
+    recordingId,
+    preferredTool,
+    toolOrder,
+    durationSeconds: duration,
+    needsBatching,
+    filePath
+  });
   
   let lastError = null;
   let attemptCount = 0;
@@ -191,6 +235,13 @@ const requestTranscription = async (file, recordingId, options = {}) => {
     if (attemptCount >= maxAttempts) break;
     
     try {
+      logTranscriptionDiagnostic('request:attempt', {
+        recordingId,
+        toolName,
+        attemptNumber: attemptCount + 1,
+        needsBatching,
+        enableFallback
+      });
       console.log(`[Attempt ${attemptCount + 1}] Trying ${toolName} for recording ${recordingId}`);
       
       let result;
@@ -261,6 +312,13 @@ const requestTranscription = async (file, recordingId, options = {}) => {
       }
       
       console.error(`✗ ${toolName} failed (attempt ${attemptCount})${jobId ? ` (job ID: ${jobId})` : ''}:`, error.message);
+      logTranscriptionDiagnostic('request:attempt-error', {
+        recordingId,
+        toolName,
+        attemptNumber: attemptCount,
+        errorMessage: error.message,
+        jobId
+      });
       
       // Log failure for monitoring
       await logTranscriptionAttempt({
@@ -292,6 +350,12 @@ const requestTranscription = async (file, recordingId, options = {}) => {
   // All attempts failed - create error with information about all attempted tools
   const errorMessage = `All transcription attempts failed. Tools attempted: ${attemptedTools.join(', ')}. Last error (from ${lastError?.failedTool || 'unknown'}): ${lastError?.message || 'Unknown error'}`;
   const finalError = new Error(errorMessage);
+  logTranscriptionDiagnostic('request:failed', {
+    recordingId,
+    attemptedTools,
+    lastError: lastError?.message,
+    jobIds: toolJobIds
+  });
   finalError.failedTool = lastError?.failedTool || attemptedTools[attemptedTools.length - 1] || 'unknown';
   finalError.attemptedTools = attemptedTools;
   finalError.toolJobIds = toolJobIds;
@@ -479,6 +543,14 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
   const chunkDir = chunks.length > 0 ? path.dirname(chunks[0].filePath) : null;
   const results = [];
   const uploadedChunks = []; // Track chunks uploaded to GCS for cleanup
+  const totalChunkSizeMB = chunks.reduce((acc, chunk) => acc + (chunk.sizeMB || 0), 0);
+  logTranscriptionDiagnostic('batch:chunks-prepared', {
+    recordingId,
+    toolName,
+    chunkCount: chunks.length,
+    totalChunkDuration: chunks.length ? chunks[chunks.length - 1].endTime : 0,
+    totalChunkSizeMB: Number(totalChunkSizeMB.toFixed(2))
+  });
   
   // Get tool-specific format requirements
   const toolChunkConfig = TOOL_CHUNK_CONFIG[toolName] || {};
@@ -497,6 +569,13 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
       const chunk = chunks[i];
       const sizeInfo = chunk.sizeMB ? ` (${chunk.sizeMB.toFixed(2)} MB)` : '';
       const chunkStartTime = Date.now();
+      logTranscriptionDiagnostic('batch:chunk-start', {
+        recordingId,
+        toolName,
+        chunkIndex: i,
+        chunkRange: `${chunk.startTime}-${chunk.endTime}`,
+        chunkSizeMB: chunk.sizeMB
+      });
       
       console.log(`[Batch Processing] Processing chunk ${i + 1}/${chunks.length} (${chunk.startTime}s - ${chunk.endTime}s)${sizeInfo}`);
       
@@ -584,6 +663,12 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
             startTime: chunk.startTime,
             endTime: chunk.endTime
           });
+          logTranscriptionDiagnostic('batch:chunk-complete', {
+            recordingId,
+            toolName,
+            chunkIndex: i,
+            durationMs: chunkDuration
+          });
 
           if (options?.onChunkProgress) {
             try {
@@ -637,6 +722,12 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
           chunkFilePath,
           convertedFilePath
         });
+        logTranscriptionDiagnostic('batch:chunk-error', {
+          recordingId,
+          toolName,
+          chunkIndex: i,
+          errorMessage: error.message
+        });
         
         // Clean up converted file on error
         if (needsCleanup && convertedFilePath) {
@@ -653,6 +744,11 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
     }
     
     console.log(`[Batch Processing] All ${chunks.length} chunks processed successfully`);
+    logTranscriptionDiagnostic('batch:complete', {
+      recordingId,
+      toolName,
+      chunkCount: chunks.length
+    });
     
     // Merge results
     return mergeChunkResults(results);
@@ -663,6 +759,13 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
       recordingId,
       processedChunks: results.length,
       totalChunks: chunks.length
+    });
+    logTranscriptionDiagnostic('batch:failed', {
+      recordingId,
+      toolName,
+      processedChunks: results.length,
+      totalChunks: chunks.length,
+      errorMessage: error.message
     });
     throw error;
   } finally {
@@ -677,6 +780,11 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
     
     // Always clean up all chunks and chunk directory, even on error
     console.log(`[Batch Processing] Cleaning up ${chunks.length} chunk files and directory...`);
+    logTranscriptionDiagnostic('batch:cleanup', {
+      recordingId,
+      toolName,
+      chunkCount: chunks.length
+    });
     
     // Delete all chunk files
     for (const chunk of chunks) {
@@ -1354,6 +1462,9 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
           const startTime = Date.now();
           const pollInterval = 3000; // Poll every 3 seconds
           let transcript = null;
+          let pollCount = 0;
+          let lastStatusLogAt = 0;
+          let previousStatus = null;
 
           while (Date.now() - startTime < timeout) {
               try {
@@ -1375,9 +1486,17 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
                   }
 
                   transcript = statusResponse.data;
+                  pollCount++;
                   
                   if (transcript.status === 'completed') {
                       console.log(`[AssemblyAI] Transcription completed for ${recordingId}`);
+                      logTranscriptionDiagnostic('assemblyai:poll', {
+                        transcriptId,
+                        status: transcript.status,
+                        recordingId,
+                        pollCount,
+                        elapsedMs: Date.now() - startTime
+                      });
                       break;
                   } else if (transcript.status === 'error') {
                       // Check if error is due to empty audio (no spoken content)
@@ -1398,7 +1517,19 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
                       error.jobId = transcriptId;
                       throw error;
                   } else if (transcript.status === 'queued' || transcript.status === 'processing') {
-                      console.log(`[AssemblyAI] Status: ${transcript.status}, waiting...`);
+                      const now = Date.now();
+                      if (previousStatus !== transcript.status || now - lastStatusLogAt > 15000) {
+                          console.log(`[AssemblyAI] Status: ${transcript.status}, waiting...`);
+                          logTranscriptionDiagnostic('assemblyai:poll', {
+                            transcriptId,
+                            status: transcript.status,
+                            recordingId,
+                            pollCount,
+                            elapsedMs: now - startTime
+                          });
+                          previousStatus = transcript.status;
+                          lastStatusLogAt = now;
+                      }
                       await new Promise(resolve => setTimeout(resolve, pollInterval));
                   } else {
                       const error = new Error(`Unknown transcript status: ${transcript.status}`);
@@ -1436,6 +1567,13 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
               response: error.response?.data,
               status: error.response?.status,
               stack: error.stack
+          });
+          logTranscriptionDiagnostic('assemblyai:error', {
+            recordingId,
+            message: error.message,
+            code: error.code,
+            status: error.response?.status,
+            jobId: error.jobId
           });
 
           // Handle API errors that might indicate empty audio

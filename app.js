@@ -175,8 +175,38 @@ connectDB().then(() => {
     server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
 });
 
+const bytesToMB = (bytes = 0) => Number((bytes / (1024 * 1024)).toFixed(1));
+const getProcessHealthSnapshot = () => {
+  const memoryUsage = process.memoryUsage();
+  const snapshot = {
+    memoryMB: {
+      rss: bytesToMB(memoryUsage.rss),
+      heapTotal: bytesToMB(memoryUsage.heapTotal),
+      heapUsed: bytesToMB(memoryUsage.heapUsed),
+      external: bytesToMB(memoryUsage.external),
+      arrayBuffers: bytesToMB(memoryUsage.arrayBuffers || 0)
+    },
+    uptimeSeconds: Number(process.uptime().toFixed(1))
+  };
+  if (typeof process._getActiveHandles === 'function') {
+    snapshot.activeHandles = process._getActiveHandles().length;
+  }
+  if (typeof process._getActiveRequests === 'function') {
+    snapshot.activeRequests = process._getActiveRequests().length;
+  }
+  return snapshot;
+};
+
+const logProcessHealth = (event, extra = {}) => {
+  console.log(`[Process Health] ${event}`, {
+    ...extra,
+    ...getProcessHealthSnapshot()
+  });
+};
+
 process.on('SIGTERM', () => {
     console.log('SIGTERM received, stopping retry job...');
+    logProcessHealth('SIGTERM');
     retryJob.stop();
     server.close(() => {
       console.log('Server closed');
@@ -195,6 +225,7 @@ process.on('uncaughtException', (error) => {
     name: error.name,
     timestamp: new Date().toISOString()
   });
+  logProcessHealth('uncaughtException', { error: error.message });
   // Give time for logging before exit
   setTimeout(() => {
     process.exit(1);
@@ -208,17 +239,47 @@ process.on('unhandledRejection', (reason, promise) => {
     promise: promise,
     timestamp: new Date().toISOString()
   });
+  logProcessHealth('unhandledRejection', { error: reason?.message || String(reason) });
   // Don't exit on unhandled rejection, but log it
 });
 
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully...');
+  logProcessHealth('SIGTERM graceful');
   if (retryJob) {
     retryJob.stop();
   }
   server.close(() => {
     console.log('Server closed');
     process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  logProcessHealth('SIGINT');
+  if (retryJob) {
+    retryJob.stop();
+  }
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('beforeExit', (code) => {
+  logProcessHealth('beforeExit', { code });
+});
+
+process.on('exit', (code) => {
+  logProcessHealth('exit', { code });
+});
+
+process.on('warning', (warning) => {
+  logProcessHealth('warning', {
+    name: warning.name,
+    message: warning.message,
+    stack: warning.stack
   });
 });
 
