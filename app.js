@@ -16,6 +16,8 @@ const { noteController } = require('./controllers')
 const {saladCheck, fileManager, bookingCronJob, TranscriptionRetryJob } = require('./cronJobs');
 const axios = require('axios');
 const { tokenService } = require('./services');
+const { transcriptionState } = require('./services/audioProcessing/transcribeAudio.service');
+const { resumeIncompleteTranscriptions } = require('./services/recording.service');
 
 // set up passport
 require('./config/passport-config');
@@ -170,9 +172,25 @@ async function connectDB() {
 
 
 // Connect to MongoDB before starting the server
-connectDB().then(() => {
+connectDB().then(async () => {
     const PORT = config.PORT || 8000;
-    server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
+    server.listen(PORT, async () => {
+        console.log(`Server running on PORT: ${PORT}`);
+        
+        // Resume any incomplete transcriptions that were cut off during previous crash
+        try {
+            console.log('[Startup] Checking for incomplete transcriptions to resume...');
+            const resumeResult = await resumeIncompleteTranscriptions(io);
+            if (resumeResult.resumed > 0) {
+                console.log(`[Startup] Resumed ${resumeResult.resumed} incomplete transcription(s)`);
+            } else {
+                console.log('[Startup] No incomplete transcriptions found');
+            }
+        } catch (error) {
+            console.error('[Startup] Error resuming incomplete transcriptions:', error);
+            // Don't fail startup if resume fails
+        }
+    });
 });
 
 const bytesToMB = (bytes = 0) => Number((bytes / (1024 * 1024)).toFixed(1));
@@ -258,6 +276,40 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully...');
   logProcessHealth('SIGINT');
+  
+  // Check if transcription is active - delay shutdown to prevent data loss
+  if (transcriptionState.isActive()) {
+    const activeCount = transcriptionState.getActiveCount();
+    console.log(`[Shutdown Protection] Active transcriptions detected (${activeCount}). Delaying shutdown for up to 5 minutes...`);
+    console.log(`[Shutdown Protection] Active recording IDs: ${Array.from(transcriptionState.activeTranscriptions).join(', ')}`);
+    
+    // Poll every 10 seconds to check if transcription completed
+    let waitTime = 0;
+    const maxWaitTime = 5 * 60 * 1000; // 5 minutes max
+    const checkInterval = setInterval(() => {
+      waitTime += 10000;
+      if (!transcriptionState.isActive()) {
+        clearInterval(checkInterval);
+        console.log(`[Shutdown Protection] All transcriptions completed after ${waitTime/1000}s. Proceeding with shutdown...`);
+        performShutdown();
+      } else if (waitTime >= maxWaitTime) {
+        clearInterval(checkInterval);
+        console.log(`[Shutdown Protection] Max wait time reached (${maxWaitTime/1000}s). Forcing shutdown...`);
+        performShutdown();
+      } else {
+        const remaining = transcriptionState.getActiveCount();
+        console.log(`[Shutdown Protection] Still waiting... (${waitTime/1000}s elapsed, ${remaining} active transcription(s))`);
+      }
+    }, 10000);
+    
+    return; // Don't proceed with shutdown yet
+  }
+  
+  // No active transcriptions, proceed immediately
+  performShutdown();
+});
+
+function performShutdown() {
   if (retryJob) {
     retryJob.stop();
   }
@@ -265,7 +317,7 @@ process.on('SIGINT', () => {
     console.log('Server closed');
     process.exit(0);
   });
-});
+}
 
 process.on('beforeExit', (code) => {
   logProcessHealth('beforeExit', { code });

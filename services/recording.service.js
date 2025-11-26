@@ -364,6 +364,210 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
 };
 
 /**
+ * Resume incomplete transcriptions that were cut off during server crash
+ */
+const resumeIncompleteTranscriptions = async (io) => {
+  try {
+    const incompleteRecordings = await Recording.findIncompleteTranscriptions();
+    
+    if (incompleteRecordings.length === 0) {
+      console.log('[Resume] No incomplete transcriptions found');
+      return { resumed: 0 };
+    }
+    
+    console.log(`[Resume] Found ${incompleteRecordings.length} incomplete transcription(s) to resume`);
+    
+    for (const recording of incompleteRecordings) {
+      try {
+        const batchInfo = recording.transcriptionMetadata?.batchInfo;
+        const isBatchProcessing = batchInfo && batchInfo.totalChunks > 0;
+        const processedChunks = batchInfo?.processedChunks || 0;
+        const totalChunks = batchInfo?.totalChunks || 0;
+        
+        console.log(`[Resume] Resuming recording ${recording._id}: ${processedChunks}/${totalChunks} chunks completed`);
+        
+        // Get the audio file
+        const preferredPath = recording.filename
+          ? path.join(uploadDir, recording.filename)
+          : null;
+
+        const localFileHandle = await ensureLocalRecordingFile({
+          preferredPath,
+          audioKey: recording.audioKey,
+          filename: recording.filename
+        });
+        
+        const audioFile = {
+          filename: recording.filename || path.basename(localFileHandle.localPath),
+          path: localFileHandle.localPath,
+          size: recording.fileSize || localFileHandle.size,
+          mimetype: recording.format ? `audio/${recording.format}` : 'audio/wav',
+          cloudStorageUrl: recording.filePath,
+          cloudStorageObject: recording.audioKey
+        };
+        
+        // Determine resume point
+        const resumeFromChunk = processedChunks;
+        const toolName = recording.retryConfig?.preferredTool || recording.transcriptionMetadata?.provider || 'assemblyai';
+        
+        if (isBatchProcessing && resumeFromChunk < totalChunks) {
+          console.log(`[Resume] Resuming batch processing from chunk ${resumeFromChunk + 1}/${totalChunks}`);
+          
+          // Enhanced chunk progress handler that merges with existing transcription
+          const handleChunkProgress = async ({ chunkResult, chunkIndex, totalChunks, chunk, toolName }) => {
+            try {
+              const chunkText = (chunkResult?.transcriptionText || '').trim();
+              const currentRecording = await Recording.findById(recording._id);
+              if (!currentRecording) return;
+              
+              // Start with existing transcription text
+              let partialTranscriptionText = currentRecording.transcriptionText || '';
+              if (chunkText) {
+                partialTranscriptionText = partialTranscriptionText
+                  ? `${partialTranscriptionText} ${chunkText}`.trim()
+                  : chunkText;
+              }
+
+              const chunkInfo = {
+                index: chunkIndex,
+                startTime: chunk.startTime,
+                endTime: chunk.endTime,
+                status: 'completed',
+                transcribedAt: new Date()
+              };
+
+              // Get existing chunks and update
+              const existingChunks = currentRecording.transcriptionMetadata?.batchInfo?.chunks || [];
+              existingChunks[chunkIndex] = chunkInfo;
+              const completedChunks = existingChunks.filter(Boolean);
+
+              const updatedBatchInfo = {
+                totalChunks,
+                processedChunks: completedChunks.length,
+                failedChunks: [],
+                chunkDuration: chunk.duration,
+                overlap: CHUNK_CONFIG.overlap,
+                chunks: completedChunks
+              };
+
+              await Recording.findByIdAndUpdate(currentRecording._id, {
+                $set: {
+                  transcriptionText: partialTranscriptionText,
+                  transcriptionStatus: 'processing',
+                  'transcriptionMetadata.provider': toolName,
+                  'transcriptionMetadata.batchInfo': updatedBatchInfo
+                }
+              });
+
+              if (io && currentRecording.therapistId) {
+                io.to(currentRecording.therapistId.toString()).emit('recordingTranscriptionChunk', {
+                  recordingId: currentRecording._id,
+                  sessionId: currentRecording.sessionId,
+                  chunkIndex,
+                  totalChunks,
+                  progress: completedChunks.length / totalChunks,
+                  chunkText,
+                  transcriptionText: partialTranscriptionText,
+                  provider: toolName,
+                  startTime: chunk.startTime,
+                  endTime: chunk.endTime
+                });
+              }
+            } catch (chunkError) {
+              console.error(`[Resume] Chunk progress update failed:`, chunkError.message);
+            }
+          };
+          
+          // Call requestTranscription with resume options
+          const { requestTranscription } = require('./audioProcessing/transcribeAudio.service');
+          
+          const existingText = recording.transcriptionText || '';
+          
+          const transcriptionResult = await requestTranscription(
+            audioFile,
+            recording._id,
+            {
+              preferredTool: toolName,
+              enableFallback: recording.retryConfig?.fallbackEnabled !== false,
+              maxAttempts: recording.retryConfig?.maxRetries || 3,
+              onChunkProgress: handleChunkProgress,
+              resumeFromChunk: resumeFromChunk,
+              existingResults: [] // We'll merge text, not results
+            }
+          );
+          
+          // Reload recording to get the latest state (with merged text from handleChunkProgress)
+          const updatedRecording = await Recording.findById(recording._id);
+          if (!updatedRecording) {
+            throw new Error('Recording not found after resume');
+          }
+          
+          // Merge the result text with existing text (handleChunkProgress should have done this, but ensure it)
+          const finalText = updatedRecording.transcriptionText || transcriptionResult.transcriptionText || '';
+          
+          // Update transcription result to include merged text
+          transcriptionResult.transcriptionText = finalText;
+          
+          // Mark success with merged result
+          updatedRecording.markTranscriptionSuccess(transcriptionResult);
+          await updatedRecording.save();
+          
+          console.log(`[Resume] Recording ${recording._id} completed after resume`);
+          
+          // Update session status
+          await Session.findByIdAndUpdate(recording.sessionId, { 
+            status: 'completed' 
+          });
+          
+          // Emit success event
+          if (io && recording.therapistId) {
+            io.to(recording.therapistId.toString()).emit('recordingTranscriptionCompleted', {
+              recordingId: recording._id,
+              sessionId: recording.sessionId,
+              transcriptionStatus: 'completed',
+              attempts: updatedRecording.transcriptionAttempts.length,
+              provider: transcriptionResult.transcriptionMetadata?.provider
+            });
+          }
+          
+        } else {
+          // Not batch processing or all chunks done - just reprocess normally
+          console.log(`[Resume] Reprocessing recording ${recording._id} (not batch or all chunks done)`);
+          await processTranscriptionInBackground(
+            recording,
+            audioFile,
+            recording.sessionId,
+            io
+          );
+        }
+        
+        await localFileHandle.cleanup();
+        
+      } catch (error) {
+        console.error(`[Resume] Error resuming recording ${recording._id}:`, error);
+        // Mark as failed if we can't resume
+        recording.transcriptionStatus = 'failed';
+        recording.transcriptionError = {
+          message: `Resume failed: ${error.message}`,
+          timestamp: new Date(),
+          isRecoverable: false
+        };
+        await recording.save();
+      }
+    }
+    
+    return {
+      resumed: incompleteRecordings.length,
+      timestamp: new Date()
+    };
+    
+  } catch (error) {
+    console.error('[Resume] Error resuming incomplete transcriptions:', error);
+    throw error;
+  }
+};
+
+/**
  * Process recordings in retry queue (run via cron job)
  */
 const processRetryQueue = async (io) => {
@@ -789,6 +993,7 @@ module.exports = {
   updateRecordingMetadata,
   checkAndUpdateRecordingTranscription,
   processRetryQueue,
+  resumeIncompleteTranscriptions,
   getTranscriptionStats,
   manualRetryTranscription,
 };

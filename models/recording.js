@@ -323,6 +323,31 @@ recordingSchema.statics.findReadyForRetry = function() {
   }).sort({ 'retryConfig.nextRetryAt': 1 });
 };
 
+// Find recordings that were processing when server crashed (for resume)
+recordingSchema.statics.findIncompleteTranscriptions = function() {
+  return this.find({
+    transcriptionStatus: 'processing',
+    // Has batch info indicating partial completion
+    $or: [
+      {
+        'transcriptionMetadata.batchInfo': { $exists: true },
+        'transcriptionMetadata.batchInfo.processedChunks': { $exists: true, $gt: 0 },
+        $expr: {
+          $lt: [
+            '$transcriptionMetadata.batchInfo.processedChunks',
+            '$transcriptionMetadata.batchInfo.totalChunks'
+          ]
+        }
+      },
+      // Or just processing status without batch info (might be single chunk or just started)
+      {
+        'transcriptionMetadata.batchInfo': { $exists: false },
+        updatedAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) } // Stuck for more than 5 minutes
+      }
+    ]
+  }).sort({ updatedAt: 1 });
+};
+
 recordingSchema.statics.getTranscriptionStats = async function(therapistId, dateRange) {
   return this.aggregate([
     {

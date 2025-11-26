@@ -23,6 +23,25 @@ let chunkWorkspaceWarningLogged = false;
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs';
 
+// Global transcription state tracker to prevent shutdown during active transcription
+const transcriptionState = {
+  activeTranscriptions: new Set(),
+  isActive: () => transcriptionState.activeTranscriptions.size > 0,
+  add: (recordingId) => {
+    transcriptionState.activeTranscriptions.add(recordingId);
+    if (transcriptionState.activeTranscriptions.size === 1) {
+      console.log('[Transcription State] Active transcription started, shutdown protection enabled');
+    }
+  },
+  remove: (recordingId) => {
+    transcriptionState.activeTranscriptions.delete(recordingId);
+    if (transcriptionState.activeTranscriptions.size === 0) {
+      console.log('[Transcription State] All transcriptions completed, shutdown protection disabled');
+    }
+  },
+  getActiveCount: () => transcriptionState.activeTranscriptions.size
+};
+
 // Configuration
 const TRANSCRIPTION_CONFIG = {
   salad: {
@@ -184,61 +203,65 @@ if (!fsSync.existsSync(uploadDir)) {
  * Main entry point for transcription with fallback mechanism
  */
 const requestTranscription = async (file, recordingId, options = {}) => {
-  const {
-    preferredTool = config.transcriptionConfig.default || 'openai',
-    enableFallback = true,
-    maxAttempts = 3,
-    onChunkProgress
-  } = options;
-
-  const filePath = file.path || (file.filename ? path.join(uploadDir, file.filename) : null);
-  if (!filePath) {
-    throw new Error('Audio file path is required for transcription.');
-  }
-
-  let fileUrl =
-    file.cloudStorageUrl ||
-    file.fileUrl ||
-    (file.filename && config.APP_URL ? `${config.APP_URL}/files/${file.filename}` : null);
+  // Track active transcription to prevent shutdown - use finally to ensure cleanup
+  transcriptionState.add(recordingId);
   
-  if (!fileUrl && file.cloudStorageObject) {
-    try {
-      fileUrl = await generateSignedReadUrl(file.cloudStorageObject, 3600);
-      console.log(`[Signed URL] Generated for recording ${recordingId}`);
-    } catch (err) {
-      console.error('[Signed URL] Failed to generate signed URL:', err.message);
+  try {
+    const {
+      preferredTool = config.transcriptionConfig.default || 'openai',
+      enableFallback = true,
+      maxAttempts = 3,
+      onChunkProgress
+    } = options;
+
+    const filePath = file.path || (file.filename ? path.join(uploadDir, file.filename) : null);
+    if (!filePath) {
+      throw new Error('Audio file path is required for transcription.');
     }
-  }
 
-  if (!fileUrl && process.env.NODE_ENV === 'development') {
-    fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`;
-  }
-
-  // Get file duration
-  const duration = await getAudioDuration(filePath);
-  const needsBatching = duration > CHUNK_CONFIG.maxDuration;
-  // Determine transcription strategy
-  const toolOrder = getToolExecutionOrder(preferredTool);
-  logTranscriptionDiagnostic('request:start', {
-    recordingId,
-    preferredTool,
-    toolOrder,
-    durationSeconds: duration,
-    needsBatching,
-    filePath
-  });
-  
-  let lastError = null;
-  let attemptCount = 0;
-
-  // Track which tools were actually attempted and their job IDs
-  const attemptedTools = [];
-  const toolJobIds = {}; // Map of tool name to job ID
-  
-  for (const toolName of toolOrder) {
-    if (attemptCount >= maxAttempts) break;
+    let fileUrl =
+      file.cloudStorageUrl ||
+      file.fileUrl ||
+      (file.filename && config.APP_URL ? `${config.APP_URL}/files/${file.filename}` : null);
     
-    try {
+    if (!fileUrl && file.cloudStorageObject) {
+      try {
+        fileUrl = await generateSignedReadUrl(file.cloudStorageObject, 3600);
+        console.log(`[Signed URL] Generated for recording ${recordingId}`);
+      } catch (err) {
+        console.error('[Signed URL] Failed to generate signed URL:', err.message);
+      }
+    }
+
+    if (!fileUrl && process.env.NODE_ENV === 'development') {
+      fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`;
+    }
+
+    // Get file duration
+    const duration = await getAudioDuration(filePath);
+    const needsBatching = duration > CHUNK_CONFIG.maxDuration;
+    // Determine transcription strategy
+    const toolOrder = getToolExecutionOrder(preferredTool);
+    logTranscriptionDiagnostic('request:start', {
+      recordingId,
+      preferredTool,
+      toolOrder,
+      durationSeconds: duration,
+      needsBatching,
+      filePath
+    });
+    
+    let lastError = null;
+    let attemptCount = 0;
+
+    // Track which tools were actually attempted and their job IDs
+    const attemptedTools = [];
+    const toolJobIds = {}; // Map of tool name to job ID
+    
+    for (const toolName of toolOrder) {
+      if (attemptCount >= maxAttempts) break;
+      
+      try {
       logTranscriptionDiagnostic('request:attempt', {
         recordingId,
         toolName,
@@ -269,7 +292,9 @@ const requestTranscription = async (file, recordingId, options = {}) => {
       } else if (needsBatching && TRANSCRIPTION_CONFIG[toolName].supports.batch) {
         console.log(`Audio duration (${duration}s) exceeds limit. Using batch processing.`);
         result = await transcribeInBatches(filePath, recordingId, toolName, {
-          onChunkProgress
+          onChunkProgress,
+          resumeFromChunk: options.resumeFromChunk,
+          existingResults: options.existingResults
         });
         // Batch processing doesn't have a single job ID, but we can track it
         jobId = result.transcriptionMetadata?.jobId || null;
@@ -351,19 +376,23 @@ const requestTranscription = async (file, recordingId, options = {}) => {
     }
   }
   
-  // All attempts failed - create error with information about all attempted tools
-  const errorMessage = `All transcription attempts failed. Tools attempted: ${attemptedTools.join(', ')}. Last error (from ${lastError?.failedTool || 'unknown'}): ${lastError?.message || 'Unknown error'}`;
-  const finalError = new Error(errorMessage);
-  logTranscriptionDiagnostic('request:failed', {
-    recordingId,
-    attemptedTools,
-    lastError: lastError?.message,
-    jobIds: toolJobIds
-  });
-  finalError.failedTool = lastError?.failedTool || attemptedTools[attemptedTools.length - 1] || 'unknown';
-  finalError.attemptedTools = attemptedTools;
-  finalError.toolJobIds = toolJobIds;
-  throw finalError;
+    // All attempts failed - create error with information about all attempted tools
+    const errorMessage = `All transcription attempts failed. Tools attempted: ${attemptedTools.join(', ')}. Last error (from ${lastError?.failedTool || 'unknown'}): ${lastError?.message || 'Unknown error'}`;
+    const finalError = new Error(errorMessage);
+    logTranscriptionDiagnostic('request:failed', {
+      recordingId,
+      attemptedTools,
+      lastError: lastError?.message,
+      jobIds: toolJobIds
+    });
+    finalError.failedTool = lastError?.failedTool || attemptedTools[attemptedTools.length - 1] || 'unknown';
+    finalError.attemptedTools = attemptedTools;
+    finalError.toolJobIds = toolJobIds;
+    throw finalError;
+  } finally {
+    // Always remove from state tracker when transcription completes or fails
+    transcriptionState.remove(recordingId);
+  }
 };
 
 /**
@@ -576,20 +605,35 @@ async function prepareChunkWorkspace(recordingId, sourceFilePath) {
 
 /**
  * Batch processing for long audio files
+ * @param {string} filePath - Path to audio file
+ * @param {string} recordingId - Recording ID
+ * @param {string} toolName - Transcription tool name
+ * @param {Object} options - Options including resumeFromChunk for resuming
  */
 async function transcribeInBatches(filePath, recordingId, toolName, options = {}) {
+  const { resumeFromChunk = 0, existingResults = [] } = options;
+  
   // Always create chunks in common format (wav) first
   const chunks = await splitAudioIntoChunks(filePath, 'default', recordingId);
   const chunkDir = chunks.length > 0 ? path.dirname(chunks[0].filePath) : null;
-  const results = [];
+  const results = [...existingResults]; // Start with existing results if resuming
   const uploadedChunks = []; // Track chunks uploaded to GCS for cleanup
   const totalChunkSizeMB = chunks.reduce((acc, chunk) => acc + (chunk.sizeMB || 0), 0);
+  
+  const isResuming = resumeFromChunk > 0 || existingResults.length > 0;
+  if (isResuming) {
+    console.log(`[Batch Processing] RESUMING from chunk ${resumeFromChunk}/${chunks.length} for recording ${recordingId}`);
+    console.log(`[Batch Processing] Already completed: ${existingResults.length} chunks`);
+  }
+  
   logTranscriptionDiagnostic('batch:chunks-prepared', {
     recordingId,
     toolName,
     chunkCount: chunks.length,
     totalChunkDuration: chunks.length ? chunks[chunks.length - 1].endTime : 0,
-    totalChunkSizeMB: Number(totalChunkSizeMB.toFixed(2))
+    totalChunkSizeMB: Number(totalChunkSizeMB.toFixed(2)),
+    resuming: isResuming,
+    resumeFromChunk
   });
   
   // Get tool-specific format requirements
@@ -605,7 +649,8 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
   console.log(`[Batch Processing] Total chunks: ${chunks.length}, Tool: ${toolName}, Use GCS: ${useGCSForChunks}`);
   
   try {
-    for (let i = 0; i < chunks.length; i++) {
+    // Start from resumeFromChunk if resuming
+    for (let i = resumeFromChunk; i < chunks.length; i++) {
       const chunk = chunks[i];
       const sizeInfo = chunk.sizeMB ? ` (${chunk.sizeMB.toFixed(2)} MB)` : '';
       const chunkStartTime = Date.now();
@@ -1880,5 +1925,6 @@ module.exports = {
   requestTranscription,
   fetchTranscriptionStatus,
   TRANSCRIPTION_CONFIG,
-  CHUNK_CONFIG
+  CHUNK_CONFIG,
+  transcriptionState
 };
