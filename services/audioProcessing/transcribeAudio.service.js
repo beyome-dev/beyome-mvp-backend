@@ -9,7 +9,7 @@ const OpenAI = require('openai');
 const { SpeechClient } = require('@google-cloud/speech');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-const {
+const { 
   generateSignedReadUrl, 
   withTemporaryPublicAccess,
   uploadChunkToBucket,
@@ -17,7 +17,9 @@ const {
 } = require('../storage/googleCloudStorage.service');
 
 const uploadDir = config.storagePath;
-const chunkWorkspaceRoot = process.env.CHUNK_WORK_DIR || path.join(os.tmpdir(), 'recapp-chunks');
+const chunkWorkspaceRoot = process.env.CHUNK_WORKSPACE_DIR || path.join(os.tmpdir(), 'recapp-chunks');
+let chunkWorkspaceRootLogged = false;
+let chunkWorkspaceWarningLogged = false;
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 const SALAD_API_URL = 'https://api.salad.com/api/public/organizations/beyome/inference-endpoints/transcribe/jobs';
 
@@ -176,13 +178,6 @@ const ASSEMBLYAI_API_BASE = 'https://api.assemblyai.com/v2';
 // Ensure upload directory exists
 if (!fsSync.existsSync(uploadDir)) {
   fsSync.mkdirSync(uploadDir, { recursive: true });
-}
-
-if (!fsSync.existsSync(chunkWorkspaceRoot)) {
-  fsSync.mkdirSync(chunkWorkspaceRoot, { recursive: true });
-  console.log(`[Chunk Workspace] Created workspace at ${chunkWorkspaceRoot}`);
-} else {
-  console.log(`[Chunk Workspace] Using workspace at ${chunkWorkspaceRoot}`);
 }
 
 /**
@@ -544,11 +539,47 @@ async function deleteDirectory(dirPath) {
 }
 
 /**
+ * Ensure chunk workspace is outside the watched project tree
+ */
+async function prepareChunkWorkspace(recordingId, sourceFilePath) {
+  await fs.mkdir(chunkWorkspaceRoot, { recursive: true });
+  const safeRecordingId = (recordingId && recordingId.toString && recordingId.toString()) ||
+    path.basename(sourceFilePath, path.extname(sourceFilePath)) ||
+    `recapp_${Date.now()}`;
+  const sanitizedRecordingId = safeRecordingId.replace(/[^a-zA-Z0-9-_]/g, '_');
+  const workspaceName = `${sanitizedRecordingId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const workspaceDir = path.join(chunkWorkspaceRoot, workspaceName);
+  await fs.mkdir(workspaceDir, { recursive: true });
+
+  if (!chunkWorkspaceRootLogged) {
+    console.log(`[Chunk Workspace] Root directory: ${chunkWorkspaceRoot}`);
+    chunkWorkspaceRootLogged = true;
+  }
+
+  const projectRoot = path.resolve(__dirname, '..', '..');
+  if (!chunkWorkspaceWarningLogged && workspaceDir.startsWith(projectRoot)) {
+    console.warn('[Chunk Workspace] Workspace is inside the project directory. ' +
+      'If you run PM2/nodemon with --watch this will trigger restarts. ' +
+      'Set CHUNK_WORKSPACE_DIR to a location outside the repository (e.g. /tmp/recapp-chunks).');
+    chunkWorkspaceWarningLogged = true;
+  }
+
+  console.log(`[Chunk Workspace] Using workspace at ${workspaceDir}`);
+  logTranscriptionDiagnostic('chunking:workspace', {
+    recordingId,
+    chunkDir: workspaceDir,
+    sourceFile: sourceFilePath
+  });
+
+  return workspaceDir;
+}
+
+/**
  * Batch processing for long audio files
  */
 async function transcribeInBatches(filePath, recordingId, toolName, options = {}) {
   // Always create chunks in common format (wav) first
-  const chunks = await splitAudioIntoChunks(filePath, recordingId);
+  const chunks = await splitAudioIntoChunks(filePath, 'default', recordingId);
   const chunkDir = chunks.length > 0 ? path.dirname(chunks[0].filePath) : null;
   const results = [];
   const uploadedChunks = []; // Track chunks uploaded to GCS for cleanup
@@ -819,18 +850,10 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
  * @param {string} filePath - Path to the audio file
  * @param {string} toolName - Name of the transcription tool (unused, kept for compatibility)
  */
-async function splitAudioIntoChunks(filePath, recordingId = 'default') {
+async function splitAudioIntoChunks(filePath, toolName = 'default', recordingId = null) {
   const duration = await getAudioDuration(filePath);
   const chunks = [];
-  const chunkSessionId = `${path.basename(filePath, path.extname(filePath))}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
-  const chunkDir = path.join(chunkWorkspaceRoot, chunkSessionId);
-  
-  await fs.mkdir(chunkDir, { recursive: true });
-  logTranscriptionDiagnostic('chunking:workspace', {
-    recordingId,
-    chunkDir,
-    duration
-  });
+  const chunkDir = await prepareChunkWorkspace(recordingId, filePath);
   
   // Always use common format (wav) for initial chunking
   const format = CHUNK_CONFIG.format; // Always 'wav'
@@ -1534,7 +1557,7 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
                   } else if (transcript.status === 'queued' || transcript.status === 'processing') {
                       const now = Date.now();
                       if (previousStatus !== transcript.status || now - lastStatusLogAt > 15000) {
-                          console.log(`[AssemblyAI] Status: ${transcript.status}, waiting...`);
+                      console.log(`[AssemblyAI] Status: ${transcript.status}, waiting...`);
                           logTranscriptionDiagnostic('assemblyai:poll', {
                             transcriptId,
                             status: transcript.status,
