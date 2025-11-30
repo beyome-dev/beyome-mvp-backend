@@ -76,17 +76,23 @@ async function getSessionById(id, user) {
             return recording;
         });
     }
+
+    //Temporary fix for session transcript, will be removed later and use the below code
+    sessionObj.sessionTranscript = (sessionObj.recordings || [])
+        .filter(r => r.recordingId?.transcriptionText)
+        .map(r => r.recordingId.transcriptionText.trim())
+        .join('\n');
     
     // Combine transcripts into multiline strings (each recording on a new line)
-    sessionObj.sessionTranscript = (sessionObj.recordings || [])
-        .filter(r => r.recordingType === 'session_recording' && r.recordingId?.transcriptionText)
-        .map(r => r.recordingId.transcriptionText.trim())
-        .join('\n');
+    // sessionObj.sessionTranscript = (sessionObj.recordings || [])
+    //     .filter(r => r.recordingType === 'session_recording' && r.recordingId?.transcriptionText)
+    //     .map(r => r.recordingId.transcriptionText.trim())
+    //     .join('\n');
 
-    sessionObj.dictationTranscript = (sessionObj.recordings || [])
-        .filter(r => r.recordingType === 'dictation' && r.recordingId?.transcriptionText)
-        .map(r => r.recordingId.transcriptionText.trim())
-        .join('\n');
+    // sessionObj.dictationTranscript = (sessionObj.recordings || [])
+    //     .filter(r => r.recordingType === 'dictation' && r.recordingId?.transcriptionText)
+    //     .map(r => r.recordingId.transcriptionText.trim())
+    //     .join('\n');
 
     return sessionObj;
 }

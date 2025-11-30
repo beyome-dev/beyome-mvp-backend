@@ -70,7 +70,7 @@ const startRecordingSession = async (user) => {
 /**
  * Upload recording with enhanced error handling
  */
-const uploadRecording = async (sessionId, audioFile, duration, user, io, options = {}) => {
+const uploadRecording = async (sessionId, audioFile, duration, languageCode, user, io, options = {}) => {
   const therapistId = user._id;
   
   // Verify session ownership
@@ -101,7 +101,8 @@ const uploadRecording = async (sessionId, audioFile, duration, user, io, options
       currentRetry: 0,
       fallbackEnabled: options.fallbackEnabled !== false,
       preferredTool: options.preferredTool || config.transcriptionConfig.default
-    }
+    },
+    languageCode: languageCode
   });
   
   // Add initial attempt
@@ -240,7 +241,8 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
         preferredTool: currentRecording.retryConfig.preferredTool,
         enableFallback: currentRecording.retryConfig.fallbackEnabled,
         maxAttempts: currentRecording.retryConfig.maxRetries,
-        onChunkProgress: handleChunkProgress
+        onChunkProgress: handleChunkProgress,
+        languageCode: currentRecording.languageCode ? currentRecording.languageCode : 'auto'
       }
     );
     
@@ -987,6 +989,67 @@ const manualRetryTranscription = async (recordingId, options = {}) => {
   return recording;
 };
 
+const manualRecordingGeneration = async (input, sessionId, user) => {
+  try {
+      let visitDate = new Date();
+      if (!sessionId) {
+        throw new Error("Session not found");
+      }
+      const session = await Session.findById(sessionId);
+      if (!session) {
+        throw new Error("Session not found");
+      }
+      if (session.therapistId._id.toString() != user._id.toString()) {
+        throw new Error("Not authorized to access this booking");
+      }
+      const client = session.clientId._id;
+
+           // Create recording document with enhanced tracking
+      const recording = new Recording({
+        sessionId,
+        therapistId: user._id,
+        recordingType: "dictation",
+        audioKey: null,
+        duration: 0,
+        filename: "N/A",
+        filePath: "N/A",
+        fileSize: input.length,
+        format: "text",
+        transcriptionStatus: 'completed',
+        recordedAt: new Date(),
+        transcriptionText: input
+      });
+      
+      await recording.save();
+
+       // Update session
+  await Session.findByIdAndUpdate(sessionId, {
+    status: 'completed',
+    $push: {
+      recordings: {
+        recordingId: recording._id,
+        recordingType: 'dictation',
+        duration: 0,
+        recordedAt: new Date()
+      }
+    },
+    $inc: {
+      'stats.recordingCount': 1,
+      'stats.totalDuration': 0
+    }
+  });
+
+  return {
+    sessionId: sessionId,
+    recordingId: recording._id,
+    transcriptionStatus: "completed",
+  };
+  } catch (error) {
+      console.error('Error saving file:', error.message);
+      throw error;
+  }
+}
+
 module.exports = {
   startRecordingSession,
   uploadRecording,
@@ -996,4 +1059,5 @@ module.exports = {
   resumeIncompleteTranscriptions,
   getTranscriptionStats,
   manualRetryTranscription,
+  manualRecordingGeneration,
 };

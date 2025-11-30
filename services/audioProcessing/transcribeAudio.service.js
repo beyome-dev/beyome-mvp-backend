@@ -211,7 +211,8 @@ const requestTranscription = async (file, recordingId, options = {}) => {
       preferredTool = config.transcriptionConfig.default || 'openai',
       enableFallback = true,
       maxAttempts = 3,
-      onChunkProgress
+      onChunkProgress,
+      languageCode = 'auto'
     } = options;
 
     const filePath = file.path || (file.filename ? path.join(uploadDir, file.filename) : null);
@@ -248,7 +249,8 @@ const requestTranscription = async (file, recordingId, options = {}) => {
       toolOrder,
       durationSeconds: duration,
       needsBatching,
-      filePath
+      filePath,
+      languageCode
     });
     
     let lastError = null;
@@ -267,7 +269,8 @@ const requestTranscription = async (file, recordingId, options = {}) => {
         toolName,
         attemptNumber: attemptCount + 1,
         needsBatching,
-        enableFallback
+        enableFallback,
+        languageCode
       });
       console.log(`[Attempt ${attemptCount + 1}] Trying ${toolName} for recording ${recordingId}`);
       
@@ -285,7 +288,7 @@ const requestTranscription = async (file, recordingId, options = {}) => {
           filePath, 
           fileUrl, 
           recordingId,
-          { cloudStorageObject: file.cloudStorageObject, gcsUri: file.gcsUri || fileUrl }
+          { cloudStorageObject: file.cloudStorageObject, gcsUri: file.gcsUri || fileUrl, languageCode: languageCode }
         );
         // Google doesn't return a job ID in the same way, but we can track operation name if available
         jobId = result.transcriptionMetadata?.operationName || null;
@@ -294,7 +297,8 @@ const requestTranscription = async (file, recordingId, options = {}) => {
         result = await transcribeInBatches(filePath, recordingId, toolName, {
           onChunkProgress,
           resumeFromChunk: options.resumeFromChunk,
-          existingResults: options.existingResults
+          existingResults: options.existingResults,
+          languageCode: languageCode
         });
         // Batch processing doesn't have a single job ID, but we can track it
         jobId = result.transcriptionMetadata?.jobId || null;
@@ -304,7 +308,7 @@ const requestTranscription = async (file, recordingId, options = {}) => {
           filePath, 
           fileUrl, 
           recordingId,
-          { cloudStorageObject: file.cloudStorageObject, gcsUri: file.gcsUri }
+          { cloudStorageObject: file.cloudStorageObject, gcsUri: file.gcsUri, languageCode: languageCode }
         );
         // Extract job ID from result metadata
         jobId = result.transcriptionMetadata?.jobId || null;
@@ -346,7 +350,8 @@ const requestTranscription = async (file, recordingId, options = {}) => {
         toolName,
         attemptNumber: attemptCount,
         errorMessage: error.message,
-        jobId
+        jobId,
+        languageCode
       });
       
       // Log failure for monitoring
@@ -357,7 +362,8 @@ const requestTranscription = async (file, recordingId, options = {}) => {
         success: false,
         error: error.message,
         duration: duration,
-        jobId: jobId
+        jobId: jobId,
+        languageCode: languageCode
       });
       
       // Enhance error with tool information for better debugging
@@ -383,7 +389,8 @@ const requestTranscription = async (file, recordingId, options = {}) => {
       recordingId,
       attemptedTools,
       lastError: lastError?.message,
-      jobIds: toolJobIds
+      jobIds: toolJobIds,
+      languageCode: languageCode
     });
     finalError.failedTool = lastError?.failedTool || attemptedTools[attemptedTools.length - 1] || 'unknown';
     finalError.attemptedTools = attemptedTools;
@@ -429,7 +436,7 @@ async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, opti
       console.log(`[${toolName}] Using existing HTTPS URL for transcription`);
       switch (toolName) {
         case 'assemblyai':
-          const assemblyAIData = await assemblyAITranscribeAudioService(filePath, fileUrl, recordingId);
+          const assemblyAIData = await assemblyAITranscribeAudioService(filePath, fileUrl, recordingId, options?.languageCode);
           return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
           
         case 'salad':
@@ -449,7 +456,7 @@ async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, opti
         async (publicUrl) => {
           switch (toolName) {
             case 'assemblyai':
-              const assemblyAIData = await assemblyAITranscribeAudioService(filePath, publicUrl, recordingId);
+              const assemblyAIData = await assemblyAITranscribeAudioService(filePath, publicUrl, recordingId, options?.languageCode);
               return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
               
             case 'salad':
@@ -611,7 +618,7 @@ async function prepareChunkWorkspace(recordingId, sourceFilePath) {
  * @param {Object} options - Options including resumeFromChunk for resuming
  */
 async function transcribeInBatches(filePath, recordingId, toolName, options = {}) {
-  const { resumeFromChunk = 0, existingResults = [] } = options;
+  const { resumeFromChunk = 0, existingResults = [], languageCode = 'auto' } = options;
   
   // Always create chunks in common format (wav) first
   const chunks = await splitAudioIntoChunks(filePath, 'default', recordingId);
@@ -633,7 +640,8 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
     totalChunkDuration: chunks.length ? chunks[chunks.length - 1].endTime : 0,
     totalChunkSizeMB: Number(totalChunkSizeMB.toFixed(2)),
     resuming: isResuming,
-    resumeFromChunk
+    resumeFromChunk,
+    languageCode
   });
   
   // Get tool-specific format requirements
@@ -659,7 +667,8 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
         toolName,
         chunkIndex: i,
         chunkRange: `${chunk.startTime}-${chunk.endTime}`,
-        chunkSizeMB: chunk.sizeMB
+        chunkSizeMB: chunk.sizeMB,
+        languageCode: languageCode
       });
       
       console.log(`[Batch Processing] Processing chunk ${i + 1}/${chunks.length} (${chunk.startTime}s - ${chunk.endTime}s)${sizeInfo}`);
@@ -735,7 +744,8 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
             `${recordingId}_chunk_${i}`,
             { 
               cloudStorageObject: chunkGCSObject,
-              gcsUri: chunkGCSObject ? `gs://${config.googleCloudStorage?.bucketName}/${chunkGCSObject}` : null
+              gcsUri: chunkGCSObject ? `gs://${config.googleCloudStorage?.bucketName}/${chunkGCSObject}` : null,
+              languageCode: languageCode
             }
           );
           
@@ -1436,7 +1446,7 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
       }
   }
   
-  const assemblyAITranscribeAudioService = async (audioFile, fileUrl, recordingId) => {
+  const assemblyAITranscribeAudioService = async (audioFile, fileUrl, recordingId, languageCode) => {
       const apiKey = TRANSCRIPTION_CONFIG.assemblyai.apiKey;
       const timeout = TRANSCRIPTION_CONFIG.assemblyai.timeout;
       if (!apiKey) {
@@ -1501,6 +1511,10 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
           console.log(`[AssemblyAI] Starting transcription for recording ${recordingId}`);
           console.log(`[AssemblyAI] Using audio URL: ${fileUrl.substring(0, 80)}...`);
           
+          const languageCodes = languageCode && languageCode != "en" && languageCode != "auto" ? 
+          ["en", languageCode] : 
+          ["en", "hi", "kn", "ml", "ta", "te", "si"];
+          console.log(`[AssemblyAI] Using language codes: ${languageCodes}`);
           // Step 2: Create transcript with the upload URL
           const transcriptResponse = await axios.post(
               `${ASSEMBLYAI_API_BASE}/transcript`,
@@ -1510,7 +1524,7 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
                   speaker_labels: true,
                   language_detection: true,
                   language_detection_options: {
-                      expected_languages: ["en", "hi", "kn", "ml", "ta", "te", "si"],
+                      expected_languages: languageCodes,
                       code_switching: true,
                       code_switching_confidence_threshold: 0.5,
                       fallback_language: "auto"

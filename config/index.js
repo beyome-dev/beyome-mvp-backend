@@ -1,4 +1,6 @@
 const dotenv = require('dotenv');
+const path = require('path');
+const os = require('os');
 dotenv.config();
 
 
@@ -8,6 +10,7 @@ module.exports = {
     APP_URL: process.env.APP_URL,
     apiKey: process.env.API_KEY || 'your-secure-api-key',
     storagePath: process.env.STORAGE_PATH || '../uploads',
+    chunkWorkspaceRoot: process.env.CHUNK_WORKSPACE_ROOT || path.join(os.tmpdir(), 'recapp-chunks'),
     deleteAudio: process.env.DELETE_AUDIO_RECORD || false,
     mongo: {
         url: process.env.MONGO_URI,

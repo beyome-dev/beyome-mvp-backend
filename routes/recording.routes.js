@@ -22,6 +22,8 @@ router.post(
   recordingController.uploadRecording
 );
 
+router.post('/manual-recording/:sessionId', [requireAuth, roleMiddleware], recordingController.manualRecordingGeneration);
+
 router.post('/check-status/:id', [requireAuth, roleMiddleware], recordingController.checkRecordingStatus);
 
 // Update recording metadata (assign to client / update recordingType, etc.)

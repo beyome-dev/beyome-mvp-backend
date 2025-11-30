@@ -141,3 +141,110 @@ socket.on('recordingTranscriptionFailed', (data) => {
   // Show error notification
 });
 ```
+
+
+## Language code
+| Language                | Code    |
+|-------------------------|---------|
+| Global English          | en      |
+| Hindi                   | hi      |
+| Gujarati                | gu      |
+| Kannada                 | kn      |
+| Malayalam               | ml      |
+| Tamil                   | ta      |
+| Telugu                  | te      |
+| Marathi                 | mr      |
+| Panjabi                 | pa      |
+| Sanskrit                | sa      |
+| Sindhi                  | sd      |
+| Urdu                    | ur      |
+| Sinhala                 | si      |
+| Australian English      | en_au   |
+| British English         | en_uk   |
+| US English              | en_us   |
+| Spanish                 | es      |
+| French                  | fr      |
+| German                  | de      |
+| Italian                 | it      |
+| Portuguese              | pt      |
+| Dutch                   | nl      |
+| Lingala                 | ln      |
+| Japanese                | ja      |
+| Chinese                 | zh      |
+| Finnish                 | fi      |
+| Korean                  | ko      |
+| Polish                  | pl      |
+| Russian                 | ru      |
+| Turkish                 | tr      |
+| Ukrainian               | uk      |
+| Vietnamese              | vi      |
+| Afrikaans               | af      |
+| Albanian                | sq      |
+| Amharic                 | am      |
+| Arabic                  | ar      |
+| Armenian                | hy      |
+| Assamese                | as      |
+| Azerbaijani             | az      |
+| Bashkir                 | ba      |
+| Basque                  | eu      |
+| Belarusian              | be      |
+| Bengali                 | bn      |
+| Bosnian                 | bs      |
+| Breton                  | br      |
+| Bulgarian               | bg      |
+| Burmese                 | my      |
+| Catalan                 | ca      |
+| Croatian                | hr      |
+| Czech                   | cs      |
+| Danish                  | da      |
+| Estonian                | et      |
+| Faroese                 | fo      |
+| Galician                | gl      |
+| Georgian                | ka      |
+| Greek                   | el      |
+| Haitian                 | ht      |
+| Hausa                   | ha      |
+| Hawaiian                | haw     |
+| Hebrew                  | he      |
+| Hungarian               | hu      |
+| Icelandic               | is      |
+| Indonesian              | id      |
+| Javanese                | jw      |
+| Kazakh                  | kk      |
+| Khmer                   | km      |
+| Lao                     | lo      |
+| Latin                   | la      |
+| Latvian                 | lv      |
+| Lithuanian              | lt      |
+| Luxembourgish           | lb      |
+| Macedonian              | mk      |
+| Malagasy                | mg      |
+| Malay                   | ms      |
+| Maltese                 | mt      |
+| Maori                   | mi      |
+| Mongolian               | mn      |
+| Nepali                  | ne      |
+| Norwegian               | no      |
+| Norwegian Nynorsk       | nn      |
+| Occitan                 | oc      |
+| Pashto                  | ps      |
+| Persian                 | fa      |
+| Romanian                | ro      |
+| Serbian                 | sr      |
+| Shona                   | sn      |
+| Slovak                  | sk      |
+| Slovenian               | sl      |
+| Somali                  | so      |
+| Sundanese               | su      |
+| Swahili                 | sw      |
+| Swedish                 | sv      |
+| Tagalog                 | tl      |
+| Tajik                   | tg      |
+| Tatar                   | tt      |
+| Thai                    | th      |
+| Tibetan                 | bo      |
+| Turkmen                 | tk      |
+| Uzbek                   | uz      |
+| Welsh                   | cy      |
+| Yiddish                 | yi      |
+| Yoruba                  | yo      |
