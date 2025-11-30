@@ -1039,6 +1039,14 @@ const manualRecordingGeneration = async (input, sessionId, user) => {
     }
   });
 
+  // Generate summary
+  try {
+    await createSessionSummary(recording);
+  } catch (summaryError) {
+    console.error(`Summary generation error for ${recording._id}:`, summaryError);
+    // Don't fail the whole process if summary fails
+  }
+
   return {
     sessionId: sessionId,
     recordingId: recording._id,
