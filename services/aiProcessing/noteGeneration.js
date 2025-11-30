@@ -430,4 +430,5 @@ module.exports = {
     generateNote,
     generateSessionSummary,
     generateClientSummaryAndUpdateFromNote,
+    formatTherapyNoteToHTML,
 };
