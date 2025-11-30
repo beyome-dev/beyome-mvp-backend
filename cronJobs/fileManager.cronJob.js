@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const config = require('../config');
 const Note = require('../models/note'); // Adjust path as needed
 const {noteService} = require('../services'); // Adjust path as needed
+const { Recording, Session  } = require('../models');
 
 
 // Schedule the cron job to run every 1 minute
@@ -17,10 +18,13 @@ const startCronJob = () => {
 
         try {
             // Find notes that have finished processing (adjust query as needed)
-            const processedNotes = await Note.find({ status: 'processed', inputContent: { $exists: true, $ne: null }, inputContentType: 'audio' });
+            const processedRecordings = await Recording.find({ status: 'completed', filePath: { $exists: true, $ne: null }, inputContentType: 'audio' });
 
-            for (const note of processedNotes) {
-                const audioFileName = note.audioFile;
+            for (const recording of processedRecordings) {
+                if (!recording.filePath || /^https?:\/\//.test(recording.filePath)) {
+                    continue;
+                }
+                const audioFileName = recording.filename;
                 const audioFilePath = path.join(uploadsDir, audioFileName);
 
                 try {
@@ -29,8 +33,9 @@ const startCronJob = () => {
                     console.log(`Deleted audio file: ${audioFileName}`);
 
                     // Remove audioFile from note and save
-                    note.audioFile = null;
-                    await note.save();
+                    recording.filePath = null;
+                    recording.filename = null;
+                    await recording.save();
                 } catch (err) {
                     if (err.code !== 'ENOENT') {
                         console.error(`Error deleting audio file ${audioFileName}:`, err);

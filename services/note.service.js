@@ -14,7 +14,6 @@ const { VertexAI } = require('@google-cloud/vertexai');
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 // const AI_MODEL = config.google.aiModel 
 // const GEMINI_API_KEY = config.google.apiKey;
-const uploadDir = path.join(__dirname, '../uploads');
 const PROJECT_ID =  config.google.projectID;
 const LOCATION =  config.google.projectLocation || 'us-central1';
 
@@ -22,12 +21,6 @@ const LOCATION =  config.google.projectLocation || 'us-central1';
 // Initialize clients
 const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
 // const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-
-// Ensure upload directory exists
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 
 const createNote = async(data) => {
@@ -42,20 +35,12 @@ const getAllNotes = async(filter = {}, page = 1, limit = 10) => {
         'summary': 1,
         "clientName": 1,
         "title": 1,
-        "inputContent": 1,
-        "inputContentType": 1,
-        "outputContent": 1,
-        "sessionTranscript": 1,
-        "clientInstructions": 1,
-        "noteFormat": 1,
         "tags": 1,
         "status": 1,
-        "saladJobId": 1,
-        "userFeedback": 1,
-        "originalSessionTranscript": 1,
-        "originialOutputContent": 1,
+        "rawContent": 1,
         "formattedContent": 1,
         "noteType": 1,
+        "content": 1,
     })
     .sort({ visitDate: -1 })
     .skip(skip)
@@ -103,6 +88,103 @@ const getNoteById = async(noteId, user) => {
     return note;
 }
 
+/**
+ * Helper function to format structured content object into HTML
+ */
+function formatStructuredContentToHTML(content, noteType = 'SOAP') {
+    const htmlLines = [];
+    
+    if (noteType === 'SOAP' || !noteType) {
+        if (content.subjective) {
+            htmlLines.push('<h2>**Subjective:**</h2>');
+            htmlLines.push(`<p>${content.subjective.replace(/\n/g, '<br>')}</p>`);
+        }
+        if (content.objective) {
+            htmlLines.push('<h2>**Objective:**</h2>');
+            htmlLines.push(`<p>${content.objective.replace(/\n/g, '<br>')}</p>`);
+        }
+        if (content.assessment) {
+            htmlLines.push('<h2>**Assessment:**</h2>');
+            htmlLines.push(`<p>${content.assessment.replace(/\n/g, '<br>')}</p>`);
+        }
+        if (content.plan) {
+            htmlLines.push('<h2>**Plan:**</h2>');
+            htmlLines.push(`<p>${content.plan.replace(/\n/g, '<br>')}</p>`);
+        }
+    } else if (noteType === 'DAP') {
+        if (content.data) {
+            htmlLines.push('<h2>**Data:**</h2>');
+            htmlLines.push(`<p>${content.data.replace(/\n/g, '<br>')}</p>`);
+        }
+        if (content.analysis) {
+            htmlLines.push('<h2>**Analysis:**</h2>');
+            htmlLines.push(`<p>${content.analysis.replace(/\n/g, '<br>')}</p>`);
+        }
+        if (content.plan) {
+            htmlLines.push('<h2>**Plan:**</h2>');
+            htmlLines.push(`<p>${content.plan.replace(/\n/g, '<br>')}</p>`);
+        }
+    }
+    
+    // Handle custom sections
+    if (content.customSections && Array.isArray(content.customSections)) {
+        const sortedSections = [...content.customSections].sort((a, b) => (a.order || 0) - (b.order || 0));
+        sortedSections.forEach(section => {
+            if (section.label && section.content) {
+                htmlLines.push(`<h2>**${section.label}:**</h2>`);
+                htmlLines.push(`<p>${section.content.replace(/\n/g, '<br>')}</p>`);
+            }
+        });
+    }
+    
+    return htmlLines.join('');
+}
+
+/**
+ * Helper function to format raw text content into HTML (simplified version)
+ */
+function formatRawContentToHTML(text) {
+        // Replace literal \n if escaped
+        text = text.replace(/\\n/g, '\n');
+    
+        const lines = text.split('\n');
+        const htmlLines = [];
+    
+        for (let line of lines) {
+            line = line.trim();
+            if (line === '') continue;
+    
+            // Headings based on *
+            const headingMatch = line.match(/^(\*+)(.*?)\1$/);
+            if (headingMatch) {
+                const stars = headingMatch[1].length;
+                const content = headingMatch[2].trim();
+    
+                let tag = 'h3';
+                if (stars >= 3) tag = 'h1';
+                else if (stars === 2) tag = 'h2';
+    
+                htmlLines.push(`<${tag}>${content}</${tag}>`);
+                continue;
+            }
+    
+            // Bullet points for lines starting with '- '
+            if (line.startsWith('- ')) {
+                const content = line.slice(2).trim();
+                htmlLines.push(`<p>&bull; ${content}</p>`);
+                continue;
+            }
+    
+            // Inline *bold* within text
+            line = line.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+    
+            htmlLines.push(`<p>${line}</p>`);
+        }
+    
+        // Return single-line HTML content without wrapper
+        return htmlLines.join('').replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
+    }
+
 const updateNote = async(noteId, data, user) => {
     let note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
@@ -110,40 +192,136 @@ const updateNote = async(noteId, data, user) => {
     // Ensure only the user who created the note can edit
     if (note.user.toString() !== user._id.toString() && user.userType != 'platform_admin') throw new Error('Not authorized');
 
-    let noteDataTobeUpdated = data
-    if (user.userType != 'platform_admin') {
-         // Define fields that are allowed to be updated
-        const allowedFields = [
-            'title',
-            'summary',
-            'subjective',
-            'objective',
-            'assessment',
-            'plan',
-            'outputContent',
-            'sessionTranscript',
-            'clientInstructions',
-            'tags',
-            'userFeedback',
-            'doctorFeedback',
-            "prompt"
-        ];
-        // Filter data to keep only allowed fields
-        noteDataTobeUpdated = Object.keys(data).reduce((acc, key) => {
-            if (allowedFields.includes(key)) acc[key] = data[key];
-            return acc;
-        }, {});
+    // Preserve original generated content on first edit (if not already preserved)
+    // Only preserve if content exists and is not a placeholder
+    const isPlaceholder = (text) => !text || text.trim() === '' || text === 'Generating...';
+    const hasValidContent = note.content && (
+        !isPlaceholder(note.content.subjective) ||
+        !isPlaceholder(note.content.objective) ||
+        !isPlaceholder(note.content.assessment) ||
+        !isPlaceholder(note.content.plan)
+    );
+    const hasValidRawContent = note.rawContent && !isPlaceholder(note.rawContent);
+    const hasValidFormattedContent = note.formattedContent && !isPlaceholder(note.formattedContent);
+    
+    if (!note.originalGeneratedContent && (hasValidContent || hasValidRawContent || hasValidFormattedContent)) {
+        note.originalGeneratedContent = {
+            content: note.content ? JSON.parse(JSON.stringify(note.content)) : null,
+            formattedContent: hasValidFormattedContent ? note.formattedContent : null,
+            rawContent: hasValidRawContent ? note.rawContent : null
+        };
+        await note.save();
     }
 
-    if (data.outputContent) {
-        noteDataTobeUpdated.formattedContent = formatTherapyNoteToHTML(data.outputContent)
+    let noteDataTobeUpdated = {};
+    
+    if (user.userType != 'platform_admin') {
+        // Define fields that are allowed to be updated
+        const allowedTopLevelFields = [
+            'title',
+            'tags',
+            'prompt',
+            'status',
+            'rawContent',
+            'formattedContent',
+            'content'
+        ];
+        
+        // Filter top-level fields
+        Object.keys(data).forEach(key => {
+            if (allowedTopLevelFields.includes(key)) {
+                noteDataTobeUpdated[key] = data[key];
+            }
+        });
+    } else {
+        // Admin can update any field
+        noteDataTobeUpdated = { ...data };
+    }
+
+    // Handle content updates (new structure)
+    // Check if any content fields are being updated (either as nested object or individual fields)
+    const contentFields = ['subjective', 'objective', 'assessment', 'plan', 'data', 'analysis', 'customSections'];
+    const contentToProcess = noteDataTobeUpdated.content || data.content;
+    const hasContentUpdates = contentToProcess && typeof contentToProcess === 'object';
+    const hasIndividualContentUpdates = contentFields.some(field => 
+        data[`content.${field}`] !== undefined || data[field] !== undefined
+    );
+    
+    if (hasContentUpdates || hasIndividualContentUpdates) {
+        // Get existing content or initialize empty object
+        const existingContent = note.content ? JSON.parse(JSON.stringify(note.content)) : {};
+        
+        // Merge content updates
+        if (hasContentUpdates) {
+            // Full content object provided
+            Object.assign(existingContent, contentToProcess);
+        } else {
+            // Individual content fields provided (either as content.field or just field)
+            contentFields.forEach(field => {
+                if (data[`content.${field}`] !== undefined) {
+                    existingContent[field] = data[`content.${field}`];
+                } else if (data[field] !== undefined) {
+                    existingContent[field] = data[field];
+                }
+            });
+        }
+        
+        // Update content in noteDataTobeUpdated
+        noteDataTobeUpdated.content = existingContent;
+        
+        // Regenerate formattedContent when content is updated (unless explicitly provided)
+        if (!noteDataTobeUpdated.formattedContent) {
+            noteDataTobeUpdated.formattedContent = formatStructuredContentToHTML(
+                existingContent, 
+                note.noteType || 'SOAP'
+            );
+        }
+        
+        // Mark that user has edited - will handle this separately in update
+    }
+
+    // Handle rawContent updates
+    if (data.rawContent !== undefined) {
+        noteDataTobeUpdated.rawContent = data.rawContent;
+        // If formattedContent is not explicitly provided, generate it from rawContent
+        if (!data.formattedContent && data.rawContent) {
+            noteDataTobeUpdated.formattedContent = formatRawContentToHTML(data.rawContent);
+        }
+    }
+
+    // Handle direct formattedContent updates
+    if (data.formattedContent !== undefined) {
+        noteDataTobeUpdated.formattedContent = data.formattedContent;
     }
     
     // Prevent accidental overwrites of sensitive fields
     if (Object.keys(noteDataTobeUpdated).length === 0) throw new Error('No valid fields to update');
 
+    // Build update object with proper nested field handling
+    const updateObj = { $set: {} };
+    
+    // Handle nested content update separately
+    const contentNeedsUpdate = noteDataTobeUpdated.content !== undefined;
+    if (contentNeedsUpdate) {
+        updateObj.$set.content = noteDataTobeUpdated.content;
+        // Also mark that user has edited
+        updateObj.$set['aiMetadata.editedByUser'] = true;
+        delete noteDataTobeUpdated.content;
+    }
+    
+    // Add all other fields to $set
+    Object.keys(noteDataTobeUpdated).forEach(key => {
+        updateObj.$set[key] = noteDataTobeUpdated[key];
+    });
+
     // Perform the update
-    return await Note.findByIdAndUpdate(noteId, noteDataTobeUpdated, { new: true });
+    const updatedNote = await Note.findByIdAndUpdate(
+        noteId, 
+        updateObj, 
+        { new: true }
+    );
+    
+    return updatedNote;
 }
 
 const deleteNote = async(noteId, user) => {
@@ -164,11 +342,7 @@ const deleteNote = async(noteId, user) => {
 const saveAudio = async (file, query, user) => {
     try {
         let { client, booking, type, prompt } = query
-        const filePath = path.join(uploadDir, file.filename);
-        let fileUrl =`${config.APP_URL}/files/${file.filename}`;
-        if (process.env.NODE_ENV === 'development') {
-            fileUrl = `https://drive.google.com/uc?export=download&id=1aTdDS9oGf80MbG2kicOlEKqEcA_Do47i`
-        }
+        
         let visitDate = new Date();
         if (booking) {
             const bookingData = await bookingService.getBookingById(booking);
@@ -201,8 +375,6 @@ const saveAudio = async (file, query, user) => {
         if (!clientData) {
             throw new Error("Client not found");
         }
-        // Move file to uploads directory
-        fs.renameSync(file.path, filePath);
         let promptFilter = { formatName: "SOAP", aiEngine: "Gemini" }
         if (typeof prompt === 'string' && prompt.trim() !== '') {
             promptFilter = { _id: mongoose.Types.ObjectId.createFromHexString(prompt) }
@@ -248,7 +420,7 @@ const saveAudio = async (file, query, user) => {
         // Call Salad API for transcription
         let transcriptResponse;
         try {
-            transcriptResponse = await requestTranscription(fileUrl, noteData.id);
+            transcriptResponse = await requestTranscription(file, noteData.id);
         } catch (transcriptError) {
             console.error("Error in transcription request:", transcriptError);
             transcriptResponse = null; // Ensure transcriptJobId is handled
@@ -352,8 +524,6 @@ const manualNoteGeneration = async (input, client, session, booking, type, promp
             subjective: "Generating...",
             objective: "Generating...",
             inputContent: input,
-            outputContent: "Generating...",
-            formattedContent: "Generating...",
             sessionTranscript: input,
             clientInstructions: "Generating...",
             noteFormat: promptData.formatName,

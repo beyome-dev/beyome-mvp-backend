@@ -1,11 +1,9 @@
 const config = require('../../config');
 // const { GoogleGenerativeAI } = require("@google/generative-ai");
-const path = require('path');
-const fs = require('fs');
+
 
 const mongoose = require('mongoose');
 const bookingService = require("../booking.service");
-const { requestTranscription } = require('../audioProcessing/transcribeAudio.service');
 const { Client, Booking, Note, Prompt } = require('../../models');
 
 const { VertexAI } = require('@google-cloud/vertexai');
@@ -13,13 +11,24 @@ const { VertexAI } = require('@google-cloud/vertexai');
 const WEBHOOK_URL = `${config.APP_URL}/api/webhook/salad`;
 // const AI_MODEL = config.google.aiModel 
 // const GEMINI_API_KEY = config.google.apiKey;
-const uploadDir = path.join(__dirname, '../uploads');
 const PROJECT_ID =  config.google.projectID;
 const LOCATION =  config.google.projectLocation || 'us-central1';
 
+// Initialize VertexAI with credentials if available
+const vertexAIOptions = {
+  project: PROJECT_ID,
+  location: LOCATION
+};
+
+// Use credentials file if configured (same as Google Cloud Storage)
+if (config.googleCloudStorage?.credentialsPath) {
+  vertexAIOptions.googleAuthOptions = {
+    keyFilename: config.googleCloudStorage.credentialsPath
+  };
+}
 
 // Initialize clients
-const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
+const vertexAI = new VertexAI(vertexAIOptions);
 // const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 /**
@@ -248,17 +257,17 @@ const generateSessionSummary = async (session) => {
             promptText = `Therapist Dictation:\n${dictationTranscript}`;
         }
 
+        const titlePrompt = promptText + '\n\nYou are generating a single, concise session title based only on the transcript. Output exactly one title no longer than 10 words; it must be clear, specific, and meaningful, reflecting the primary topic, emotional tone, or therapeutic focus. Do not provide lists, alternatives, numbering, quotations, or explanations. If multiple themes appear, choose the most central.';
+        let result = await model.generateContent(titlePrompt);
+        const title = extractTextFromResponse(result);
         promptText += `\n\nGenerate a professional 3-5 sentence clinical summary focusing on:
     - Key concerns and therapeutic goals
     - Patterns and clinical observations
     - Progress and treatment recommendations`;
-        let result = await model.generateContent(promptText);
+        result = await model.generateContent(promptText);
 
         const summary = extractTextFromResponse(result);
-        if (session.recordings.length == 1) {
-            result = await model.generateContent("Generate a concise title for the following session summary:\n\n" + summary);
-        }
-        return { summary: summary, title: extractTextFromResponse(result) }; ;
+        return { summary: summary, title: title }; ;
     } catch (error) { 
         console.error("Failed to update client summary:", error);
         throw error;
@@ -421,4 +430,5 @@ module.exports = {
     generateNote,
     generateSessionSummary,
     generateClientSummaryAndUpdateFromNote,
+    formatTherapyNoteToHTML,
 };

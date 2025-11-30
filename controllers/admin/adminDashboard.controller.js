@@ -129,3 +129,43 @@ module.exports.getUserStatistics = async (req, res) => {
         });
     }
 };
+
+// @desc Test individual transcription tools with ad-hoc uploads
+// @route POST /api/admin/transcription/test
+// @access Admin only
+module.exports.testTranscriptionTool = async (req, res) => {
+    try {
+        const tool = (req.body.tool || '').toLowerCase().trim();
+
+        if (!tool) {
+            return res.status(400).json({
+                success: false,
+                message: '"tool" parameter is required'
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Audio file is required. Upload using "audio" field.'
+            });
+        }
+
+        const result = await adminDashboardService.testTranscriptionTool({
+            file: req.file,
+            tool,
+            requestedBy: req.user?._id
+        });
+
+        res.status(200).json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        console.error('Error in testTranscriptionTool:', error);
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Internal server error'
+        });
+    }
+};

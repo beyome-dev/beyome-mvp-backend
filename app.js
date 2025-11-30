@@ -13,8 +13,11 @@ const bodyParser = require('body-parser');
 const http = require('http');
 const path = require('path');
 const { noteController } = require('./controllers')
-const {saladCheck, fileManager, bookingCronJob } = require('./cronJobs');
+const {saladCheck, fileManager, bookingCronJob, TranscriptionRetryJob } = require('./cronJobs');
 const axios = require('axios');
+const { tokenService } = require('./services');
+const { transcriptionState } = require('./services/audioProcessing/transcribeAudio.service');
+const { resumeIncompleteTranscriptions } = require('./services/recording.service');
 
 // set up passport
 require('./config/passport-config');
@@ -81,6 +84,27 @@ else {
 io.on('connection', (socket) => {
     console.log('Frontend connected:', socket.id);
 
+    const token = socket.handshake.auth.token;
+
+        if (token) {
+            try {
+                const jwt_payload = tokenService.verifyToken(token, config.jwt.secret);
+                socket.data.user = jwt_payload; // Store user data on the socket
+
+                // Join a room with the user's ID
+                const userRoom = jwt_payload.id
+                socket.join(userRoom);
+            
+                console.log(`User ${jwt_payload.id} connected and joined room: ${userRoom}`);
+            } catch (err) {
+                console.error("Invalid token:", err.message);
+                socket.disconnect(); // Disconnect if token is invalid
+            }
+        } else {
+            console.log("No token provided.");
+            socket.disconnect(); // Disconnect if no token is provided
+        }
+        
     socket.on('disconnect', () => {
         console.log('Frontend disconnected:', socket.id);
     });
@@ -111,6 +135,11 @@ app.use(passport.initialize());
 saladCheck(io)
 fileManager()
 bookingCronJob()
+
+// Initialize retry job
+const retryJob = new TranscriptionRetryJob(io);
+retryJob.start();
+
 app.use('/api', routes);
 app.post(
     '/api/webhook/salad', 
@@ -121,8 +150,6 @@ app.post(
 // handle celebrate errors and server errors
 app.use(validationMiddleware.handleValidationError);
 app.use(apiKeyMiddleware)
-
-console.log("JWT Secret : ", config.jwt.secret);
 
 // DB Connection
 async function connectDB() {
@@ -145,7 +172,193 @@ async function connectDB() {
 
 
 // Connect to MongoDB before starting the server
-connectDB().then(() => {
+connectDB().then(async () => {
     const PORT = config.PORT || 8000;
-    server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
+    server.listen(PORT, async () => {
+        console.log(`Server running on PORT: ${PORT}`);
+        
+        // Resume any incomplete transcriptions that were cut off during previous crash
+        try {
+            console.log('[Startup] Checking for incomplete transcriptions to resume...');
+            const resumeResult = await resumeIncompleteTranscriptions(io);
+            if (resumeResult.resumed > 0) {
+                console.log(`[Startup] Resumed ${resumeResult.resumed} incomplete transcription(s)`);
+            } else {
+                console.log('[Startup] No incomplete transcriptions found');
+            }
+        } catch (error) {
+            console.error('[Startup] Error resuming incomplete transcriptions:', error);
+            // Don't fail startup if resume fails
+        }
+    });
 });
+
+const bytesToMB = (bytes = 0) => Number((bytes / (1024 * 1024)).toFixed(1));
+const getProcessHealthSnapshot = () => {
+  const memoryUsage = process.memoryUsage();
+  const snapshot = {
+    memoryMB: {
+      rss: bytesToMB(memoryUsage.rss),
+      heapTotal: bytesToMB(memoryUsage.heapTotal),
+      heapUsed: bytesToMB(memoryUsage.heapUsed),
+      external: bytesToMB(memoryUsage.external),
+      arrayBuffers: bytesToMB(memoryUsage.arrayBuffers || 0)
+    },
+    uptimeSeconds: Number(process.uptime().toFixed(1))
+  };
+  if (typeof process._getActiveHandles === 'function') {
+    snapshot.activeHandles = process._getActiveHandles().length;
+  }
+  if (typeof process._getActiveRequests === 'function') {
+    snapshot.activeRequests = process._getActiveRequests().length;
+  }
+  return snapshot;
+};
+
+const logProcessHealth = (event, extra = {}) => {
+  console.log(`[Process Health] ${event}`, {
+    ...extra,
+    ...getProcessHealthSnapshot()
+  });
+};
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, stopping retry job...');
+    logProcessHealth('SIGTERM');
+    retryJob.stop();
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+});
+
+// ============================================
+// Process Error Handlers - Catch unhandled errors
+// ============================================
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ UNCAUGHT EXCEPTION - App will crash:', {
+    message: error.message,
+    stack: error.stack,
+    name: error.name,
+    timestamp: new Date().toISOString()
+  });
+  logProcessHealth('uncaughtException', { error: error.message });
+  // Give time for logging before exit
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ UNHANDLED REJECTION - Promise rejected:', {
+    reason: reason?.message || reason,
+    stack: reason?.stack,
+    promise: promise,
+    timestamp: new Date().toISOString()
+  });
+  logProcessHealth('unhandledRejection', { error: reason?.message || String(reason) });
+  // Don't exit on unhandled rejection, but log it
+});
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  logProcessHealth('SIGTERM graceful');
+  if (retryJob) {
+    retryJob.stop();
+  }
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  logProcessHealth('SIGINT');
+  
+  // Check if transcription is active - delay shutdown to prevent data loss
+  if (transcriptionState.isActive()) {
+    const activeCount = transcriptionState.getActiveCount();
+    console.log(`[Shutdown Protection] Active transcriptions detected (${activeCount}). Delaying shutdown for up to 5 minutes...`);
+    console.log(`[Shutdown Protection] Active recording IDs: ${Array.from(transcriptionState.activeTranscriptions).join(', ')}`);
+    
+    // Poll every 10 seconds to check if transcription completed
+    let waitTime = 0;
+    const maxWaitTime = 5 * 60 * 1000; // 5 minutes max
+    const checkInterval = setInterval(() => {
+      waitTime += 10000;
+      if (!transcriptionState.isActive()) {
+        clearInterval(checkInterval);
+        console.log(`[Shutdown Protection] All transcriptions completed after ${waitTime/1000}s. Proceeding with shutdown...`);
+        performShutdown();
+      } else if (waitTime >= maxWaitTime) {
+        clearInterval(checkInterval);
+        console.log(`[Shutdown Protection] Max wait time reached (${maxWaitTime/1000}s). Forcing shutdown...`);
+        performShutdown();
+      } else {
+        const remaining = transcriptionState.getActiveCount();
+        console.log(`[Shutdown Protection] Still waiting... (${waitTime/1000}s elapsed, ${remaining} active transcription(s))`);
+      }
+    }, 10000);
+    
+    return; // Don't proceed with shutdown yet
+  }
+  
+  // No active transcriptions, proceed immediately
+  performShutdown();
+});
+
+function performShutdown() {
+  if (retryJob) {
+    retryJob.stop();
+  }
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+}
+
+process.on('beforeExit', (code) => {
+  logProcessHealth('beforeExit', { code });
+});
+
+process.on('exit', (code) => {
+  logProcessHealth('exit', { code });
+});
+
+process.on('warning', (warning) => {
+  logProcessHealth('warning', {
+    name: warning.name,
+    message: warning.message,
+    stack: warning.stack
+  });
+});
+
+// ============================================
+// Monitoring & Alerting Setup
+// ============================================
+
+/*
+// Optional: Add monitoring with Winston logger
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'logs/transcription-error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/transcription-combined.log' })
+  ]
+});
+
+// Log all transcription attempts
+const logTranscriptionAttempt = async (data) => {
+  logger.info('Transcription attempt', data);
+  
+  // Optional: Send to monitoring service (Sentry, DataDog, etc.)
+  if (data.success === false) {
+    // await sentry.captureException(new Error(data.error));
+  }
+};
+*/

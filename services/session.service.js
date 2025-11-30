@@ -35,22 +35,65 @@ async function createSession(data, user) {
 }
 
 // Get a session by ID
-async function getSessionById(id) {
+async function getSessionById(id, user) {
     const session = await Session.findById(id)
         .populate("clientId", "firstName lastName tags")
-        .populate("recordings.recordingId")
+        .populate("recordings.recordingId");
 
-        const sessionObj = session.toObject();
-    // combine transcripts into multiline strings (each recording on a new line)
+    const sessionObj = session.toObject();
+
+    // Remove sensitive fields from each recording (if any)
+    if (Array.isArray(sessionObj.recordings) && (!user || user.userType !== "platform_admin")) {
+        sessionObj.recordings = sessionObj.recordings.map(recording => {
+            if (recording && recording.recordingId && typeof recording.recordingId === "object") {
+                // Create a shallow clone so we don't mutate the underlying Mongoose document
+                const sanitizedRecording = { ...recording };
+                sanitizedRecording.recordingId = { ...recording.recordingId };
+
+                // Remove potentially sensitive fields
+                delete sanitizedRecording.recordingId.filePath
+                delete sanitizedRecording.recordingId.audioUrl
+                delete sanitizedRecording.recordingId.audioKey
+                delete sanitizedRecording.recordingId.duration
+                delete sanitizedRecording.recordingId.fileSize
+                delete sanitizedRecording.recordingId.transcriptionAttempts;
+                delete sanitizedRecording.recordingId.transcriptionError
+                delete sanitizedRecording.recordingId.retryConfig
+                delete sanitizedRecording.recordingId.summaryMetadata
+                delete sanitizedRecording.recordingId.qualityMetrics
+
+                //Metadata
+                delete sanitizedRecording.recordingId.transcriptionMetadata.provider
+                delete sanitizedRecording.recordingId.transcriptionMetadata.jobId
+                delete sanitizedRecording.recordingId.transcriptionMetadata.model
+                delete sanitizedRecording.recordingId.transcriptionMetadata.attemptNumber
+                delete sanitizedRecording.recordingId.transcriptionMetadata.toolsAttempted
+                delete sanitizedRecording.recordingId.transcriptionMetadata.batchProcessed
+                delete sanitizedRecording.recordingId.transcriptionMetadata.batchInfo
+
+                return sanitizedRecording;
+            }
+            return recording;
+        });
+    }
+
+    //Temporary fix for session transcript, will be removed later and use the below code
     sessionObj.sessionTranscript = (sessionObj.recordings || [])
-        .filter(r => r.recordingType === 'session_recording' && r.recordingId?.transcriptionText)
+        .filter(r => r.recordingId?.transcriptionText)
         .map(r => r.recordingId.transcriptionText.trim())
         .join('\n');
+    
+    // Combine transcripts into multiline strings (each recording on a new line)
+    // sessionObj.sessionTranscript = (sessionObj.recordings || [])
+    //     .filter(r => r.recordingType === 'session_recording' && r.recordingId?.transcriptionText)
+    //     .map(r => r.recordingId.transcriptionText.trim())
+    //     .join('\n');
 
-    sessionObj.dictationTranscript = (sessionObj.recordings || [])
-        .filter(r => r.recordingType === 'dictation' && r.recordingId?.transcriptionText)
-        .map(r => r.recordingId.transcriptionText.trim())
-        .join('\n');
+    // sessionObj.dictationTranscript = (sessionObj.recordings || [])
+    //     .filter(r => r.recordingType === 'dictation' && r.recordingId?.transcriptionText)
+    //     .map(r => r.recordingId.transcriptionText.trim())
+    //     .join('\n');
+
     return sessionObj;
 }
 

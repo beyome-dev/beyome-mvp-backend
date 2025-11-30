@@ -14,16 +14,32 @@ const  uploadRecording = async (req, res) => {
     try {
       const { sessionId } = req.params;
       const duration = req.body.duration ? Number(req.body.duration) : undefined;
+      const languageCode = req.body.languageCode ? req.body.languageCode : undefined;
       const audioFile = req.file;
 
       if (!audioFile) {
         return res.status(400).json({ success: false, error: 'Audio file is required (multipart form field "audio")' });
       }
 
-      const result = await recordingService.uploadRecording(sessionId, audioFile, duration, req.user);
+       // Get the Socket.io instance
+      const io = req.app.get('socketio');
+
+      const result = await recordingService.uploadRecording(sessionId, audioFile, duration, languageCode, req.user, io);
       return res.status(201).json({ success: true, data: result });
     } catch (error) {
       console.error('Controller uploadRecording error:', error);
+      return res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+    }
+}
+
+const manualRecordingGeneration = async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { input } = req.body;
+      const result = await recordingService.manualRecordingGeneration(input, sessionId, req.user);
+      return res.status(201).json({ success: true, data: result });
+    } catch (error) {
+      console.error('Controller manualRecordingGeneration error:', error);
       return res.status(500).json({ success: false, error: error.message || 'Internal server error' });
     }
 }
@@ -56,5 +72,6 @@ module.exports = {
     startRecordingSession,
     uploadRecording,
     updateRecordingMetadata,
-    checkRecordingStatus
+    checkRecordingStatus,
+    manualRecordingGeneration
 };

@@ -79,6 +79,26 @@ const NoteSchema = new Schema({
 
     // Full text for search
     rawContent: String,
+    
+    // Preserve original AI-generated content before user edits
+    originalGeneratedContent: {
+        // Store a snapshot of the original generated content
+        content: {
+            subjective: String,
+            objective: String,
+            assessment: String,
+            plan: String,
+            data: String,
+            analysis: String,
+            customSections: [{
+                label: String,
+                content: String,
+                order: Number
+            }]
+        },
+        formattedContent: String,
+        rawContent: String
+    },
   
     status: {
         type: String,

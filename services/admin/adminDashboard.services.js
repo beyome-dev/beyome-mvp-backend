@@ -1,5 +1,10 @@
 const { User, Booking, UserLoginLog, Note } = require('../../models');
 const moment = require('moment-timezone');
+const path = require('path');
+const fs = require('fs').promises;
+const config = require('../../config');
+const { requestTranscription, TRANSCRIPTION_CONFIG } = require('../audioProcessing/transcribeAudio.service');
+const { uploadRecordingToBucket, deleteRecordingFromBucket } = require('../storage/googleCloudStorage.service');
 
 // Get user attendance between from and to dates
 const getUserAttendance = async (fromDate, toDate) => {
@@ -202,9 +207,148 @@ const convertToExcel = (data, title) => {
     return csv;
 };
 
+// Test transcription tools with ad-hoc admin upload (no DB writes)
+const testTranscriptionTool = async ({ file, tool, requestedBy }) => {
+    if (!file) {
+        const error = new Error('Audio file upload is required');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (!tool || !TRANSCRIPTION_CONFIG[tool]) {
+        const error = new Error(`Invalid "tool" parameter. Use one of: ${Object.keys(TRANSCRIPTION_CONFIG).join(', ')}`);
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const recordingId = `admin_test_${Date.now()}`;
+    const filePath = path.join(config.storagePath, file.filename);
+    const attemptStartedAt = new Date();
+    let cloudUploadResult = null;
+
+    try {
+        try {
+            cloudUploadResult = await uploadRecordingToBucket({
+                localPath: file.path,
+                recordingId,
+                filename: file.originalname || file.filename,
+                mimetype: file.mimetype
+            });
+
+            if (cloudUploadResult?.publicUrl) {
+                file.cloudStorageUrl = cloudUploadResult.publicUrl;
+                file.cloudStorageObject = cloudUploadResult.objectName;
+                file.gcsUri = cloudUploadResult.gcsUri;
+            }
+        } catch (cloudError) {
+            console.error('[Admin Test] Failed to upload audio to cloud storage:', cloudError.message);
+        }
+
+        const transcriptionResult = await requestTranscription(file, recordingId, {
+            preferredTool: tool,
+            enableFallback: false,
+            maxAttempts: 1
+        });
+
+        return {
+            recordingPreview: buildRecordingPreview({
+                file,
+                tool,
+                transcriptionResult,
+                attemptStartedAt
+            }),
+            transcriptionResult,
+            meta: {
+                requestedBy,
+                tool,
+                availableTools: Object.keys(TRANSCRIPTION_CONFIG)
+            }
+        };
+    } catch (error) {
+        throw error;
+    } finally {
+        await deleteFileIfExists(filePath);
+        if (cloudUploadResult?.objectName) {
+            try {
+                await deleteRecordingFromBucket(cloudUploadResult.objectName);
+            } catch (err) {
+                console.error('[Admin Test] Failed to delete cloud audio object:', err.message);
+            }
+        }
+    }
+};
+
+const deleteFileIfExists = async (targetPath) => {
+    if (!targetPath) return;
+    try {
+        await fs.unlink(targetPath);
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            console.error('Failed to delete admin test audio file:', err.message);
+        }
+    }
+};
+
+const buildRecordingPreview = ({ file, tool, transcriptionResult, attemptStartedAt }) => {
+    const now = new Date();
+    const extension = path.extname(file.originalname || '').replace('.', '').toLowerCase();
+    const mimeFormat = (file.mimetype || '').split('/')[1];
+    const resolvedFormat = (extension || mimeFormat || '').toLowerCase() || null;
+
+    const transcriptionStatus = transcriptionResult.transcriptionStatus || 'completed';
+    const attemptNumber = transcriptionResult.transcriptionMetadata?.attemptNumber || 1;
+
+    return {
+        _id: null,
+        sessionId: null,
+        therapistId: null,
+        recordingType: 'admin_transcription_test',
+        filename: file.filename,
+        filePath: file.cloudStorageUrl || path.join(config.storagePath, file.filename),
+        audioUrl: file.cloudStorageUrl || `${config.APP_URL}/files/${file.filename}`,
+        audioKey: file.cloudStorageObject || null,
+        duration: transcriptionResult.duration || 0,
+        fileSize: file.size,
+        format: resolvedFormat,
+        transcriptionStatus,
+        transcriptionText: transcriptionResult.transcriptionText || '',
+        transcriptionAttempts: [
+            {
+                attemptNumber,
+                tool,
+                status: transcriptionStatus === 'completed' ? 'success' : 'failed',
+                startedAt: attemptStartedAt,
+                completedAt: now,
+                duration: now - attemptStartedAt,
+                batchProcessed: Boolean(transcriptionResult.transcriptionMetadata?.batchProcessed),
+                chunkCount: transcriptionResult.transcriptionMetadata?.chunkCount
+            }
+        ],
+        transcriptionMetadata: transcriptionResult.transcriptionMetadata,
+        transcriptionError: transcriptionStatus === 'completed' ? null : {
+            message: 'Transcription did not complete successfully',
+            code: 'TRANSCRIPTION_FAILED',
+            timestamp: now,
+            tool
+        },
+        retryConfig: {
+            maxRetries: TRANSCRIPTION_CONFIG[tool]?.maxRetries || 1,
+            currentRetry: attemptNumber,
+            preferredTool: tool,
+            fallbackEnabled: false
+        },
+        summary: null,
+        summaryMetadata: null,
+        recordedAt: now,
+        createdAt: now,
+        updatedAt: now
+    };
+};
+
 module.exports = {
     getUserAttendance,
     getUserStatistics,
     convertToHTML,
-    convertToExcel
+    convertToExcel,
+    testTranscriptionTool
 };

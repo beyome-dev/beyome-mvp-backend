@@ -38,7 +38,7 @@ async function getAllSessions(req, res) {
 // Get a session by ID
 async function getSessionById(req, res) {
     try {
-        const session = await sessionService.getSessionById(req.params.id);
+        const session = await sessionService.getSessionById(req.params.id, req.user);
         if (!session || 
             ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && session.therapistId._id.toString() !== req.user._id.toString()) ||
             ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && session.organization.toString() !== req.user.organization.toString())) {
