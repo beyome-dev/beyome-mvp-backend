@@ -143,39 +143,47 @@ function formatStructuredContentToHTML(content, noteType = 'SOAP') {
 /**
  * Helper function to format raw text content into HTML (simplified version)
  */
-function formatRawContentToHTML(rawContent) {
-    if (!rawContent) return '';
+function formatRawContentToHTML(text) {
+        // Replace literal \n if escaped
+        text = text.replace(/\\n/g, '\n');
     
-    // Replace literal \n if escaped
-    let text = rawContent.replace(/\\n/g, '\n');
-    const lines = text.split('\n');
-    const htmlLines = [];
-
-    for (let line of lines) {
-        line = line.trim();
-        if (line === '') continue;
-
-        // Headings based on **
-        const headingMatch = line.match(/^\*\*(.+?)\*\*$/);
-        if (headingMatch) {
-            htmlLines.push(`<h2>${headingMatch[1]}</h2>`);
-            continue;
+        const lines = text.split('\n');
+        const htmlLines = [];
+    
+        for (let line of lines) {
+            line = line.trim();
+            if (line === '') continue;
+    
+            // Headings based on *
+            const headingMatch = line.match(/^(\*+)(.*?)\1$/);
+            if (headingMatch) {
+                const stars = headingMatch[1].length;
+                const content = headingMatch[2].trim();
+    
+                let tag = 'h3';
+                if (stars >= 3) tag = 'h1';
+                else if (stars === 2) tag = 'h2';
+    
+                htmlLines.push(`<${tag}>${content}</${tag}>`);
+                continue;
+            }
+    
+            // Bullet points for lines starting with '- '
+            if (line.startsWith('- ')) {
+                const content = line.slice(2).trim();
+                htmlLines.push(`<p>&bull; ${content}</p>`);
+                continue;
+            }
+    
+            // Inline *bold* within text
+            line = line.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+    
+            htmlLines.push(`<p>${line}</p>`);
         }
-
-        // Bullet points for lines starting with '- '
-        if (line.startsWith('- ')) {
-            const content = line.slice(2).trim();
-            htmlLines.push(`<p>&bull; ${content}</p>`);
-            continue;
-        }
-
-        // Inline *bold* within text
-        line = line.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
-        htmlLines.push(`<p>${line}</p>`);
+    
+        // Return single-line HTML content without wrapper
+        return htmlLines.join('').replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
     }
-
-    return htmlLines.join('').replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
-}
 
 const updateNote = async(noteId, data, user) => {
     let note = await Note.findById(noteId);
@@ -516,8 +524,6 @@ const manualNoteGeneration = async (input, client, session, booking, type, promp
             subjective: "Generating...",
             objective: "Generating...",
             inputContent: input,
-            outputContent: "Generating...",
-            formattedContent: "Generating...",
             sessionTranscript: input,
             clientInstructions: "Generating...",
             noteFormat: promptData.formatName,
