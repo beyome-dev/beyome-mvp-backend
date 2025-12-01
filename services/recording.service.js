@@ -288,6 +288,15 @@ const processTranscriptionInBackground = async (recording, audioFile, sessionId,
     
     // Emit success event
     if (io && currentRecording.therapistId) {
+      io.to(currentRecording.therapistId.toString()).emit('recordingTranscriptionChunk', {
+        recordingId: currentRecording._id,
+        sessionId: currentRecording.sessionId,
+        progress: 100,
+        chunkText: currentRecording.transcriptionText,
+        transcriptionText: currentRecording.transcriptionText,
+        provider: transcriptionResult.transcriptionMetadata?.provider
+      });
+
       io.to(currentRecording.therapistId.toString()).emit('recordingTranscriptionCompleted', {
         recordingId: currentRecording._id,
         sessionId: currentRecording.sessionId,
@@ -523,6 +532,14 @@ const resumeIncompleteTranscriptions = async (io) => {
           
           // Emit success event
           if (io && recording.therapistId) {
+            io.to(recording.therapistId.toString()).emit('recordingTranscriptionChunk', {
+              recordingId: recording._id,
+              sessionId: recording.sessionId,
+              progress: 100,
+              chunkText: recording.transcriptionText,
+              transcriptionText: recording.transcriptionText,
+              provider: transcriptionResult.transcriptionMetadata?.provider
+            });
             io.to(recording.therapistId.toString()).emit('recordingTranscriptionCompleted', {
               recordingId: recording._id,
               sessionId: recording.sessionId,
@@ -881,13 +898,17 @@ const createSessionSummary = async (recording) => {
     throw new Error('Session not found for summary generation');
   }
   
-  const { summary, title } = await generateSessionSummary(session);
+  const { summary, longSummary, title } = await generateSessionSummary(session);
+  console.log('summary', summary);
+  console.log('longSummary', longSummary);
+  console.log('title', title);
   session.title = title;
   
   if (session.metadata) {
     session.metadata.summary = summary;
+    session.metadata.longSummary = longSummary;
   } else {
-    session.metadata = { summary };
+    session.metadata = { summary, longSummary };
   }
   
   await session.save();

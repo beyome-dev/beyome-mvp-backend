@@ -243,10 +243,10 @@ const generateSessionSummary = async (session) => {
             .map(r => r.text)
             .join('\n\n');
 
-        const model = getModelWithInstructions(`You are a therapy progress summarization assistant.
-    Your task is to generate a clear, concise, professional clinician-facing progress summary.
-    Focus on synthesizing key information, patterns, and clinical observations.
-    Use professional language and avoid direct client address.`);
+        const model = getModelWithInstructions(`You are a clinical documentation assistant specialized in psychotherapy. 
+            Your task is to generate session summaries for therapist review and reference. 
+            These summaries help therapists quickly recall session content and prepare for upcoming appointments. 
+            Maintain accuracy, avoid fabrication, and use only information present in the session transcript or clinical note.`);
 
         let promptText;
         if (sessionTranscript && dictationTranscript) {
@@ -260,14 +260,77 @@ const generateSessionSummary = async (session) => {
         const titlePrompt = promptText + '\n\nYou are generating a single, concise session title based only on the transcript. Output exactly one title no longer than 10 words; it must be clear, specific, and meaningful, reflecting the primary topic, emotional tone, or therapeutic focus. Do not provide lists, alternatives, numbering, quotations, or explanations. If multiple themes appear, choose the most central.';
         let result = await model.generateContent(titlePrompt);
         const title = extractTextFromResponse(result);
-        promptText += `\n\nGenerate a professional 3-5 sentence clinical summary focusing on:
-    - Key concerns and therapeutic goals
-    - Patterns and clinical observations
-    - Progress and treatment recommendations`;
+        promptText += `\n\nGenerate a brief 2-3 sentence summary of this therapy session for the therapist\'s quick reference.
+        
+        Use a conversational, natural tone while remaining clinically accurate. Focus on:
+            - Main topic or theme discussed
+            - Key clinical observation or insight
+            - What\'s planned for next session (if mentioned)
+        Write as if you\'re reminding the therapist: \"Last time you talked about X, noticed Y, and planned to do Z.\"
+        Keep it 50-75 words. Make it scannable and immediately useful.
+            Rules:
+            - Only use information from the transcript or clinical note
+            - Be conversational but professional
+            - No clinical jargon unless necessary
+            - Focus on what matters most
+            - 2-3 sentences maximum
+            - No fabrication`;
         result = await model.generateContent(promptText);
-
         const summary = extractTextFromResponse(result);
-        return { summary: summary, title: title }; ;
+
+        const longSummaryPrompt = promptText + `\n\nGenerate a detailed session summary in bullet point format for therapist review and preparation. Use clinical language and structure.
+        
+            Use the following sections (only include sections where information exists):
+            *Main Topics Discussed:
+            - List 3-5 key themes or topics covered in session
+            - Be specific about content areas explored
+            - Include important context mentioned
+            *Key Insights & Observations:
+            - Clinical observations about client's presentation
+            - Patterns, dynamics, or mechanisms identified
+            - Emotional or cognitive processes noted
+            - Use clinical terminology appropriately
+            *Therapeutic Interventions:
+            - Specific techniques or modalities used (CBT, DBT, SFBT, etc.)
+            - Interventions applied during session
+            - Psychoeducation provided
+            - Only include if interventions were used
+            *Client Strengths Noted:
+            - Protective factors observed
+            - Coping skills demonstrated
+            - Positive qualities or resources identified
+            - Only include if discussed or observable
+            *Risk/Safety Notes:
+            - Any risk factors discussed (suicidal ideation, self-harm, etc.)
+            - Safety planning if conducted
+            - Crisis resources provided
+            - Only include if risk was assessed
+            *Homework/Between-Session Tasks:
+            - Specific assignments given
+            - Skills to practice
+            - Behavioral experiments
+            - Only include if homework was assigned
+            *Plan for Next Session:
+            - Topics to address
+            - Goals to work toward
+            - Follow-up on homework or previous discussions
+            - Clinical approach to continue
+            *Formatting:
+            - Use bullet points for scannability
+            - Keep bullets concise (1-2 lines each)
+            - Use clinical language (intellectualization, rejection sensitivity, cognitive distortions, etc.)
+            - Omit sections with no relevant content
+            - Total length: fit on one screen (approximately 12-20 bullets across all sections)
+            *Rules:
+            - Only use information from the transcript or clinical note
+            - Do not fabricate observations or interventions
+            - Use standard clinical terminology
+            - Be specific and actionable
+            - No patient identifiers`;
+        result = await model.generateContent(longSummaryPrompt);
+        const longSummary = extractTextFromResponse(result);
+        
+        return { summary: summary, longSummary: longSummary, title: title }; ;
     } catch (error) { 
         console.error("Failed to update client summary:", error);
         throw error;

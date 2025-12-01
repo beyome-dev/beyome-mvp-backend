@@ -53,6 +53,9 @@ const sessionSchema = new Schema({
         summary: {
             type: String, 
         },
+        longSummary: {
+            type: String, 
+        },
         mood: {
             start: Number, // 1-10 scale
             end: Number
