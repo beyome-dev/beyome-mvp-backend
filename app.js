@@ -23,34 +23,108 @@ const { resumeIncompleteTranscriptions } = require('./services/recording.service
 require('./config/passport-config');
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: '*',
-        methods: ['GET', 'POST']
+const httpServer = http.createServer(app);
+// Socket.IO CORS configuration - allow localhost in development
+const getSocketCorsOrigin = () => {
+    if (process.env.NODE_ENV !== 'production') {
+        // In development, allow any localhost origin
+        return (origin, callback) => {
+            if (!origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+                callback(null, true);
+            } else {
+                callback(new Error('Not allowed by CORS'));
+            }
+        };
     }
+    // In production, use strict origin
+    return config.client.url || "http://localhost:8080";
+};
+
+const io = new Server(httpServer, {
+    cors: {
+        origin: getSocketCorsOrigin(),
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000,
 });
 
-// middlewares
-// set security HTTP headers
+// ============================================
+// MIDDLEWARES - ORDER IS CRITICAL!
+// ============================================
+
+// 1. Socket.IO request logging (must be first)
+app.use((req, res, next) => {
+    if (req.path.includes('/socket.io/')) {
+        console.log('📡 Socket.IO Request:', {
+            method: req.method,
+            path: req.path,
+            query: req.query,
+        });
+    }
+    next();
+});
+
+// 2. Security headers
 app.use(helmet());
 
-// parse json request body and urlencoded request body
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 3. CORS - MUST come before body parsers
+// Allow localhost in development, use strict config in production
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // In development, allow localhost
+        if (process.env.NODE_ENV !== 'production') {
+            if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+                return callback(null, true);
+            }
+        }
+        
+        // In production, use strict origin check
+        const allowedOrigins = config.client.url ? [config.client.url] : [];
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Api-Key"]
+};
 
-// gzip compression
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
+// 4. Body parsers - EXCLUDE Socket.IO paths
+app.use((req, res, next) => {
+    if (req.path.startsWith('/socket.io/')) {
+        return next();
+    }
+    express.json()(req, res, next);
+});
+
+app.use((req, res, next) => {
+    if (req.path.startsWith('/socket.io/')) {
+        return next();
+    }
+    express.urlencoded({ extended: true })(req, res, next);
+});
+
+// 5. Compression
 app.use(compression());
 
-// enable cors
-app.use(cors());
-app.options('*', cors());
-
-// limit repeated failed requests to auth endpoints
+// 6. Logging & Rate limiting
 if (process.env.NODE_ENV === 'production') {
     app.use('/api/auth', rateLimiter.authLimiter);
-}
-else {
+} else {
     app.use(morgan('dev'));
     axios.interceptors.request.use(request => {
         console.log('Starting Request', {
@@ -79,77 +153,83 @@ else {
     });
 }
 
+// ============================================
+// SOCKET.IO CONNECTION
+// ============================================
 
-// Socket.io connection
 io.on('connection', (socket) => {
-    console.log('Frontend connected:', socket.id);
+    console.log('✅ Frontend connected:', socket.id);
 
     const token = socket.handshake.auth.token;
 
-        if (token) {
-            try {
-                const jwt_payload = tokenService.verifyToken(token, config.jwt.secret);
-                socket.data.user = jwt_payload; // Store user data on the socket
+    if (token) {
+        try {
+            const jwt_payload = tokenService.verifyToken(token, config.jwt.secret);
+            socket.data.user = jwt_payload;
 
-                // Join a room with the user's ID
-                const userRoom = jwt_payload.id
-                socket.join(userRoom);
+            const userRoom = jwt_payload.id;
+            socket.join(userRoom);
             
-                console.log(`User ${jwt_payload.id} connected and joined room: ${userRoom}`);
-            } catch (err) {
-                console.error("Invalid token:", err.message);
-                socket.disconnect(); // Disconnect if token is invalid
-            }
-        } else {
-            console.log("No token provided.");
-            socket.disconnect(); // Disconnect if no token is provided
+            console.log(`✅ User ${jwt_payload.id} connected and joined room: ${userRoom}`);
+            
+            // Send confirmation to client
+            socket.emit('authenticated', { userId: jwt_payload.id });
+        } catch (err) {
+            console.error("❌ Invalid token:", err.message);
+            socket.emit('auth_error', { message: 'Invalid token' });
+            socket.disconnect();
         }
-        
-    socket.on('disconnect', () => {
-        console.log('Frontend disconnected:', socket.id);
+    } else {
+        console.log("❌ No token provided");
+        socket.emit('auth_error', { message: 'No token provided' });
+        socket.disconnect();
+    }
+    
+    socket.on('disconnect', (reason) => {
+        console.log('❌ Frontend disconnected:', socket.id, 'Reason:', reason);
+    });
+    
+    socket.on('error', (error) => {
+        console.error('Socket error:', socket.id, error);
     });
 });
 
 // Make io accessible to routes
 app.set('socketio', io);
 
-// set static folders
+// 7. Static folders
 app.use(express.static('templates'));
-
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// initialize passport
+// 8. Passport
 app.use(passport.initialize());
 
-// const db = config.mongo.url;
-// mongoose.connect(db, {
-//     useNewUrlParser: true,
-//     useUnifiedTopology: true,
-//     useFindAndModify: false,
-//     useCreateIndex: true
-// }, () => console.log('mongodb connected'));
-
-// set up routes
-// app.use(bodyParser.json({ limit: '10mb' }));
-// app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
-saladCheck(io)
-fileManager()
-bookingCronJob()
+// 9. Cron jobs
+saladCheck(io);
+fileManager();
+bookingCronJob();
 
 // Initialize retry job
 const retryJob = new TranscriptionRetryJob(io);
 retryJob.start();
 
+// 10. Routes
 app.use('/api', routes);
+
+// 11. Special webhook route with larger payload
 app.post(
     '/api/webhook/salad', 
-    express.json({ limit: '500mb' }), // Increase as needed
+    express.json({ limit: '500mb' }),
     express.urlencoded({ extended: true, limit: '500mb' }),
     noteController.saladWebhook
 );
-// handle celebrate errors and server errors
+
+// 12. Error handlers
 app.use(validationMiddleware.handleValidationError);
-app.use(apiKeyMiddleware)
+app.use(apiKeyMiddleware);
+
+// Rest of your code remains the same...
+// DB Connection, process handlers, etc.
 
 // DB Connection
 async function connectDB() {
@@ -174,7 +254,7 @@ async function connectDB() {
 // Connect to MongoDB before starting the server
 connectDB().then(async () => {
     const PORT = config.PORT || 8000;
-    server.listen(PORT, async () => {
+    httpServer.listen(PORT, async () => {
         console.log(`Server running on PORT: ${PORT}`);
         
         // Resume any incomplete transcriptions that were cut off during previous crash
@@ -226,7 +306,7 @@ process.on('SIGTERM', () => {
     console.log('SIGTERM received, stopping retry job...');
     logProcessHealth('SIGTERM');
     retryJob.stop();
-    server.close(() => {
+    httpServer.close(() => {
       console.log('Server closed');
       process.exit(0);
     });
@@ -267,7 +347,7 @@ process.on('SIGTERM', () => {
   if (retryJob) {
     retryJob.stop();
   }
-  server.close(() => {
+  httpServer.close(() => {
     console.log('Server closed');
     process.exit(0);
   });
@@ -313,7 +393,7 @@ function performShutdown() {
   if (retryJob) {
     retryJob.stop();
   }
-  server.close(() => {
+  httpServer.close(() => {
     console.log('Server closed');
     process.exit(0);
   });
