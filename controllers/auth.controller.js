@@ -60,7 +60,7 @@ module.exports.sendResetPasswordEmail = async (req, res) => {
 
         const emailToken = tokenService.createToken({ id: user.id, email: user.email }, config.jwt.emailSecret, '1h');
 
-        const url = config.client.resetUrl + emailToken;
+        const url = config.client.resetUrl+"?token=" + emailToken;
 
         mailerService.sendMail(email, user.firstName, 'Reset Password', 'forgot-password-email', { url: url, name: '' });
         res.status(200).send({ message: 'success' });
@@ -70,12 +70,17 @@ module.exports.sendResetPasswordEmail = async (req, res) => {
 }
 
 // @desc Verify and save new password of user
-// @route POST /api/auth/password-reset/verify/:token
+// @route PUT /api/auth/password-reset or PUT /api/auth/password-reset/:token
 // @access Public
 module.exports.resetPassword = async (req, res) => {
     try {
         const { password } = req.body;
-        const { id } = tokenService.verifyToken(req.params.token, config.jwt.emailSecret);
+        // Support token from URL params or query string
+        const token = req.params.token || req.query.token;
+        if (!token) {
+            return res.status(400).send({ message: 'Token is required' });
+        }
+        const { id } = tokenService.verifyToken(token, config.jwt.emailSecret);
         const user = await userService.updateUserById(id, { password: password });
         res.status(200).send({ message: 'success' });
     } catch (error) {
@@ -114,7 +119,7 @@ module.exports.loginWithEmailAndPassword = (req, res, next) => {
             // const url = config.client.firstTimePasswordResetUrl + emailToken;
 
             // Send the email with the token
-            mailerService.sendMail(user.email, user.firstName, 'Welcome to Recapp', 'first-login-email', { firstName: user.firstName });
+            // mailerService.sendMail(user.email, user.firstName, 'Welcome to Recapp', 'first-login-email', { firstName: user.firstName });
         }
         res.send(response);
 

@@ -24,6 +24,12 @@ require('./config/passport-config');
 
 const app = express();
 const httpServer = http.createServer(app);
+
+// Increase timeout for long-running operations (e.g., AI note generation)
+// Default is 2 minutes (120000ms), setting to 15 minutes for AI processing
+httpServer.timeout = 15 * 60 * 1000; // 15 minutes
+httpServer.keepAliveTimeout = 61 * 1000; // Keep connections alive
+httpServer.headersTimeout = 62 * 1000; // Slightly higher than keepAliveTimeout
 // Socket.IO CORS configuration - allow localhost in development
 const getSocketCorsOrigin = () => {
     if (process.env.NODE_ENV !== 'production') {

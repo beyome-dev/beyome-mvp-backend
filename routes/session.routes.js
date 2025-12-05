@@ -11,6 +11,14 @@ const roleMiddleware = hasRole('psychiatrist','therapist', 'receptionist', 'org_
 
 const router = Router();
 
+// Middleware to increase timeout for long-running AI operations
+const increaseTimeout = (req, res, next) => {
+    // Set timeout to 15 minutes (900000ms) for generate-note endpoint
+    req.setTimeout(15 * 60 * 1000);
+    res.setTimeout(15 * 60 * 1000);
+    next();
+};
+
 router.route('/')
     .get([
         requireAuth, 
@@ -31,5 +39,6 @@ router.route('/:id')
     .delete([requireAuth, roleMiddleware], sessionController.deleteSession);
 
 router.route('/:id/generate-note')
-    .post([requireAuth, roleMiddleware], sessionController.generateNote);
+    .post([requireAuth, roleMiddleware, increaseTimeout], sessionController.generateNote);
+
 module.exports = router;

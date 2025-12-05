@@ -5,6 +5,7 @@ const config = require('../../config');
 const mongoose = require('mongoose');
 const bookingService = require("../booking.service");
 const { Client, Booking, Note, Prompt } = require('../../models');
+const { marked } = require('marked');
 
 const { VertexAI } = require('@google-cloud/vertexai');
 
@@ -448,45 +449,10 @@ const processGeminiResponse = async (note, geminiResponse, transcript, title, cl
  */
 
 function formatTherapyNoteToHTML(text) {
-    // Replace literal \n if escaped
-    text = text.replace(/\\n/g, '\n');
-
-    const lines = text.split('\n');
-    const htmlLines = [];
-
-    for (let line of lines) {
-        line = line.trim();
-        if (line === '') continue;
-
-        // Headings based on *
-        const headingMatch = line.match(/^(\*+)(.*?)\1$/);
-        if (headingMatch) {
-            const stars = headingMatch[1].length;
-            const content = headingMatch[2].trim();
-
-            let tag = 'h3';
-            if (stars >= 3) tag = 'h1';
-            else if (stars === 2) tag = 'h2';
-
-            htmlLines.push(`<${tag}>${content}</${tag}>`);
-            continue;
-        }
-
-        // Bullet points for lines starting with '- '
-        if (line.startsWith('- ')) {
-            const content = line.slice(2).trim();
-            htmlLines.push(`<p>&bull; ${content}</p>`);
-            continue;
-        }
-
-        // Inline *bold* within text
-        line = line.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
-
-        htmlLines.push(`<p>${line}</p>`);
-    }
-
-    // Return single-line HTML content without wrapper
-    return htmlLines.join('').replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
+    if (!text) return '';
+    // Normalize escaped newlines before converting markdown to HTML
+    const normalized = text.replace(/\\n/g, '\n');
+    return marked.parse(normalized);
 }
 
 module.exports = {

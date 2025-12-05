@@ -19,11 +19,11 @@ router.route('/login')
     .post(celebrate(userValidation.loginSchema, opts), authController.loginWithEmailAndPassword);
 
 // password reset
-router.route('/password-reset/get-code')
-    .post(celebrate(userValidation.sendRequestEmailSchema, opts), authController.sendResetPasswordEmail);
-
-router.route('/password-reset/verify/:token')
-    .post(celebrate(userValidation.resetPasswordSchema, opts), authController.resetPassword);
+router.route('/password-reset')
+    .post(celebrate(userValidation.sendRequestEmailSchema, opts), authController.sendResetPasswordEmail)
+    .put(celebrate(userValidation.resetPasswordSchema, opts), authController.resetPassword);
+router.route('/password-reset/:token')
+    .put(celebrate(userValidation.resetPasswordSchema, opts), authController.resetPassword);
     
 // google auth
 router.route('/google').get(authController.loginWithGoogle);
