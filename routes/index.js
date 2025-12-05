@@ -12,6 +12,7 @@ const adminRoutes = require('./admin.routes');
 const configRoutes = require('./config.routes');
 const recordingRoutes = require('./recording.routes');
 const sessionRoutes = require('./session.routes');
+const organizationRoutes = require('./organization.routes');
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/admin', adminRoutes);
 router.use('/config', configRoutes);
 router.use('/recordings', recordingRoutes);
 router.use('/sessions', sessionRoutes);
+router.use('/organizations', organizationRoutes);
 
 module.exports = router;

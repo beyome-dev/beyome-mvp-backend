@@ -23,7 +23,7 @@ exports.getOrganizationById = async (req, res) => {
 // Update Organization
 exports.updateOrganization = async (req, res) => {
     try {
-        const organization = await organizationService.updateOrganization(req.params.id, req.body);
+        const organization = await organizationService.updateOrganization(req.params.id, req.body, req.user);
         res.status(200).json(organization);
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -45,6 +45,16 @@ exports.listOrganizations = async (req, res) => {
     try {
         const organizations = await organizationService.listOrganizations(req.user, req.query);
         res.status(200).json(organizations);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+// Attach Organization to User
+exports.attachOrganizationToUser = async (req, res) => {
+    try {
+        const result = await organizationService.attachOrganizationToUser(req.params.id, req.params.userId);
+        res.status(200).json(result);
     } catch (err) {
         res.status(400).json({ error: err.message });
     }

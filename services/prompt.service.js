@@ -9,6 +9,23 @@ const createPrompt = async (data) => {
 // Get all approved prompts with pagination and filter
 const getPrompts = async ({ page = 1, limit = 10, filter = {}, fields = null } = {}, user) => {
     const skip = (page - 1) * limit;
+    
+    // Add organization filtering based on user's organization
+    // Remove any existing organization filter to avoid conflicts
+    delete filter.organization;
+    
+    if (user && user.organization) {
+        // If user has an organization, include prompts with that organization OR no organization
+        // Use $or to match either the user's organization or null
+        filter.$or = [
+            { organization: user.organization },
+            { organization: null }
+        ];
+    } else {
+        // If user has no organization, exclude prompts with any organization (only show prompts without organization)
+        filter.organization = null;
+    }
+    
     let query = Prompt.find(filter).skip(skip).limit(limit);
     if (fields) {
         query = query.select(fields);
