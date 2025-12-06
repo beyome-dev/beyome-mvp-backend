@@ -28,7 +28,20 @@ const  uploadRecording = async (req, res) => {
       return res.status(201).json({ success: true, data: result });
     } catch (error) {
       console.error('Controller uploadRecording error:', error);
-      return res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+      
+      // Return 400 for validation errors, 500 for server errors
+      const isValidationError = error.message && (
+        error.message.includes('empty') ||
+        error.message.includes('corrupted') ||
+        error.message.includes('invalid') ||
+        error.message.includes('missing') ||
+        error.message.includes('too short') ||
+        error.message.includes('Duration') ||
+        error.message.includes('Session not found')
+      );
+      
+      const statusCode = isValidationError ? 400 : 500;
+      return res.status(statusCode).json({ success: false, error: error.message || 'Internal server error' });
     }
 }
 

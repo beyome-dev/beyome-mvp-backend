@@ -53,7 +53,13 @@ exports.listOrganizations = async (req, res) => {
 // Attach Organization to User
 exports.attachOrganizationToUser = async (req, res) => {
     try {
-        const result = await organizationService.attachOrganizationToUser(req.params.id, req.params.userId);
+        if (!req.body.role) {
+            throw new Error('Role is required');
+        }
+        if (!req.body.userId) {
+            throw new Error('User ID is required');
+        }
+        const result = await organizationService.attachOrganizationToUser(req.params.id, req.body.role, req.body.userId);
         res.status(200).json(result);
     } catch (err) {
         res.status(400).json({ error: err.message });

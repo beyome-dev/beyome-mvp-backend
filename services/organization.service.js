@@ -60,7 +60,10 @@ async function GetUserOrganization(user) {
   return Organization.findOne( { scope: 'user', user: user._id })
 }
 
-async function attachOrganizationToUser(organizationId, userId) {
+async function attachOrganizationToUser(organizationId, role, userId) {
+  if (!role) {
+    throw new Error('Role is required');
+  }
   // Verify organization exists
   const organization = await Organization.findById(organizationId);
   if (!organization) {
@@ -73,6 +76,17 @@ async function attachOrganizationToUser(organizationId, userId) {
     throw new Error('User not found');
   }
 
+  const userType = [
+        'psychiatrist',       // Doctors with full access to app features
+        'therapist',          // Psychologists with slightly fewer permissions
+        'receptionist',       // Handles bookings, scheduling, and client inbounds
+        'org_admin',          // Organization admin with extended privileges
+        'manager'
+  ]
+  if (!userType.includes(role)) {
+    throw new Error('Invalid role');
+  }
+  user.userType = role;
   // Attach organization to user
   user.organization = organizationId;
   await user.save();

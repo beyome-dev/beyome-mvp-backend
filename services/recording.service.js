@@ -13,7 +13,7 @@ const {
   generateSessionSummary, 
   generateClientSummaryAndUpdateFromNote 
 } = require('../services/aiProcessing/noteGeneration');
-
+const ffmpeg = require('fluent-ffmpeg');
 
 const { 
   uploadRecordingToBucket,
@@ -21,6 +21,89 @@ const {
 } = require('./storage/googleCloudStorage.service');
 
 const uploadDir = config.storagePath;//path.join(__dirname, '../uploads');
+
+/**
+ * Validate audio file before processing
+ * @param {Object} audioFile - The uploaded audio file object
+ * @param {number} providedDuration - Duration provided in request body
+ * @returns {Promise<{isValid: boolean, duration: number, error?: string}>}
+ */
+const validateAudioFile = async (audioFile, providedDuration) => {
+  // 1. Check if file exists and has content
+  if (!audioFile || !audioFile.path) {
+    return { isValid: false, error: 'Audio file is missing or invalid' };
+  }
+
+  try {
+    // Check if file exists on disk
+    await fs.access(audioFile.path);
+    
+    // Check file size
+    const stats = await fs.stat(audioFile.path);
+    if (stats.size === 0) {
+      return { isValid: false, error: 'Audio file is empty (0 bytes)' };
+    }
+
+    // 2. Validate file is not corrupted and has audio content using ffprobe
+    const audioMetadata = await new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(audioFile.path, (err, metadata) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(metadata);
+        }
+      });
+    });
+
+    // Check if metadata has format and streams
+    if (!audioMetadata.format) {
+      return { isValid: false, error: 'Audio file is corrupted or invalid format' };
+    }
+
+    // Check if file has audio streams
+    const audioStreams = audioMetadata.streams?.filter(stream => stream.codec_type === 'audio');
+    if (!audioStreams || audioStreams.length === 0) {
+      return { isValid: false, error: 'File does not contain any audio streams' };
+    }
+
+    // Get actual duration from file metadata
+    const actualDuration = audioMetadata.format.duration;
+    if (!actualDuration || isNaN(actualDuration) || actualDuration <= 0) {
+      return { isValid: false, error: 'Audio file has invalid or missing duration metadata' };
+    }
+
+    // 3. Validate provided duration matches actual duration (with some tolerance)
+    // if (providedDuration === undefined || providedDuration === null) {
+    //   return { isValid: false, error: 'Duration metadata is required' };
+    // }
+
+    // // Allow 2 seconds tolerance for duration mismatch (in case of rounding differences)
+    // const durationDiff = Math.abs(actualDuration - providedDuration);
+    // if (durationDiff > 2) {
+    //   return { 
+    //     isValid: false, 
+    //     error: `Duration mismatch: provided duration (${providedDuration}s) does not match actual file duration (${actualDuration.toFixed(2)}s)` 
+    //   };
+    // }
+
+    // 4. Check minimum duration (10 seconds)
+    if (actualDuration < 10) {
+      return { 
+        isValid: false, 
+        error: `Audio file is too short: ${actualDuration.toFixed(2)}s. Minimum duration is 10 seconds` 
+      };
+    }
+
+    return { isValid: true, duration: actualDuration };
+  } catch (error) {
+    // If ffprobe fails, the file is likely corrupted or invalid
+    if (error.message && error.message.includes('Invalid data found')) {
+      return { isValid: false, error: 'Audio file is corrupted or in an unsupported format' };
+    }
+    return { isValid: false, error: `Failed to validate audio file: ${error.message}` };
+  }
+};
+
 /**
  * Start a new recording session
  */
@@ -72,50 +155,61 @@ const startRecordingSession = async (user) => {
  */
 const uploadRecording = async (sessionId, audioFile, duration, languageCode, user, io, options = {}) => {
   const therapistId = user._id;
+  let recording = null;
   
-  // Verify session ownership
-  const sessionDoc = await Session.findOne({
-    _id: sessionId,
-    therapistId
-  });
-  
-  if (!sessionDoc) {
-    throw new Error('Session not found');
-  }
-
-  // Create recording document with enhanced tracking
-  const recording = new Recording({
-    sessionId,
-    therapistId,
-    recordingType: 'session_recording',
-    audioKey: null,
-    duration: duration || 0,
-    filename: audioFile.filename,
-    filePath: path.join(uploadDir, audioFile.filename),
-    fileSize: audioFile.size,
-    format: audioFile.mimetype.split('/')[1],
-    transcriptionStatus: 'processing',
-    recordedAt: new Date(),
-    retryConfig: {
-      maxRetries: options.maxRetries || 3,
-      currentRetry: 0,
-      fallbackEnabled: options.fallbackEnabled !== false,
-      preferredTool: options.preferredTool || config.transcriptionConfig.default
-    },
-    languageCode: languageCode
-  });
-  
-  // Add initial attempt
-  recording.addTranscriptionAttempt({
-    tool: recording.retryConfig.preferredTool,
-    status: 'attempting',
-    batchProcessed: false
-  });
-  
-  await recording.save();
-
-  // Upload to Google Cloud Storage and store remote reference
   try {
+    // Verify session ownership
+    const sessionDoc = await Session.findOne({
+      _id: sessionId,
+      therapistId
+    });
+    
+    if (!sessionDoc) {
+      throw new Error('Session not found');
+    }
+
+    // Validate audio file before processing
+    const validation = await validateAudioFile(audioFile, duration);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    // Use validated duration (from file metadata)
+    const validatedDuration = validation.duration;
+
+    // Create recording document with enhanced tracking
+    recording = new Recording({
+      sessionId,
+      therapistId,
+      recordingType: 'session_recording',
+      audioKey: null,
+      duration: validatedDuration,
+      filename: audioFile.filename,
+      filePath: path.join(uploadDir, audioFile.filename),
+      fileSize: audioFile.size,
+      format: audioFile.mimetype.split('/')[1],
+      transcriptionStatus: 'processing',
+      recordedAt: new Date(),
+      retryConfig: {
+        maxRetries: options.maxRetries || 3,
+        currentRetry: 0,
+        fallbackEnabled: options.fallbackEnabled !== false,
+        preferredTool: options.preferredTool || config.transcriptionConfig.default
+      },
+      languageCode: languageCode
+    });
+    
+    // Add initial attempt
+    recording.addTranscriptionAttempt({
+      tool: recording.retryConfig.preferredTool,
+      status: 'attempting',
+      batchProcessed: false
+    });
+    
+    await recording.save();
+
+    // Upload to Google Cloud Storage and store remote reference
+    // This must succeed - if it fails, we throw an error
     const uploadResult = await uploadRecordingToBucket({
       localPath: audioFile.path,
       recordingId: recording._id.toString(),
@@ -123,18 +217,30 @@ const uploadRecording = async (sessionId, audioFile, duration, languageCode, use
       mimetype: audioFile.mimetype
     });
 
-    if (uploadResult?.publicUrl) {
-      recording.audioUrl = uploadResult.publicUrl;
-      recording.filePath = uploadResult.publicUrl;
-      recording.audioKey = uploadResult.objectName;
-      await recording.save();
-
-      audioFile.cloudStorageUrl = uploadResult.publicUrl;
-      audioFile.cloudStorageObject = uploadResult.objectName;
-      audioFile.gcsUri = uploadResult.gcsUri;
+    if (!uploadResult?.publicUrl && !uploadResult?.gcsUri) {
+      throw new Error('Failed to upload recording to cloud storage: No URL returned');
     }
-  } catch (cloudError) {
-    console.error(`Cloud upload failed for recording ${recording._id}:`, cloudError.message);
+
+    recording.audioUrl = uploadResult.publicUrl;
+    recording.filePath = uploadResult.publicUrl || uploadResult.gcsUri;
+    recording.audioKey = uploadResult.objectName;
+    await recording.save();
+
+    audioFile.cloudStorageUrl = uploadResult.publicUrl;
+    audioFile.cloudStorageObject = uploadResult.objectName;
+    audioFile.gcsUri = uploadResult.gcsUri;
+  } catch (error) {
+    // Clean up recording document if it was created
+    if (recording && recording._id) {
+      try {
+        await Recording.findByIdAndDelete(recording._id);
+      } catch (cleanupError) {
+        console.error(`Failed to cleanup recording ${recording._id} after error:`, cleanupError.message);
+      }
+    }
+
+    // Re-throw the error so the controller can return appropriate response
+    throw error;
   }
   
   // Update session
