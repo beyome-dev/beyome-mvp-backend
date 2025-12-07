@@ -8,16 +8,26 @@ const { createUploadMiddleware } = require('../middlewares/multer.middleware');
 
 const router = Router();
 
+// getClients
+// getClientNames
+// getClientsWithInfo
 router.route('/')
-    .get([requireAuth, queryMiddleware, hasRole('platform_admin')], clientController.getClients)
+    .get([requireAuth, hasRole('platform_admin'), queryMiddleware], clientController.getClients)
     .post([
         requireAuth,
         hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
         // celebrate(clientValidation.createClient, opts)
     ], clientController.createClient);
 
+router.route('/info')
+    .get([
+        requireAuth,
+        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
+        queryMiddleware
+    ], clientController.getClientsWithInfo)
+
 router.route('/:id')
-    .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], clientController.getClientById)
+    .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'), queryMiddleware], clientController.getClientById)
     .delete([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], clientController.deleteClient)
     .put([
         requireAuth,
@@ -25,19 +35,14 @@ router.route('/:id')
         // celebrate(clientValidation.updateSchema, opts)
     ], clientController.updateClient);
 
-router.route('/info')
-    .get([
-        requireAuth,
-        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')
-    ], clientController.getClientsWithInfo)
-
 router.route('/:id/info')
     .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], clientController.getClientData)
 
 router.route('/names')
     .get([
         requireAuth,
-        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')
+        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
+        queryMiddleware
     ], clientController.getClientNames)
 
     // Profile picture upload route with file size and type limits

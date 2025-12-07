@@ -21,7 +21,8 @@ module.exports.createClient = async (req, res) => {
 // @access  Private/Admin
 module.exports.getClients = async (req, res) => {
     try {
-        let { page, limit, ...filters } = req.query;
+        let { page, limit } = req.query;
+        let filters = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
 
@@ -41,28 +42,9 @@ module.exports.getClients = async (req, res) => {
 module.exports.getClientById = async (req, res) => {
     try {
         if (req.params.id == 'info') {
-            let { page, limit, ...filters } = req.query;
-            page = parseInt(page) || 1;
-            limit = parseInt(limit) || 10;
-
-            filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-                ? { organization: req.user.organization, ...filters }
-                : { handler: req.user._id, ...filters };
-            const client = await clientService.getClientsWithData(filters, page, limit, req.user);
-            res.status(201).json(client);
-            return
+           return this.getClientsWithInfo(req, res);
         } else if (req.params.id == 'names') {
-            let { page, limit, ...filters } = req.query;
-            page = parseInt(page) || 1;
-            limit = parseInt(limit) || 10;
-
-            filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-                ? { organization: req.user.organization, ...filters }
-                : { handler: req.user._id, ...filters };
-
-            const client = await clientService.getClientNames(filters, page, limit);
-            res.status(201).json(client);
-            return
+           return this.getClientNames(req, res);
         }
         const client = await clientService.getClientById(req.params.id);
         if (client.googleTokens?.refresh_token) {
@@ -100,14 +82,16 @@ module.exports.deleteClient = async (req, res) => {
 }
 
 // @desc    Get client names for handler
-// @route   GET /api/clients/client-names
+// @route   GET /api/clients/names
 // @access  Private/Admin
 module.exports.getClientNames = async (req, res) => {
     try {
-        let { page, limit, ...filters } = req.query;
+        console.log("Hello entered here ------------------------")
+        console.log("mongoQuery: ",req.mongoQuery)
+        let { page, limit } = req.query;
+        let filters = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
-
         filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
             ? { organization: req.user.organization, ...filters }
             : { handler: req.user._id, ...filters };
@@ -121,7 +105,8 @@ module.exports.getClientNames = async (req, res) => {
 
 module.exports.getClientsWithInfo = async (req, res) => {
     try {
-        let { page, limit, ...filters } = req.query;
+        let { page, limit } = req.query;
+        let filters = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
 
