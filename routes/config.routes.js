@@ -2,7 +2,7 @@ const { Router } = require('express');
 const { configController } = require('../controllers');
 const { celebrate } = require('celebrate');
 const { opts, clientValidation } = require('../validations');
-const { authMiddleware } = require('../middlewares');
+const { authMiddleware, queryMiddleware } = require('../middlewares');
 const { requireAuth, hasRole } = authMiddleware;
 const { createUploadMiddleware } = require('../middlewares/multer.middleware');
 
@@ -10,7 +10,7 @@ const roleMiddleware = hasRole('psychiatrist', 'therapist', 'org_admin');
 const router = Router();
 
 router.route('/')
-    .get([requireAuth, roleMiddleware], configController.listConfigs)
+    .get([requireAuth, queryMiddleware, roleMiddleware], configController.listConfigs)
     .post([
         requireAuth,
         roleMiddleware,

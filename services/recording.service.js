@@ -243,9 +243,11 @@ const uploadRecording = async (sessionId, audioFile, duration, languageCode, use
     throw error;
   }
   
-  // Update session
+  // Update session - keep status as 'in_progress' after upload, don't change to 'transcribing' yet
+  // This allows the session detail page to be accessible once upload completes
+  // Status will be updated to 'transcribing' when transcription actually starts in background
   await Session.findByIdAndUpdate(sessionId, {
-    status: 'transcribing',
+    // Keep status as 'in_progress' - don't change to 'transcribing' until transcription starts
     $push: {
       recordings: {
         recordingId: recording._id,

@@ -140,10 +140,15 @@ async function updateSession(id, data, user) {
 }
 
 // Delete a session by ID
-async function deleteSession(id, data, user) {
+async function deleteSession(id, user) {
     // if (data.googleEventId !== "" && user.googleTokens?.access_token) {
     //    await calendatService.removeSessionEvent(data.googleEventId, user.googleTokens)
     // }
+    let session = await Session.findById(id);
+    const client = await Client.findById(session.clientId);
+        if (client && client.status === 'unknown') {
+            await Client.findByIdAndDelete(session.clientId);
+        }
     await Recording.deleteMany({ sessionId: id });
     return await Session.findByIdAndDelete(id);
 }
