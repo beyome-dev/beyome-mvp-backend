@@ -147,7 +147,11 @@ async function deleteSession(id, user) {
     let session = await Session.findById(id);
     const client = await Client.findById(session.clientId);
         if (client && client.status === 'unknown') {
-            await Client.findByIdAndDelete(session.clientId);
+            // Only delete the client if there are no other sessions for this client
+            const otherSessions = await Session.countDocuments({ clientId: session.clientId, _id: { $ne: id } });
+            if (otherSessions === 0) {
+                await Client.findByIdAndDelete(session.clientId);
+            }
         }
     await Recording.deleteMany({ sessionId: id });
     return await Session.findByIdAndDelete(id);
