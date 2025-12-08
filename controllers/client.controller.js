@@ -86,8 +86,6 @@ module.exports.deleteClient = async (req, res) => {
 // @access  Private/Admin
 module.exports.getClientNames = async (req, res) => {
     try {
-        console.log("Hello entered here ------------------------")
-        console.log("mongoQuery: ",req.mongoQuery)
         let { page, limit } = req.query;
         let filters = req.mongoQuery
         page = parseInt(page) || 1;

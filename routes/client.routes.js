@@ -26,6 +26,13 @@ router.route('/info')
         queryMiddleware
     ], clientController.getClientsWithInfo)
 
+router.route('/names')
+    .get([
+        requireAuth,
+        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
+        queryMiddleware
+    ], clientController.getClientNames)
+
 router.route('/:id')
     .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'), queryMiddleware], clientController.getClientById)
     .delete([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], clientController.deleteClient)
@@ -37,13 +44,6 @@ router.route('/:id')
 
 router.route('/:id/info')
     .get([requireAuth, hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin')], clientController.getClientData)
-
-router.route('/names')
-    .get([
-        requireAuth,
-        hasRole('psychiatrist', 'therapist', 'receptionist', 'org_admin'),
-        queryMiddleware
-    ], clientController.getClientNames)
 
     // Profile picture upload route with file size and type limits
 router.route('/:id/upload-consent-form')
