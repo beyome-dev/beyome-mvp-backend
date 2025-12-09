@@ -60,7 +60,8 @@ module.exports = {
         saladAPIKey: process.env.SALAD_API_KEY,
         openAIAPIKey: process.env.OPENAI_API_KEY,
         assemblyAIAPIKey: process.env.ASSEMBLYAI_API_KEY,
-        googleKeyPath: process.env.GOOGLE_KEY_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE
+        googleKeyPath: process.env.GOOGLE_KEY_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE,
+        sarvamAPIKey: process.env.SARVAM_API_KEY,
     },
     chunkMaxDuration: parseInt(process.env.CHUNK_MAX_DURATION_SECONDS) || 600,
     chunkOverlap: parseInt(process.env.CHUNK_OVERLAP_SECONDS) || 5,

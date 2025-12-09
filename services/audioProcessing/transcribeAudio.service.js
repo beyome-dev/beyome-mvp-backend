@@ -7,6 +7,7 @@ const path = require('path');
 const os = require('os');
 const OpenAI = require('openai');
 const { SpeechClient } = require('@google-cloud/speech');
+const { SarvamAIClient } = require('sarvamai');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
 const { 
@@ -118,6 +119,28 @@ const TRANSCRIPTION_CONFIG = {
       minSplitDuration: 30,
       sampleRate: 16000
     }
+  },
+  sarvam: {
+    apiKey: config.transcriptionConfig.sarvamAPIKey,
+    priority: 3,
+    maxRetries: 2,
+    timeout: 180000, // 3 minutes
+    supports: { streaming: false, batch: true },
+    constraints: {
+      maxFileSize: Infinity,
+      preferredFormats: ['wav', 'mp3'],
+      encodings: ['wav', 'mp3']
+    },
+    chunking: {
+      format: 'wav',
+      maxDuration: 30, // 30 seconds maximum duration
+      maxFileSize: Infinity,
+      audioCodec: null,
+      audioBitrate: null,
+      audioChannels: 1,
+      minSplitDuration: 10,
+      sampleRate: 16000
+    }
   }
 };
 
@@ -190,6 +213,9 @@ const openAIClient = new OpenAI({ apiKey: TRANSCRIPTION_CONFIG.openai.apiKey });
 const googleSpeechClient = new SpeechClient({
   keyFilename: config.transcriptionConfig.googleKeyPath
 });
+const sarvamClient = TRANSCRIPTION_CONFIG.sarvam.apiKey ? new SarvamAIClient({
+  apiSubscriptionKey: TRANSCRIPTION_CONFIG.sarvam.apiKey
+}) : null;
 
 // AssemblyAI API endpoints
 const ASSEMBLYAI_API_BASE = 'https://api.assemblyai.com/v2';
@@ -242,7 +268,7 @@ const requestTranscription = async (file, recordingId, options = {}) => {
     const duration = await getAudioDuration(filePath);
     const needsBatching = duration > CHUNK_CONFIG.maxDuration;
     // Determine transcription strategy
-    const toolOrder = getToolExecutionOrder(preferredTool);
+    const toolOrder = getToolExecutionOrder(preferredTool, languageCode);
     logTranscriptionDiagnostic('request:start', {
       recordingId,
       preferredTool,
@@ -277,6 +303,11 @@ const requestTranscription = async (file, recordingId, options = {}) => {
       let result;
       let jobId = null;
       
+      // Check if this tool needs batching based on tool-specific maxDuration
+      const currentToolChunkConfig = TOOL_CHUNK_CONFIG[toolName] || {};
+      const toolMaxDuration = currentToolChunkConfig.maxDuration || CHUNK_CONFIG.maxDuration;
+      const toolNeedsBatching = duration > toolMaxDuration;
+      
       // For Google: Use LongRunningRecognize with GCS URI if available (supports long audio without chunking)
       const useGoogleLongRunning = toolName === 'google' && 
         (file.cloudStorageObject || file.gcsUri || fileUrl?.startsWith('gs://'));
@@ -292,8 +323,8 @@ const requestTranscription = async (file, recordingId, options = {}) => {
         );
         // Google doesn't return a job ID in the same way, but we can track operation name if available
         jobId = result.transcriptionMetadata?.operationName || null;
-      } else if (needsBatching && TRANSCRIPTION_CONFIG[toolName].supports.batch) {
-        console.log(`Audio duration (${duration}s) exceeds limit. Using batch processing.`);
+      } else if (toolNeedsBatching && TRANSCRIPTION_CONFIG[toolName].supports.batch) {
+        console.log(`Audio duration (${duration}s) exceeds ${toolName} limit (${toolMaxDuration}s). Using batch processing.`);
         result = await transcribeInBatches(filePath, recordingId, toolName, {
           onChunkProgress,
           resumeFromChunk: options.resumeFromChunk,
@@ -405,12 +436,21 @@ const requestTranscription = async (file, recordingId, options = {}) => {
 /**
  * Get ordered list of tools to try based on priority
  */
-function getToolExecutionOrder(preferredTool) {
+function getToolExecutionOrder(preferredTool, languageCode = 'auto') {
+  // Check if language code is one that should use Sarvam first
+  const sarvamLanguages = ['ml', 'kn', 'ta', 'te'];
+  const shouldPrioritizeSarvam = languageCode && sarvamLanguages.includes(languageCode.toLowerCase());
+  
   const tools = Object.entries(TRANSCRIPTION_CONFIG)
     .sort((a, b) => {
-      // Preferred tool goes first
-      if (a[0] === preferredTool) return -1;
-      if (b[0] === preferredTool) return 1;
+      // If language requires Sarvam, prioritize it
+      if (shouldPrioritizeSarvam) {
+        if (a[0] === 'sarvam') return -1;
+        if (b[0] === 'sarvam') return 1;
+      }
+      // Preferred tool goes first (unless Sarvam is prioritized)
+      if (a[0] === preferredTool && !shouldPrioritizeSarvam) return -1;
+      if (b[0] === preferredTool && !shouldPrioritizeSarvam) return 1;
       // Then sort by priority
       return a[1].priority - b[1].priority;
     })
@@ -507,6 +547,10 @@ async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, opti
     case 'salad':
       const saladData = await saladTranscribeAudioService(fileUrl, recordingId);
       return await formatTranscriptResponseFromTool(saladData, 'salad');
+      
+    case 'sarvam':
+      const sarvamData = await sarvamTranscribeAudioService(filePath, recordingId, options?.languageCode);
+      return await formatTranscriptResponseFromTool(sarvamData, 'sarvam');
       
     default:
       throw new Error(`Unsupported transcription tool: ${toolName}`);
@@ -620,8 +664,12 @@ async function prepareChunkWorkspace(recordingId, sourceFilePath) {
 async function transcribeInBatches(filePath, recordingId, toolName, options = {}) {
   const { resumeFromChunk = 0, existingResults = [], languageCode = 'auto' } = options;
   
-  // Always create chunks in common format (wav) first
-  const chunks = await splitAudioIntoChunks(filePath, 'default', recordingId);
+  // Get tool-specific chunking config to determine max chunk duration
+  const toolChunkConfig = TOOL_CHUNK_CONFIG[toolName] || {};
+  const toolMaxDuration = toolChunkConfig.maxDuration || CHUNK_CONFIG.maxDuration;
+  
+  // Always create chunks in common format (wav) first, using tool-specific maxDuration if needed
+  const chunks = await splitAudioIntoChunks(filePath, 'default', recordingId, toolMaxDuration);
   const chunkDir = chunks.length > 0 ? path.dirname(chunks[0].filePath) : null;
   const results = [...existingResults]; // Start with existing results if resuming
   const uploadedChunks = []; // Track chunks uploaded to GCS for cleanup
@@ -644,8 +692,7 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
     languageCode
   });
   
-  // Get tool-specific format requirements
-  const toolChunkConfig = TOOL_CHUNK_CONFIG[toolName] || {};
+  // Get tool-specific format requirements (reuse toolChunkConfig from above)
   const toolFormat = toolChunkConfig.format || 'wav';
   const needsConversion = toolFormat !== 'wav';
   
@@ -904,15 +951,17 @@ async function transcribeInBatches(filePath, recordingId, toolName, options = {}
  * Always creates chunks in common format (wav) - tool-specific formats are created on-demand
  * @param {string} filePath - Path to the audio file
  * @param {string} toolName - Name of the transcription tool (unused, kept for compatibility)
+ * @param {string} recordingId - Recording ID
+ * @param {number} maxChunkDurationOverride - Optional override for max chunk duration (for tool-specific limits)
  */
-async function splitAudioIntoChunks(filePath, toolName = 'default', recordingId = null) {
+async function splitAudioIntoChunks(filePath, toolName = 'default', recordingId = null, maxChunkDurationOverride = null) {
   const duration = await getAudioDuration(filePath);
   const chunks = [];
   const chunkDir = await prepareChunkWorkspace(recordingId, filePath);
   
   // Always use common format (wav) for initial chunking
   const format = CHUNK_CONFIG.format; // Always 'wav'
-  const maxChunkDuration = CHUNK_CONFIG.maxDuration;
+  const maxChunkDuration = maxChunkDurationOverride || CHUNK_CONFIG.maxDuration;
   const sampleRate = CHUNK_CONFIG.sampleRate;
   const audioChannels = CHUNK_CONFIG.audioChannels;
   
@@ -1824,6 +1873,152 @@ const saladTranscribeAudioService = async (fileUrl, recordingId) => {
 };
 
 /**
+ * Sarvam transcription service
+ */
+const sarvamTranscribeAudioService = async (filePath, recordingId, languageCode = 'en-IN') => {
+  if (!sarvamClient) {
+    throw new Error('Sarvam API key is not configured');
+  }
+
+  // Verify file exists
+  if (!fsSync.existsSync(filePath)) {
+    throw new Error(`Audio file not found: ${filePath}`);
+  }
+
+  // Get file stats for logging
+  const fileStats = await fs.stat(filePath);
+  const fileSizeMB = (fileStats.size / 1024 / 1024).toFixed(2);
+  
+  // Get audio duration
+  const duration = await getAudioDuration(filePath);
+  
+  // Check if duration exceeds 30 seconds
+  if (duration > 30) {
+    throw new Error(`Audio file duration (${duration.toFixed(2)}s) exceeds Sarvam's 30-second limit`);
+  }
+
+  console.log(`[Sarvam] Starting transcription for recording ${recordingId || 'unknown'} (${fileSizeMB} MB, ${duration.toFixed(2)}s)`);
+
+  try {
+    // Read audio file as stream
+    const audioFile = fsSync.createReadStream(filePath);
+    
+    // Map language codes to Sarvam format
+    // Sarvam uses format like "en-IN", "hi-IN", etc.
+    let sarvamLanguageCode = 'en-IN';
+    if (languageCode) {
+      const langMap = {
+        'ml': 'ml-IN',
+        'kn': 'kn-IN',
+        'ta': 'ta-IN',
+        'te': 'te-IN',
+        'hi': 'hi-IN',
+        'en': 'en-IN'
+      };
+      sarvamLanguageCode = langMap[languageCode.toLowerCase()] || 'en-IN';
+    }
+
+    console.log(`[Sarvam] Using language code: ${sarvamLanguageCode}`);
+
+    // Call Sarvam API
+    const response = await sarvamClient.speechToText.transcribe({
+      file: audioFile,
+      language_code: sarvamLanguageCode,
+      model: "saarika:v2.5"
+    });
+
+    console.log(`[Sarvam] Transcription completed for recording ${recordingId || 'unknown'}`);
+    
+    return {
+      ...response,
+      duration: duration,
+      languageCode: sarvamLanguageCode
+    };
+  } catch (error) {
+    console.error(`[Sarvam] Transcription error for recording ${recordingId || 'unknown'}:`, {
+      message: error.message,
+      status: error.status,
+      code: error.code,
+      response: error.response?.data
+    });
+
+    if (error.response) {
+      throw new Error(`Sarvam API error (${error.response.status}): ${error.response.data?.error || error.message}`);
+    } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      throw new Error(`Sarvam network error: ${error.message}. Check your internet connection.`);
+    } else {
+      throw new Error(`Sarvam transcription failed: ${error.message}`);
+    }
+  }
+};
+
+/**
+ * Format Sarvam transcription response
+ */
+const sarvamFormat = async (transcriptData) => {
+  if (!transcriptData) {
+    throw new Error("Failed to get transcription data from Sarvam");
+  }
+
+  // Sarvam response structure may vary - adjust based on actual API response
+  // Assuming response has text or transcript field
+  const transcriptionText = transcriptData.text || transcriptData.transcript || transcriptData.transcription || '';
+  const segments = transcriptData.segments || transcriptData.words || [];
+  
+  let speakerSentences = '';
+  let currentSpeaker = '';
+  let timeStamps = [];
+  let speakerLabels = [];
+
+  if (segments && segments.length > 0) {
+    for (const segment of segments) {
+      const { speaker, text, start, end, startTime, endTime, word } = segment;
+      const segmentText = text || word || '';
+      const startTimeNum = start || startTime || 0;
+      const endTimeNum = end || endTime || 0;
+      
+      timeStamps.push({ text: segmentText, start: startTimeNum, end: endTimeNum });
+      
+      if (speaker) {
+        speakerLabels.push({ 
+          speaker, 
+          startTime: startTimeNum, 
+          endTime: endTimeNum, 
+          text: segmentText 
+        });
+      }
+      
+      if (currentSpeaker !== speaker) {
+        if (speaker) {
+          currentSpeaker = speaker;
+        }
+        speakerSentences += `\n ${currentSpeaker || 'SPEAKER'}: ${segmentText}`;
+      } else {
+        speakerSentences += ` ${segmentText}`;
+      }
+    }
+  } else if (transcriptionText) {
+    // If we only have text without segments
+    speakerSentences = transcriptionText;
+  }
+
+  return {
+    transcriptionText: speakerSentences.trim() || transcriptionText,
+    transcriptionStatus: 'completed',
+    duration: transcriptData.duration || 0,
+    transcriptionMetadata: {
+      provider: 'sarvam',
+      model: transcriptData.model || 'saarika:v2.5',
+      language: transcriptData.languageCode || 'en-IN',
+      confidence: transcriptData.confidence || null,
+      timestamps: timeStamps,
+      speakerLabels: speakerLabels,
+      processedAt: new Date()
+    }
+  };
+};
+
+/**
  * Format Salad transcription response
  */
 const saladFormat = async (transcriptData) => {
@@ -1902,6 +2097,8 @@ const formatTranscriptResponseFromTool = async (transcriptData, format) => {
       return await assemblyAIFormat(transcriptData);
     case 'google':
       return await googleFormat(transcriptData);
+    case 'sarvam':
+      return await sarvamFormat(transcriptData);
     default:
       throw new Error('Unsupported transcription tool for formatting');
   }

@@ -208,7 +208,7 @@ const convertToExcel = (data, title) => {
 };
 
 // Test transcription tools with ad-hoc admin upload (no DB writes)
-const testTranscriptionTool = async ({ file, tool, requestedBy }) => {
+const testTranscriptionTool = async ({ file, tool, requestedBy, languageCode = 'auto' }) => {
     if (!file) {
         const error = new Error('Audio file upload is required');
         error.statusCode = 400;
@@ -247,7 +247,8 @@ const testTranscriptionTool = async ({ file, tool, requestedBy }) => {
         const transcriptionResult = await requestTranscription(file, recordingId, {
             preferredTool: tool,
             enableFallback: false,
-            maxAttempts: 1
+            maxAttempts: 1,
+            languageCode: 'auto'
         });
 
         return {

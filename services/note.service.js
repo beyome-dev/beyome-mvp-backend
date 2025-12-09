@@ -420,7 +420,7 @@ const saveAudio = async (file, query, user) => {
         // Call Salad API for transcription
         let transcriptResponse;
         try {
-            transcriptResponse = await requestTranscription(file, noteData.id);
+            transcriptResponse = await requestTranscription(file, noteData.id, { languageCode: 'auto' });
         } catch (transcriptError) {
             console.error("Error in transcription request:", transcriptError);
             transcriptResponse = null; // Ensure transcriptJobId is handled

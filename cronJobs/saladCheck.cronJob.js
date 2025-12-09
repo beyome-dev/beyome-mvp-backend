@@ -131,7 +131,8 @@ const checkForSaladResults = async (io) => {
             try {
                 await requestTranscription(audioFile, recording._id, {
                     enableFallback: false,
-                    maxAttempts: 1
+                    maxAttempts: 1,
+                    languageCode: 'auto'
                 });
             } finally {
                 await localFileHandle.cleanup();

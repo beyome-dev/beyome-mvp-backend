@@ -611,7 +611,8 @@ const resumeIncompleteTranscriptions = async (io) => {
               maxAttempts: recording.retryConfig?.maxRetries || 3,
               onChunkProgress: handleChunkProgress,
               resumeFromChunk: resumeFromChunk,
-              existingResults: [] // We'll merge text, not results
+              existingResults: [], // We'll merge text, not results,
+              languageCode: recording.languageCode ? recording.languageCode : 'auto'
             }
           );
           
