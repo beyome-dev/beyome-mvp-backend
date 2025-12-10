@@ -1,12 +1,13 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const recordingTools = ['openai', 'assemblyai', 'google', 'salad', 'sarvam'];
 
 // Sub-schema for transcription attempts tracking
 const transcriptionAttemptSchema = new Schema({
   attemptNumber: { type: Number, required: true },
   tool: {
     type: String,
-    enum: ['openai', 'assemblyai', 'google', 'salad'],
+    enum: recordingTools,
     required: true
   },
   status: {
@@ -97,7 +98,7 @@ const recordingSchema = new Schema({
   transcriptionMetadata: {
     provider: {
       type: String,
-      enum: ['openai', 'assemblyai', 'google', 'salad','sarvam']
+      enum: recordingTools
     },
     jobId: String,
     model: String,
@@ -159,7 +160,7 @@ const recordingSchema = new Schema({
     backoffMultiplier: { type: Number, default: 2 },
     preferredTool: {
       type: String,
-      enum: ['openai', 'assemblyai', 'google', 'salad']
+      enum: recordingTools
     },
     fallbackEnabled: { type: Boolean, default: true }
   },
