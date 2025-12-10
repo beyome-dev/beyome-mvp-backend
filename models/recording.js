@@ -97,7 +97,7 @@ const recordingSchema = new Schema({
   transcriptionMetadata: {
     provider: {
       type: String,
-      enum: ['openai', 'assemblyai', 'google', 'salad']
+      enum: ['openai', 'assemblyai', 'google', 'salad','sarvam']
     },
     jobId: String,
     model: String,
