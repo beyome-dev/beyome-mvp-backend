@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const encryptionService = require('../services/encryption/encryption.service');
+const config = require('../config');
 
 // Sub-schema for transcription attempts tracking
 const transcriptionAttemptSchema = new Schema({
@@ -97,7 +99,7 @@ const recordingSchema = new Schema({
   transcriptionMetadata: {
     provider: {
       type: String,
-      enum: ['openai', 'assemblyai', 'google', 'salad']
+      enum: ['openai', 'assemblyai', 'google', 'salad', 'sarvam']
     },
     jobId: String,
     model: String,
@@ -377,8 +379,8 @@ recordingSchema.virtual('successRate').get(function() {
   return totalAttempts > 0 ? (successAttempts / totalAttempts) * 100 : 0;
 });
 
-// Pre-save middleware
-recordingSchema.pre('save', function(next) {
+// Pre-save hook: Encrypt PHI fields before saving
+recordingSchema.pre('save', async function (next) {
   // Ensure retry config defaults
   if (!this.retryConfig.maxRetries) {
     this.retryConfig.maxRetries = 3;
@@ -386,7 +388,283 @@ recordingSchema.pre('save', function(next) {
   if (this.retryConfig.currentRetry === undefined) {
     this.retryConfig.currentRetry = 0;
   }
+
+  // Encrypt PHI fields
+  if (config.encryption.enabled && (this.isNew || this.isModified('transcriptionText') || this.isModified('summary') || this.isModified('transcriptionMetadata'))) {
+    try {
+      // Encrypt transcriptionText
+      if (this.transcriptionText && typeof this.transcriptionText === 'string' && this.transcriptionText !== '') {
+        this.transcriptionText = await encryptionService.encrypt(this.transcriptionText, {
+          resourceType: 'Recording',
+          resourceId: this._id,
+          field: 'transcriptionText',
+        });
+      }
+
+      // Encrypt summary
+      if (this.summary && typeof this.summary === 'string' && this.summary !== '') {
+        this.summary = await encryptionService.encrypt(this.summary, {
+          resourceType: 'Recording',
+          resourceId: this._id,
+          field: 'summary',
+        });
+      }
+
+      // Encrypt transcriptionMetadata (specifically text fields containing PHI)
+      if (this.transcriptionMetadata && typeof this.transcriptionMetadata === 'object') {
+        // Encrypt speakerLabels text
+        if (Array.isArray(this.transcriptionMetadata.speakerLabels)) {
+          for (const label of this.transcriptionMetadata.speakerLabels) {
+            if (label.text && typeof label.text === 'string' && label.text !== '') {
+              label.text = await encryptionService.encrypt(label.text, {
+                resourceType: 'Recording',
+                resourceId: this._id,
+                field: 'transcriptionMetadata.speakerLabels.text',
+              });
+            }
+          }
+        }
+
+        // Encrypt timestamps text
+        if (Array.isArray(this.transcriptionMetadata.timestamps)) {
+          for (const timestamp of this.transcriptionMetadata.timestamps) {
+            if (timestamp.text && typeof timestamp.text === 'string' && timestamp.text !== '') {
+              timestamp.text = await encryptionService.encrypt(timestamp.text, {
+                resourceType: 'Recording',
+                resourceId: this._id,
+                field: 'transcriptionMetadata.timestamps.text',
+              });
+            }
+          }
+        }
+      }
+
+      // Encrypt summaryMetadata keyPoints and actionItems
+      if (this.summaryMetadata && typeof this.summaryMetadata === 'object') {
+        if (Array.isArray(this.summaryMetadata.keyPoints)) {
+          this.summaryMetadata.keyPoints = await Promise.all(
+            this.summaryMetadata.keyPoints.map(async (point) => {
+              if (typeof point === 'string' && point !== '') {
+                return await encryptionService.encrypt(point, {
+                  resourceType: 'Recording',
+                  resourceId: this._id,
+                  field: 'summaryMetadata.keyPoints',
+                });
+              }
+              return point;
+            })
+          );
+        }
+
+        if (Array.isArray(this.summaryMetadata.actionItems)) {
+          this.summaryMetadata.actionItems = await Promise.all(
+            this.summaryMetadata.actionItems.map(async (item) => {
+              if (typeof item === 'string' && item !== '') {
+                return await encryptionService.encrypt(item, {
+                  resourceType: 'Recording',
+                  resourceId: this._id,
+                  field: 'summaryMetadata.actionItems',
+                });
+              }
+              return item;
+            })
+          );
+        }
+      }
+    } catch (error) {
+      console.error('[Recording Model] Encryption error:', error.message);
+      return next(error);
+    }
+  }
+
   next();
+});
+
+// Post-find hook: Decrypt PHI fields after retrieval
+recordingSchema.post(['find', 'findOne', 'findOneAndUpdate', 'findOneAndDelete'], async function (docs) {
+  if (!config.encryption.enabled || !docs) {
+    return;
+  }
+
+  const documents = Array.isArray(docs) ? docs : [docs];
+
+  for (const doc of documents) {
+    if (!doc) continue;
+
+    try {
+      // Decrypt transcriptionText
+      if (doc.transcriptionText && typeof doc.transcriptionText === 'string' && doc.transcriptionText !== '') {
+        doc.transcriptionText = await encryptionService.decrypt(doc.transcriptionText, {
+          resourceType: 'Recording',
+          resourceId: doc._id,
+          field: 'transcriptionText',
+        });
+      }
+
+      // Decrypt summary
+      if (doc.summary && typeof doc.summary === 'string' && doc.summary !== '') {
+        doc.summary = await encryptionService.decrypt(doc.summary, {
+          resourceType: 'Recording',
+          resourceId: doc._id,
+          field: 'summary',
+        });
+      }
+
+      // Decrypt transcriptionMetadata
+      if (doc.transcriptionMetadata && typeof doc.transcriptionMetadata === 'object') {
+        // Decrypt speakerLabels text
+        if (Array.isArray(doc.transcriptionMetadata.speakerLabels)) {
+          for (const label of doc.transcriptionMetadata.speakerLabels) {
+            if (label.text && typeof label.text === 'string' && label.text !== '') {
+              label.text = await encryptionService.decrypt(label.text, {
+                resourceType: 'Recording',
+                resourceId: doc._id,
+                field: 'transcriptionMetadata.speakerLabels.text',
+              });
+            }
+          }
+        }
+
+        // Decrypt timestamps text
+        if (Array.isArray(doc.transcriptionMetadata.timestamps)) {
+          for (const timestamp of doc.transcriptionMetadata.timestamps) {
+            if (timestamp.text && typeof timestamp.text === 'string' && timestamp.text !== '') {
+              timestamp.text = await encryptionService.decrypt(timestamp.text, {
+                resourceType: 'Recording',
+                resourceId: doc._id,
+                field: 'transcriptionMetadata.timestamps.text',
+              });
+            }
+          }
+        }
+      }
+
+      // Decrypt summaryMetadata
+      if (doc.summaryMetadata && typeof doc.summaryMetadata === 'object') {
+        if (Array.isArray(doc.summaryMetadata.keyPoints)) {
+          doc.summaryMetadata.keyPoints = await Promise.all(
+            doc.summaryMetadata.keyPoints.map(async (point) => {
+              if (typeof point === 'string' && point !== '') {
+                return await encryptionService.decrypt(point, {
+                  resourceType: 'Recording',
+                  resourceId: doc._id,
+                  field: 'summaryMetadata.keyPoints',
+                });
+              }
+              return point;
+            })
+          );
+        }
+
+        if (Array.isArray(doc.summaryMetadata.actionItems)) {
+          doc.summaryMetadata.actionItems = await Promise.all(
+            doc.summaryMetadata.actionItems.map(async (item) => {
+              if (typeof item === 'string' && item !== '') {
+                return await encryptionService.decrypt(item, {
+                  resourceType: 'Recording',
+                  resourceId: doc._id,
+                  field: 'summaryMetadata.actionItems',
+                });
+              }
+              return item;
+            })
+          );
+        }
+      }
+    } catch (error) {
+      console.error('[Recording Model] Decryption error:', error.message);
+      // Continue with other documents even if one fails
+    }
+  }
+});
+
+// Post-findOne hook for single document
+recordingSchema.post('findOne', async function (doc) {
+  if (!config.encryption.enabled || !doc) {
+    return;
+  }
+
+  try {
+    // Decrypt transcriptionText
+    if (doc.transcriptionText && typeof doc.transcriptionText === 'string' && doc.transcriptionText !== '') {
+      doc.transcriptionText = await encryptionService.decrypt(doc.transcriptionText, {
+        resourceType: 'Recording',
+        resourceId: doc._id,
+        field: 'transcriptionText',
+      });
+    }
+
+    // Decrypt summary
+    if (doc.summary && typeof doc.summary === 'string' && doc.summary !== '') {
+      doc.summary = await encryptionService.decrypt(doc.summary, {
+        resourceType: 'Recording',
+        resourceId: doc._id,
+        field: 'summary',
+      });
+    }
+
+    // Decrypt transcriptionMetadata
+    if (doc.transcriptionMetadata && typeof doc.transcriptionMetadata === 'object') {
+      if (Array.isArray(doc.transcriptionMetadata.speakerLabels)) {
+        for (const label of doc.transcriptionMetadata.speakerLabels) {
+          if (label.text && typeof label.text === 'string' && label.text !== '') {
+            label.text = await encryptionService.decrypt(label.text, {
+              resourceType: 'Recording',
+              resourceId: doc._id,
+              field: 'transcriptionMetadata.speakerLabels.text',
+            });
+          }
+        }
+      }
+
+      if (Array.isArray(doc.transcriptionMetadata.timestamps)) {
+        for (const timestamp of doc.transcriptionMetadata.timestamps) {
+          if (timestamp.text && typeof timestamp.text === 'string' && timestamp.text !== '') {
+            timestamp.text = await encryptionService.decrypt(timestamp.text, {
+              resourceType: 'Recording',
+              resourceId: doc._id,
+              field: 'transcriptionMetadata.timestamps.text',
+            });
+          }
+        }
+      }
+    }
+
+    // Decrypt summaryMetadata
+    if (doc.summaryMetadata && typeof doc.summaryMetadata === 'object') {
+      if (Array.isArray(doc.summaryMetadata.keyPoints)) {
+        doc.summaryMetadata.keyPoints = await Promise.all(
+          doc.summaryMetadata.keyPoints.map(async (point) => {
+            if (typeof point === 'string' && point !== '') {
+              return await encryptionService.decrypt(point, {
+                resourceType: 'Recording',
+                resourceId: doc._id,
+                field: 'summaryMetadata.keyPoints',
+              });
+            }
+            return point;
+          })
+        );
+      }
+
+      if (Array.isArray(doc.summaryMetadata.actionItems)) {
+        doc.summaryMetadata.actionItems = await Promise.all(
+          doc.summaryMetadata.actionItems.map(async (item) => {
+            if (typeof item === 'string' && item !== '') {
+              return await encryptionService.decrypt(item, {
+                resourceType: 'Recording',
+                resourceId: doc._id,
+                field: 'summaryMetadata.actionItems',
+              });
+            }
+            return item;
+          })
+        );
+      }
+    }
+  } catch (error) {
+    console.error('[Recording Model] Decryption error:', error.message);
+  }
 });
 
 module.exports = mongoose.model('Recording', recordingSchema);

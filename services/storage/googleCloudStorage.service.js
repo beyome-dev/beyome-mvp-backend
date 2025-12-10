@@ -3,6 +3,9 @@ const fsPromises = require('fs').promises;
 const { Storage } = require('@google-cloud/storage');
 const { randomUUID } = require('crypto');
 const config = require('../../config');
+const encryptionService = require('../encryption/encryption.service');
+const keyManagementService = require('../encryption/keyManagement.service');
+const crypto = require('crypto');
 
 const storageConfig = config.googleCloudStorage || {};
 
@@ -52,6 +55,141 @@ const ensureBucket = () => {
   }
 };
 
+/**
+ * Encrypt file before upload (if encryption is enabled)
+ * Note: For HIPAA compliance, also configure CMEK (Customer-Managed Encryption Keys)
+ * at the GCS bucket level via GCP Console or gcloud CLI:
+ * gcloud storage buckets update gs://BUCKET_NAME --encryption-key=projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY_NAME
+ */
+const encryptFileBeforeUpload = async (filePath) => {
+  if (!config.encryption.enabled) {
+    return { encrypted: false, path: filePath };
+  }
+
+  try {
+    // Read file
+    const fileBuffer = await fsPromises.readFile(filePath);
+    
+    // Encrypt file content
+    // For large files, we use a streaming approach with a DEK
+    const { encryptedKey, keyPath } = await keyManagementService.generateDataEncryptionKey();
+    const dek = await keyManagementService.decryptDataEncryptionKey(encryptedKey, keyPath);
+    
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-gcm', dek, iv);
+    
+    let encrypted = cipher.update(fileBuffer);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    const tag = cipher.getAuthTag();
+    
+    // Combine: encryptedKeyLength + encryptedKey + IV + tag + encrypted data
+    const encryptedKeyBuffer = Buffer.from(encryptedKey);
+    const encryptedKeyLength = Buffer.alloc(4);
+    encryptedKeyLength.writeUInt32BE(encryptedKeyBuffer.length, 0);
+    
+    const encryptedBuffer = Buffer.concat([
+      encryptedKeyLength,
+      encryptedKeyBuffer,
+      iv,
+      tag,
+      encrypted,
+    ]);
+    
+    // Write encrypted file to temp location
+    const tempPath = filePath + '.encrypted';
+    await fsPromises.writeFile(tempPath, encryptedBuffer);
+    
+    return {
+      encrypted: true,
+      path: tempPath,
+      originalPath: filePath,
+      cleanup: async () => {
+        try {
+          await fsPromises.unlink(tempPath);
+        } catch (err) {
+          // Ignore cleanup errors
+        }
+      }
+    };
+  } catch (error) {
+    console.error('[GCS] File encryption error:', error.message);
+    // Return original file if encryption fails
+    return { encrypted: false, path: filePath };
+  }
+};
+
+/**
+ * Decrypt file after download (if encryption is enabled)
+ */
+const decryptFileAfterDownload = async (filePath) => {
+  if (!config.encryption.enabled) {
+    return { decrypted: false, path: filePath };
+  }
+
+  try {
+    // Read encrypted file
+    const encryptedBuffer = await fsPromises.readFile(filePath);
+    
+    // Check if file is encrypted (has our encryption format)
+    if (encryptedBuffer.length < 4 + 16 + 16) {
+      // File is not encrypted or too small
+      return { decrypted: false, path: filePath };
+    }
+    
+    // Extract components
+    let offset = 0;
+    const encryptedKeyLength = encryptedBuffer.readUInt32BE(offset);
+    offset += 4;
+    
+    if (encryptedBuffer.length < offset + encryptedKeyLength + 16 + 16) {
+      // Invalid format, file might not be encrypted
+      return { decrypted: false, path: filePath };
+    }
+    
+    const encryptedKey = encryptedBuffer.slice(offset, offset + encryptedKeyLength);
+    offset += encryptedKeyLength;
+    
+    const iv = encryptedBuffer.slice(offset, offset + 16);
+    offset += 16;
+    
+    const tag = encryptedBuffer.slice(offset, offset + 16);
+    offset += 16;
+    
+    const encrypted = encryptedBuffer.slice(offset);
+    
+    // Decrypt DEK using KMS
+    const dek = await keyManagementService.decryptDataEncryptionKey(encryptedKey);
+    
+    // Decrypt file
+    const decipher = crypto.createDecipheriv('aes-256-gcm', dek, iv);
+    decipher.setAuthTag(tag);
+    
+    let decrypted = decipher.update(encrypted);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    
+    // Write decrypted file
+    const decryptedPath = filePath.replace('.encrypted', '') || filePath + '.decrypted';
+    await fsPromises.writeFile(decryptedPath, decrypted);
+    
+    return {
+      decrypted: true,
+      path: decryptedPath,
+      originalPath: filePath,
+      cleanup: async () => {
+        try {
+          await fsPromises.unlink(decryptedPath);
+        } catch (err) {
+          // Ignore cleanup errors
+        }
+      }
+    };
+  } catch (error) {
+    console.error('[GCS] File decryption error:', error.message);
+    // Return original file if decryption fails
+    return { decrypted: false, path: filePath };
+  }
+};
+
 const uploadRecordingToBucket = async ({
   localPath,
   recordingId,
@@ -62,15 +200,27 @@ const uploadRecordingToBucket = async ({
   ensureBucket();
   const destination = buildObjectName(recordingId, filename);
 
-  await bucket.upload(localPath, {
-    destination,
-    resumable: false,
-    metadata: mimetype
-      ? {
-          contentType: mimetype
-        }
-      : undefined
-  });
+  // Encrypt file before upload if encryption is enabled
+  let encryptionResult = { encrypted: false, path: localPath, cleanup: async () => {} };
+  if (config.encryption.enabled) {
+    encryptionResult = await encryptFileBeforeUpload(localPath);
+  }
+
+  try {
+    await bucket.upload(encryptionResult.path, {
+      destination,
+      resumable: false,
+      metadata: {
+        ...(mimetype ? { contentType: mimetype } : {}),
+        // Add metadata to indicate encryption
+        ...(encryptionResult.encrypted ? { 
+          metadata: { 
+            encrypted: 'true',
+            encryptionAlgorithm: 'aes-256-gcm'
+          } 
+        } : {})
+      }
+    });
 
   const file = bucket.file(destination);
   let publicUrl;
@@ -92,11 +242,24 @@ const uploadRecordingToBucket = async ({
     publicUrl = `gs://${storageConfig.bucketName}/${destination}`;
   }
 
-  return {
-    objectName: destination,
-    publicUrl,
-    gcsUri: `gs://${storageConfig.bucketName}/${destination}`
-  };
+    // Cleanup encrypted temp file
+    if (encryptionResult.cleanup) {
+      await encryptionResult.cleanup();
+    }
+
+    return {
+      objectName: destination,
+      publicUrl,
+      gcsUri: `gs://${storageConfig.bucketName}/${destination}`,
+      encrypted: encryptionResult.encrypted
+    };
+  } catch (error) {
+    // Cleanup on error
+    if (encryptionResult.cleanup) {
+      await encryptionResult.cleanup();
+    }
+    throw error;
+  }
 };
 
 /**
@@ -214,18 +377,43 @@ const downloadRecordingFromBucket = async (objectName, options = {}) => {
   const tempFilename = `${options.prefix || 'recording'}_${Date.now()}${extension}`;
   const destinationPath = path.join(tempDir, tempFilename);
 
+  // Download file
   await bucket.file(objectName).download({
     destination: destinationPath
   });
 
-  const stats = await fsPromises.stat(destinationPath);
+  // Check if file is encrypted and decrypt if needed
+  let decryptionResult = { decrypted: false, path: destinationPath, cleanup: async () => {} };
+  if (config.encryption.enabled) {
+    // Check metadata to see if file is encrypted
+    const [metadata] = await bucket.file(objectName).getMetadata();
+    if (metadata.metadata && metadata.metadata.encrypted === 'true') {
+      decryptionResult = await decryptFileAfterDownload(destinationPath);
+      // Cleanup encrypted file after decryption
+      if (decryptionResult.decrypted && decryptionResult.originalPath !== decryptionResult.path) {
+        try {
+          await fsPromises.unlink(decryptionResult.originalPath);
+        } catch (err) {
+          // Ignore cleanup errors
+        }
+      }
+    }
+  }
+
+  const finalPath = decryptionResult.decrypted ? decryptionResult.path : destinationPath;
+  const stats = await fsPromises.stat(finalPath);
 
   return {
-    localPath: destinationPath,
+    localPath: finalPath,
     size: stats.size,
+    encrypted: decryptionResult.decrypted || false,
     cleanup: async () => {
       try {
-        await fsPromises.unlink(destinationPath);
+        await fsPromises.unlink(finalPath);
+        // Also cleanup decrypted temp file if it exists
+        if (decryptionResult.cleanup) {
+          await decryptionResult.cleanup();
+        }
       } catch (err) {
         if (err.code !== 'ENOENT') {
           console.error('[GCS] Failed to delete temp file:', err.message);

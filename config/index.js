@@ -71,5 +71,18 @@ module.exports = {
     team: {
         email: process.env.TEAM_EMAIL,
         name:  process.env.TEAM_NAME
+    },
+    encryption: {
+        enabled: process.env.ENCRYPTION_ENABLED === 'true',
+        algorithm: process.env.ENCRYPTION_ALGORITHM || 'aes-256-gcm',
+        keyRotationDays: parseInt(process.env.KEY_ROTATION_DAYS, 10) || 90,
+    },
+    kms: {
+        projectId: process.env.GCP_KMS_PROJECT_ID || process.env.GOOGLE_PROJECT_ID,
+        location: process.env.GCP_KMS_LOCATION || 'us-central1',
+        keyRing: process.env.GCP_KMS_KEY_RING || 'hipaa-encryption-keys',
+        keyName: process.env.GCP_KMS_KEY_NAME || 'phi-encryption-key',
+        keyVersion: process.env.GCP_KMS_KEY_VERSION || '1',
+        credentialsPath: process.env.GCP_KMS_CREDENTIALS_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE,
     }
 };

@@ -17,6 +17,7 @@
     "@getbrevo/brevo": "^2.5.0",
     "@google-cloud/speech": "^7.2.1",
     "@google-cloud/storage": "^7.17.3",
+    "@google-cloud/kms": "^4.0.0",
     "@google-cloud/vertexai": "^1.10.0",
     "@google/generative-ai": "^0.21.0",
     "assemblyai": "^4.19.0",
