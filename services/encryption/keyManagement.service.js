@@ -44,9 +44,22 @@ class KeyManagementService {
   }
 
   /**
-   * Get the full key path
+   * Get the crypto key path (for encrypt/decrypt operations)
+   * For symmetric keys, we use the crypto key path, not the version path
    */
-  getKeyPath(keyVersion = null) {
+  getCryptoKeyPath() {
+    return this.client.cryptoKeyPath(
+      config.kms.projectId,
+      config.kms.location,
+      config.kms.keyRing,
+      config.kms.keyName
+    );
+  }
+
+  /**
+   * Get the crypto key version path (for version-specific operations)
+   */
+  getKeyVersionPath(keyVersion = null) {
     const version = keyVersion || config.kms.keyVersion;
     return this.client.cryptoKeyVersionPath(
       config.kms.projectId,
@@ -82,21 +95,17 @@ class KeyManagementService {
     }
 
     try {
-      const keyPath = this.getKeyPath(keyVersion);
-      const [publicKey] = await this.client.getPublicKey({
-        name: keyPath,
-      });
+      // For symmetric keys, getPublicKey is not applicable
+      // We'll use the crypto key path directly for envelope encryption
+      const keyPath = this.getCryptoKeyPath();
 
-      // For symmetric encryption, we use the key material directly
-      // Note: GCP KMS symmetric keys don't expose raw key material
-      // We'll use envelope encryption instead
-      const keyMaterial = publicKey.pem || publicKey.name;
-
-      // Cache the key
-      this.keyCache.set(cacheKey, keyMaterial);
+      // For symmetric keys, we don't get a public key
+      // We'll use the key path for envelope encryption
+      // Cache the key path
+      this.keyCache.set(cacheKey, keyPath);
       this.keyCacheExpiry.set(cacheKey, now + this.cacheTimeout);
 
-      return keyMaterial;
+      return keyPath;
     } catch (error) {
       console.error('[KMS] Failed to get encryption key:', error.message);
       throw new Error(`Failed to retrieve encryption key: ${error.message}`);
@@ -117,7 +126,8 @@ class KeyManagementService {
     const dek = crypto.randomBytes(32);
 
     try {
-      const keyPath = this.getKeyPath();
+      // For symmetric keys, use crypto key path (not version path)
+      const keyPath = this.getCryptoKeyPath();
       const [encryptedDek] = await this.client.encrypt({
         name: keyPath,
         plaintext: dek,
@@ -144,7 +154,8 @@ class KeyManagementService {
     await this.initialize();
 
     try {
-      const path = keyPath || this.getKeyPath();
+      // For symmetric keys, use crypto key path (not version path)
+      const path = keyPath || this.getCryptoKeyPath();
       const [decryptedDek] = await this.client.decrypt({
         name: path,
         ciphertext: encryptedDek,
@@ -168,12 +179,7 @@ class KeyManagementService {
     await this.initialize();
 
     try {
-      const cryptoKeyPath = this.client.cryptoKeyPath(
-        config.kms.projectId,
-        config.kms.location,
-        config.kms.keyRing,
-        config.kms.keyName
-      );
+      const cryptoKeyPath = this.getCryptoKeyPath();
 
       const [operation] = await this.client.updateCryptoKeyPrimaryVersion({
         name: cryptoKeyPath,
@@ -199,12 +205,7 @@ class KeyManagementService {
     await this.initialize();
 
     try {
-      const cryptoKeyPath = this.client.cryptoKeyPath(
-        config.kms.projectId,
-        config.kms.location,
-        config.kms.keyRing,
-        config.kms.keyName
-      );
+      const cryptoKeyPath = this.getCryptoKeyPath();
 
       const [versions] = await this.client.listCryptoKeyVersions({
         parent: cryptoKeyPath,

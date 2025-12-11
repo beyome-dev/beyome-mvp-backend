@@ -43,11 +43,17 @@ const transcriptionState = {
   getActiveCount: () => transcriptionState.activeTranscriptions.size
 };
 
+const transcriptionToolOrder = config.transcriptionConfig.transcriptionToolOrder || ['sarvam','assemblyai','openai','google','salad'];
+const toolOrderMapped = transcriptionToolOrder.reduce((acc, tool, index) => {
+  acc[tool] = index;
+  return acc;
+}, {});
+
 // Configuration
 const TRANSCRIPTION_CONFIG = {
   salad: {
     apiKey: config.transcriptionConfig.saladAPIKey,
-    priority: 4,
+    priority: toolOrderMapped.salad || 5,
     maxRetries: 2,
     timeout: 300000, // 5 minutes
     supports: { streaming: false, batch: true },
@@ -60,7 +66,7 @@ const TRANSCRIPTION_CONFIG = {
   },
   openai: {
     apiKey: config.transcriptionConfig.openAIAPIKey,
-    priority: 2,
+    priority: toolOrderMapped.openai || 3,
     maxRetries: 2,
     timeout: 180000, // 3 minutes
     supports: { streaming: false, batch: true },
@@ -82,7 +88,7 @@ const TRANSCRIPTION_CONFIG = {
   },
   assemblyai: {
     apiKey: config.transcriptionConfig.assemblyAIAPIKey,
-    priority: 1,
+    priority: toolOrderMapped.assemblyai || 2,
     maxRetries: 2,
     timeout: 240000, // 4 minutes
     supports: { streaming: true, batch: true },
@@ -96,7 +102,7 @@ const TRANSCRIPTION_CONFIG = {
   google: {
     apiKey: config.google.apiKey,
     projectId: config.google.projectID,
-    priority: 3,
+    priority: toolOrderMapped.google || 4,
     maxRetries: 2,
     timeout: 240000,
     supports: { streaming: true, batch: true },
@@ -122,7 +128,7 @@ const TRANSCRIPTION_CONFIG = {
   },
   sarvam: {
     apiKey: config.transcriptionConfig.sarvamAPIKey,
-    priority: 3,
+    priority: toolOrderMapped.sarvam || 1,
     maxRetries: 2,
     timeout: 180000, // 3 minutes
     supports: { streaming: false, batch: true },
@@ -234,7 +240,7 @@ const requestTranscription = async (file, recordingId, options = {}) => {
   
   try {
     const {
-      preferredTool = config.transcriptionConfig.default || 'openai',
+      preferredTool = config.transcriptionConfig.default || 'sarvam',
       enableFallback = true,
       maxAttempts = 3,
       onChunkProgress,

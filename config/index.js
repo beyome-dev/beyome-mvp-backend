@@ -60,8 +60,11 @@ module.exports = {
         saladAPIKey: process.env.SALAD_API_KEY,
         openAIAPIKey: process.env.OPENAI_API_KEY,
         assemblyAIAPIKey: process.env.ASSEMBLYAI_API_KEY,
-        googleKeyPath: process.env.GOOGLE_KEY_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE,
+        googleKeyPath: process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_KEY_PATH || process.env.GCS_KEY_FILE,
         sarvamAPIKey: process.env.SARVAM_API_KEY,
+        transcriptionToolOrder: (process.env.TRANSCRIBE_TOOL_ORDER
+            ? process.env.TRANSCRIBE_TOOL_ORDER.split(',')
+            : ['openai','assemblyai','google','salad','sarvam']),
     },
     chunkMaxDuration: parseInt(process.env.CHUNK_MAX_DURATION_SECONDS) || 600,
     chunkOverlap: parseInt(process.env.CHUNK_OVERLAP_SECONDS) || 5,
@@ -78,11 +81,11 @@ module.exports = {
         keyRotationDays: parseInt(process.env.KEY_ROTATION_DAYS, 10) || 90,
     },
     kms: {
-        projectId: process.env.GCP_KMS_PROJECT_ID || process.env.GOOGLE_PROJECT_ID,
-        location: process.env.GCP_KMS_LOCATION || 'us-central1',
-        keyRing: process.env.GCP_KMS_KEY_RING || 'hipaa-encryption-keys',
-        keyName: process.env.GCP_KMS_KEY_NAME || 'phi-encryption-key',
-        keyVersion: process.env.GCP_KMS_KEY_VERSION || '1',
-        credentialsPath: process.env.GCP_KMS_CREDENTIALS_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE,
+        projectId: process.env.GOOGLE_PROJECT_ID,
+        location: process.env.GOOGLE_KMS_LOCATION || process.env.GOOGLE_PROJECT_LOCATION || 'global',
+        keyRing: process.env.GOOGLE_KMS_KEY_RING || 'recapp-hipaa-encryption-keys',
+        keyName: process.env.GOOGLE_KMS_KEY_NAME || 'phi-encryption-key',
+        keyVersion: process.env.GOOGLE_KMS_KEY_VERSION || '1',
+        credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE,
     }
 };
