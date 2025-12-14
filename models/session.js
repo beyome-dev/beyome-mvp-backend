@@ -36,6 +36,10 @@ const sessionSchema = new Schema({
         default: 'in_progress',
         index: true
     },
+    organization: {
+      type: Schema.Types.ObjectId,
+      ref: 'Organization',
+    },
     location: String,
     title: String,
     // Embedded recording metadata (summary info only)
