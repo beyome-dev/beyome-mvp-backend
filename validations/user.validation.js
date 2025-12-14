@@ -133,7 +133,7 @@ const registerSchema = {
         personalInterests: Joi.array().items(personalInterestSchema).optional(),
         faq: Joi.array().items(faqSchema).optional(),
         enableDiscovery: Joi.boolean().default(true),
-        userType: Joi.string().valid('psychiatrist', 'therapist', 'receptionist', 'org_admin', 'platform_admin', 'manager').default('therapist'),
+        userType: Joi.string().valid('psychiatrist', 'therapist', 'receptionist', 'org_admin', 'manager').default('therapist'),
         isDoctor: Joi.boolean().default(false),
         office_location: Joi.string().optional(),
         tags: Joi.array().items(Joi.string()).optional(),

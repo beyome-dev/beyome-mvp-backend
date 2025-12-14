@@ -5,11 +5,8 @@ async function createSession(req, res) {
     try {
         //TODO: Need to handle receptionist scenario where receptionist can create session for other therapistIds
         // Check if the user is a receptionist or org_admin
-        if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
-            req.body.organization = req.user.organization;
-        } else {
-            req.body.therapistId = req.user._id;
-        }
+        req.body.organization = req.user.organization;
+        req.body.therapistId = req.user._id;
         const session = await sessionService.createSession(req.body, req.user);
         res.status(201).json(session);
     } catch (error) {
@@ -24,9 +21,11 @@ async function getAllSessions(req, res) {
         let filter = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
-        filter = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-            ? { organization: req.user.organization, ...filter }
-            : { therapistId: req.user._id, ...filter };
+        filter.therapistId = req.user._id;
+        filter.organization = req.user.organization;
+        // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
+        //     delete filter.therapistId;
+        // }
              
         const sessions = await sessionService.getAllSessions(filter, page, limit, req.user);
         res.json(sessions);
@@ -56,7 +55,7 @@ async function updateSession(req, res) {
         const session = await sessionService.getSessionById(req.params.id);
         if (!session || 
             ((req.user.userType !== "receptionist" && req.user.userType !== "org_admin") && session.therapistId._id.toString() !== req.user._id.toString()) ||
-            ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && session.organization.toString() !== req.user.organization)) {
+            ((req.user.userType === "receptionist" || req.user.userType === "org_admin") && session.organization.toString() !== req.user.organization.toString())) {
             return res.status(404).json({ message: "Session not found" });
         }
         delete req.body.organization; // Prevent organization change

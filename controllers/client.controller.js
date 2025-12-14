@@ -7,6 +7,7 @@ const config = require('../config');
 // @access  Private
 module.exports.createClient = async (req, res) => {
     try {
+      req.body.organization = req.user.organization;
       req.body.handler = req.user._id
       const byPassCheck = req.query.byPassCheck ? req.query.byPassCheck : false
       const client = await clientService.createClient(req.body, req.user._id, byPassCheck);
@@ -25,10 +26,12 @@ module.exports.getClients = async (req, res) => {
         let filters = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
+        filter.therapistId = req.user._id;
+        filter.organization = req.user.organization;
+        // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
+        //     delete filter.therapistId;
+        // }
 
-        filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-            ? { organization: req.user.organization, ...filters }
-            : { handler: req.user._id, ...filters };
         const clients = await clientService.getClients(filters, page, limit, req.user);
         res.status(200).send(clients);
     } catch (error) {
@@ -90,9 +93,11 @@ module.exports.getClientNames = async (req, res) => {
         let filters = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
-        // filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-        //     ? { organization: req.user.organization, ...filters }
-        //     : { handler: req.user._id, ...filters };
+        filter.therapistId = req.user._id;
+        filter.organization = req.user.organization;
+        // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
+        //     delete filter.therapistId;
+        // }
 
         const client = await clientService.getClientNames(filters, page, limit);
         res.status(201).json(client);
@@ -107,10 +112,12 @@ module.exports.getClientsWithInfo = async (req, res) => {
         let filters = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
-
-        filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-            ? { organization: req.user.organization, ...filters }
-            : { handler: req.user._id, ...filters };
+        filter.therapistId = req.user._id;
+        filter.organization = req.user.organization;
+        // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
+        //     delete filter.therapistId;
+        // }
+        
         const client = await clientService.getClientsWithData(filters, page, limit, req.user);
         res.status(201).json(client);
     } catch (error) {
