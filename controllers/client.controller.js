@@ -90,9 +90,9 @@ module.exports.getClientNames = async (req, res) => {
         let filters = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
-        filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
-            ? { organization: req.user.organization, ...filters }
-            : { handler: req.user._id, ...filters };
+        // filters = req.user.userType === "receptionist" || req.user.userType === "org_admin"
+        //     ? { organization: req.user.organization, ...filters }
+        //     : { handler: req.user._id, ...filters };
 
         const client = await clientService.getClientNames(filters, page, limit);
         res.status(201).json(client);

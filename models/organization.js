@@ -6,6 +6,7 @@ const OrganizationSchema = new mongoose.Schema({
     phone: { type: String },
     email: { type: String },
     website: { type: String },
+    logoUrl: { type: String },
     admin: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
 }, {
     timestamps: true

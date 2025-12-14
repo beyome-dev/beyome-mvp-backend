@@ -56,7 +56,7 @@ module.exports = {
         confirmUrl: process.env.CLIENT_CONFIRM_URL,
     },
     transcriptionConfig: {
-        default: process.env.DEFAULT_TRANSCRIBE_TOOL || 'openai',
+        default: process.env.DEFAULT_TRANSCRIBE_TOOL || 'sarvam',
         saladAPIKey: process.env.SALAD_API_KEY,
         openAIAPIKey: process.env.OPENAI_API_KEY,
         assemblyAIAPIKey: process.env.ASSEMBLYAI_API_KEY,
@@ -64,7 +64,7 @@ module.exports = {
         sarvamAPIKey: process.env.SARVAM_API_KEY,
         transcriptionToolOrder: (process.env.TRANSCRIBE_TOOL_ORDER
             ? process.env.TRANSCRIBE_TOOL_ORDER.split(',')
-            : ['openai','assemblyai','google','salad','sarvam']),
+            : ['sarvam','openai','assemblyai','google','salad']),
     },
     chunkMaxDuration: parseInt(process.env.CHUNK_MAX_DURATION_SECONDS) || 600,
     chunkOverlap: parseInt(process.env.CHUNK_OVERLAP_SECONDS) || 5,

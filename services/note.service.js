@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const clientService = require('./client.service');
 const bookingService = require("./booking.service");
 const { requestTranscription } = require('../services/audioProcessing/transcribeAudio.service');
-const { Client, Booking, Note, Prompt } = require('../models');
+const { Booking, Note, Prompt, Organization } = require('../models');
 const puppeteer = require('puppeteer');
 const { VertexAI } = require('@google-cloud/vertexai');
 
@@ -606,76 +606,283 @@ const reprocessNote = async (noteId, params, io) => {
     }
 }
 
-
-
 const generateTherapyNotePDF = async (noteId) => {
     const note = await Note.findById(noteId);
     if (!note) throw new Error('Note not found');
+    
     const clientData = await clientService.getClientById(note.client);
     const createdAt = note.createdAt;
     const day = String(createdAt.getDate()).padStart(2, '0');
-    const month = String(createdAt.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+    const month = String(createdAt.getMonth() + 1).padStart(2, '0');
     const year = createdAt.getFullYear();
 
+    // Format time
+    const hours = String(createdAt.getHours()).padStart(2, '0');
+    const minutes = String(createdAt.getMinutes()).padStart(2, '0');
+    const ampm = createdAt.getHours() >= 12 ? 'PM' : 'AM';
+    const displayHours = createdAt.getHours() % 12 || 12;
+    const formattedTime = `${displayHours}:${minutes} ${ampm}`;
+
     const formattedDate = `${day}-${month}-${year}`;
-    const filename = clientData ? `${clientData.firstName}_${clientData.lastName}_therapy_note_${formattedDate}.pdf` : `therapy_note_${formattedDate}.pdf`;
+    const filename = clientData 
+        ? `${clientData.firstName}_${clientData.lastName}_therapy_note_${formattedDate}.pdf` 
+        : `therapy_note_${formattedDate}.pdf`;
     const filePath = path.join(__dirname, '..', 'temp', filename);
 
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const organization = await Organization.findById(note.organization).select('logoUrl');
+    let userLogoUrl = 'https://recapp.beyome.in/Recapp-Green.png';
+    if (organization && organization.logoUrl) {
+        userLogoUrl = organization.logoUrl;
+    }
+    // Create header info
+    const headerInfo = {
+        title: note.title || 'Therapy Note',
+        date: formattedDate,
+        time: formattedTime,
+        createdBy: note.user ? await getUserName(note.user) : 'Therapist',
+        clientName: clientData ? `${clientData.firstName} ${clientData.lastName}` : 'Client'
+    };
 
-    // Wrap for PDF
-    const fullHTML = wrapHTMLForPDF(note.formattedContent);
+    // Wrap for PDF with proper formatting
+    const fullHTML = wrapHTMLForPDF(note.formattedContent, headerInfo, userLogoUrl);
     
     await generatePDF(fullHTML, filePath);
 
     return { filePath, filename };
 };
 
-function wrapHTMLForPDF(innerHTML) {
+async function getUserName(userId) {
+    // Implement this based on your User model
+    try {
+        const user = await User.findById(userId);
+        return user ? `${user.firstName} ${user.lastName}` : 'Therapist';
+    } catch (error) {
+        return 'Therapist';
+    }
+}
+
+function wrapHTMLForPDF(innerHTML, headerInfo, userLogoUrl) {
+    // Clean and prepare content
+    const cleanContent = innerHTML || '';
+    
     return `
+        <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
             <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    padding: 40px;
-                    font-size: 14px;
-                    line-height: 1.6;
-                    color: #222;
-                    position: relative;
+                @page {
+                    margin: 0;
+                    size: A4;
+                }
+                
+                * {
+                    margin: 0;
+                    padding: 0;
                     box-sizing: border-box;
                 }
-                h1, h2, h3 {
+                
+                body {
+                    font-family: 'Arial', sans-serif;
+                    font-size: 11pt;
+                    line-height: 1.6;
+                    color: #222;
+                    padding: 60px 50px 120px 50px;
+                    position: relative;
+                }
+                
+                /* Header with logo */
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 2px solid #4A90E2;
+                }
+                
+                .header-logo {
+                    max-height: 60px;
+                    max-width: 200px;
+                    margin-bottom: 15px;
+                }
+                
+                .header-title {
+                    font-size: 20pt;
                     font-weight: bold;
+                    color: #2C3E50;
+                    margin-bottom: 8px;
+                }
+                
+                /* Metadata section */
+                .metadata {
+                    margin-bottom: 25px;
+                    font-size: 10pt;
+                    color: #555;
+                }
+                
+                .metadata-row {
+                    margin-bottom: 4px;
+                }
+                
+                .metadata-label {
+                    font-weight: bold;
+                    display: inline-block;
+                    min-width: 100px;
+                }
+                
+                /* Content styling */
+                .content {
+                    margin-bottom: 0;
+                    min-height: calc(100vh - 280px);
+                }
+                
+                .content h1 {
+                    font-size: 16pt;
+                    font-weight: bold;
+                    color: #2C3E50;
+                    margin-top: 25px;
+                    margin-bottom: 12px;
+                    padding-bottom: 5px;
+                    border-bottom: 1px solid #E0E0E0;
+                }
+                
+                .content h2 {
+                    font-size: 14pt;
+                    font-weight: bold;
+                    color: #34495E;
                     margin-top: 20px;
                     margin-bottom: 10px;
                 }
-                p { margin: 4px 0; }
-                .footer-watermark {
+                
+                .content h3 {
+                    font-size: 12pt;
+                    font-weight: bold;
+                    color: #34495E;
+                    margin-top: 15px;
+                    margin-bottom: 8px;
+                }
+                
+                .content p {
+                    margin-bottom: 10px;
+                    text-align: justify;
+                }
+                
+                .content ul, .content ol {
+                    margin-left: 25px;
+                    margin-bottom: 12px;
+                }
+                
+                .content li {
+                    margin-bottom: 6px;
+                }
+                
+                .content strong {
+                    font-weight: bold;
+                    color: #2C3E50;
+                }
+                
+                .content em {
+                    font-style: italic;
+                }
+                
+                /* Footer - Fixed at bottom of each page */
+                .footer {
                     position: fixed;
                     bottom: 20px;
-                    right: 20px;
-                    font-size: 10px;
-                    color: #888;
+                    left: 50px;
+                    right: 50px;
+                    height: 40px;
+                    padding: 10px 0;
                     display: flex;
+                    justify-content: space-between;
                     align-items: center;
                     z-index: 1000;
+                    border-top: 1px solid #E0E0E0;
+                    background: white;
                 }
-                .footer-watermark img {
-                    height: 12px;
-                    margin-left: 5px;
+                
+                .footer-left {
+                    font-size: 8pt;
+                    color: #999;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                
+                .footer-left-logo {
+                    height: 16px;
+                    vertical-align: middle;
+                }
+                
+                .footer-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 8pt;
+                    color: #888;
+                }
+                
+                .footer-logo {
+                    height: 14px;
+                    vertical-align: middle;
+                }
+                
+                /* Page break handling */
+                .page-break {
+                    page-break-after: always;
+                }
+                
+                /* Prevent orphans and widows */
+                h1, h2, h3 {
+                    page-break-after: avoid;
+                }
+                
+                p {
+                    orphans: 3;
+                    widows: 3;
                 }
             </style>
         </head>
         <body>
-            ${innerHTML}
-            <div class="footer-watermark">
-                Powered by <img src="https://recapp.beyome.in/Recapp-Green.png" alt="Logo">
+            <!-- Header Section -->
+            <div class="header">
+                ${userLogoUrl ? `<img src="${userLogoUrl}" alt="Logo" class="header-logo" />` : ''}
+                <div class="header-title">${headerInfo.title}</div>
+            </div>
+            
+            <!-- Metadata Section -->
+            <div class="metadata">
+                <div class="metadata-row">
+                    <span class="metadata-label">Date:</span>
+                    <span>${headerInfo.date}</span>
+                </div>
+                <div class="metadata-row">
+                    <span class="metadata-label">Time:</span>
+                    <span>${headerInfo.time}</span>
+                </div>
+                <div class="metadata-row">
+                    <span class="metadata-label">Created by:</span>
+                    <span>${headerInfo.createdBy}</span>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="content">
+                ${cleanContent}
+            </div>
+            
+            <!-- Footer - Fixed at bottom -->
+            <div class="footer">
+                <div class="footer-left">
+                    <span>Generated on ${new Date().toLocaleDateString('en-GB')}</span>
+                </div>
+                <div class="footer-right">
+                    <img src="https://recapp.beyome.in/Recapp-Green.png" alt="Recapp" class="footer-logo" />
+                </div>
             </div>
         </body>
         </html>
-    `.replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
+    `;
 }
 
 /**
@@ -688,33 +895,48 @@ function wrapHTMLForPDF(innerHTML) {
 async function generatePDF(htmlContent, outputPath, options = {}) {
     const browser = await puppeteer.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process'
+        ]
     });
 
     try {
         const page = await browser.newPage();
 
-        // Basic styling to enhance PDF readability
-        const styledHTML = `
-            <html>
-            <head>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 40px; font-size: 14px; line-height: 1.6; }
-                    div { margin-bottom: 6px; }
-                    .title { text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
-                </style>
-            </head>
-            <body>${htmlContent}</body>
-            </html>
-        `;
+        // Set content and wait for images to load
+        await page.setContent(htmlContent, { 
+            waitUntil: ['networkidle0', 'load', 'domcontentloaded']
+        });
 
-        await page.setContent(styledHTML, { waitUntil: 'networkidle0' });
+        // Wait for all images to load completely
+        await page.evaluate(() => {
+            return Promise.all(
+                Array.from(document.images)
+                    .filter(img => !img.complete)
+                    .map(img => new Promise(resolve => {
+                        img.onload = img.onerror = resolve;
+                    }))
+            );
+        });
 
+        // Additional wait for any images to fully render
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Generate PDF with proper settings
         await page.pdf({
             path: outputPath,
             format: options.format || 'A4',
             printBackground: options.printBackground ?? true,
-            margin: options.margin || { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' }
+            margin: {
+                top: '0mm',
+                bottom: '0mm',
+                left: '0mm',
+                right: '0mm'
+            },
+            preferCSSPageSize: true
         });
 
         console.log(`✅ PDF generated successfully at: ${path.resolve(outputPath)}`);
@@ -724,10 +946,6 @@ async function generatePDF(htmlContent, outputPath, options = {}) {
     } finally {
         await browser.close();
     }
-}
-
-generateNoteForSession = async (sessionTranscript, noteId, io) => {
-    
 }
 
 module.exports = {
