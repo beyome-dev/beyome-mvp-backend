@@ -130,6 +130,7 @@ const startRecordingSession = async (user) => {
     // Create new session
     const newSession = new Session({
       therapistId,
+      organization: user.organization,
       clientId: unknownClient._id,
       sessionDate: new Date(),
       status: 'in_progress',

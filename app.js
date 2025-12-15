@@ -74,8 +74,49 @@ app.use((req, res, next) => {
     next();
 });
 
-// 2. Security headers
-app.use(helmet());
+// 2. Security headers with HTTPS enforcement
+const helmetConfig = {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  // Enforce HTTPS in production
+  ...(process.env.NODE_ENV === 'production' && {
+    forceHTTPS: true
+  })
+};
+
+app.use(helmet(helmetConfig));
+
+// HTTPS enforcement middleware (for production)
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    // Check if request is secure (HTTPS)
+    // In production behind a proxy (like Heroku, AWS ELB), check X-Forwarded-Proto header
+    const isSecure = req.secure || 
+                     req.headers['x-forwarded-proto'] === 'https' ||
+                     req.headers['x-forwarded-ssl'] === 'on';
+    
+    if (!isSecure && req.method !== 'GET') {
+      // For non-GET requests, redirect to HTTPS
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    
+    // Set HSTS header
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    
+    next();
+  });
+}
 
 // 3. CORS - MUST come before body parsers
 // Allow localhost in development, use strict config in production

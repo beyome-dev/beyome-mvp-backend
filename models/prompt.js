@@ -27,6 +27,20 @@ const PromptSchema = new Schema({
         type: [String],
         required: true
     },
+    roles: {
+        type: [String],
+        required: true,
+        default: 'all-users',
+        enum: [
+            'psychiatrist',       // Doctors with full access to app features
+            'therapist',          // Psychologists with slightly fewer permissions
+            'receptionist',       // Handles bookings, scheduling, and client inbounds
+            'org_admin',          // Organization admin with extended privileges
+            'platform_admin',     // Internal/admin-only access for platform control
+            'manager',
+            "all-users"
+        ]
+    },
     specialtyTypes: {
         type: [String],
         required: true

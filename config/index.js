@@ -56,12 +56,15 @@ module.exports = {
         confirmUrl: process.env.CLIENT_CONFIRM_URL,
     },
     transcriptionConfig: {
-        default: process.env.DEFAULT_TRANSCRIBE_TOOL || 'openai',
+        default: process.env.DEFAULT_TRANSCRIBE_TOOL || 'sarvam',
         saladAPIKey: process.env.SALAD_API_KEY,
         openAIAPIKey: process.env.OPENAI_API_KEY,
         assemblyAIAPIKey: process.env.ASSEMBLYAI_API_KEY,
-        googleKeyPath: process.env.GOOGLE_KEY_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE,
+        googleKeyPath: process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_KEY_PATH || process.env.GCS_KEY_FILE,
         sarvamAPIKey: process.env.SARVAM_API_KEY,
+        transcriptionToolOrder: (process.env.TRANSCRIBE_TOOL_ORDER
+            ? process.env.TRANSCRIBE_TOOL_ORDER.split(',')
+            : ['sarvam','openai','assemblyai','google','salad']),
     },
     chunkMaxDuration: parseInt(process.env.CHUNK_MAX_DURATION_SECONDS) || 600,
     chunkOverlap: parseInt(process.env.CHUNK_OVERLAP_SECONDS) || 5,
@@ -71,5 +74,18 @@ module.exports = {
     team: {
         email: process.env.TEAM_EMAIL,
         name:  process.env.TEAM_NAME
+    },
+    encryption: {
+        enabled: process.env.ENCRYPTION_ENABLED === 'true',
+        algorithm: process.env.ENCRYPTION_ALGORITHM || 'aes-256-gcm',
+        keyRotationDays: parseInt(process.env.KEY_ROTATION_DAYS, 10) || 90,
+    },
+    kms: {
+        projectId: process.env.GOOGLE_PROJECT_ID,
+        location: process.env.GOOGLE_KMS_LOCATION || process.env.GOOGLE_PROJECT_LOCATION || 'global',
+        keyRing: process.env.GOOGLE_KMS_KEY_RING || 'recapp-hipaa-encryption-keys',
+        keyName: process.env.GOOGLE_KMS_KEY_NAME || 'phi-encryption-key',
+        keyVersion: process.env.GOOGLE_KMS_KEY_VERSION || '1',
+        credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCS_KEY_FILE,
     }
 };

@@ -43,11 +43,17 @@ const transcriptionState = {
   getActiveCount: () => transcriptionState.activeTranscriptions.size
 };
 
+const transcriptionToolOrder = config.transcriptionConfig.transcriptionToolOrder || ['sarvam','assemblyai','openai','google','salad'];
+const toolOrderMapped = transcriptionToolOrder.reduce((acc, tool, index) => {
+  acc[tool] = index;
+  return acc;
+}, {});
+
 // Configuration
 const TRANSCRIPTION_CONFIG = {
   salad: {
     apiKey: config.transcriptionConfig.saladAPIKey,
-    priority: 4,
+    priority: toolOrderMapped.salad || 5,
     maxRetries: 2,
     timeout: 300000, // 5 minutes
     supports: { streaming: false, batch: true },
@@ -60,7 +66,7 @@ const TRANSCRIPTION_CONFIG = {
   },
   openai: {
     apiKey: config.transcriptionConfig.openAIAPIKey,
-    priority: 2,
+    priority: toolOrderMapped.openai || 3,
     maxRetries: 2,
     timeout: 180000, // 3 minutes
     supports: { streaming: false, batch: true },
@@ -82,7 +88,7 @@ const TRANSCRIPTION_CONFIG = {
   },
   assemblyai: {
     apiKey: config.transcriptionConfig.assemblyAIAPIKey,
-    priority: 1,
+    priority: toolOrderMapped.assemblyai || 2,
     maxRetries: 2,
     timeout: 240000, // 4 minutes
     supports: { streaming: true, batch: true },
@@ -96,7 +102,7 @@ const TRANSCRIPTION_CONFIG = {
   google: {
     apiKey: config.google.apiKey,
     projectId: config.google.projectID,
-    priority: 3,
+    priority: toolOrderMapped.google || 4,
     maxRetries: 2,
     timeout: 240000,
     supports: { streaming: true, batch: true },
@@ -122,7 +128,7 @@ const TRANSCRIPTION_CONFIG = {
   },
   sarvam: {
     apiKey: config.transcriptionConfig.sarvamAPIKey,
-    priority: 3,
+    priority: toolOrderMapped.sarvam || 1,
     maxRetries: 2,
     timeout: 180000, // 3 minutes
     supports: { streaming: false, batch: true },
@@ -234,7 +240,7 @@ const requestTranscription = async (file, recordingId, options = {}) => {
   
   try {
     const {
-      preferredTool = config.transcriptionConfig.default || 'openai',
+      preferredTool = config.transcriptionConfig.default || 'sarvam',
       enableFallback = true,
       maxAttempts = 3,
       onChunkProgress,
@@ -480,7 +486,7 @@ async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, opti
           return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
           
         case 'salad':
-          const saladData = await saladTranscribeAudioService(fileUrl, recordingId);
+          const saladData = await saladTranscribeAudioService(fileUrl, recordingId, options?.languageCode);
           return await formatTranscriptResponseFromTool(saladData, 'salad');
           
         default:
@@ -500,7 +506,7 @@ async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, opti
               return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
               
             case 'salad':
-              const saladData = await saladTranscribeAudioService(publicUrl, recordingId);
+              const saladData = await saladTranscribeAudioService(publicUrl, recordingId, options?.languageCode);
               return await formatTranscriptResponseFromTool(saladData, 'salad');
             
             default:
@@ -527,11 +533,11 @@ async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, opti
   // For other tools without cloud storage: use existing fileUrl
   switch (toolName) {
     case 'openai':
-      const openAIData = await openaiTranscribeAudioService(filePath, [], fileUrl, recordingId);
+      const openAIData = await openaiTranscribeAudioService(filePath, [], fileUrl, recordingId, options?.languageCode);
       return await formatTranscriptResponseFromTool(openAIData, 'openai');
       
     case 'assemblyai':
-      const assemblyAIData = await assemblyAITranscribeAudioService(filePath, fileUrl, recordingId);
+      const assemblyAIData = await assemblyAITranscribeAudioService(filePath, fileUrl, recordingId, options?.languageCode);
       return await formatTranscriptResponseFromTool(assemblyAIData, 'assemblyai');
       
     case 'google':
@@ -545,7 +551,7 @@ async function transcribeWithTool(toolName, filePath, fileUrl, recordingId, opti
       return await formatTranscriptResponseFromTool(googleData, 'google');
       
     case 'salad':
-      const saladData = await saladTranscribeAudioService(fileUrl, recordingId);
+      const saladData = await saladTranscribeAudioService(fileUrl, recordingId, options?.languageCode);
       return await formatTranscriptResponseFromTool(saladData, 'salad');
       
     case 'sarvam':
@@ -1211,7 +1217,7 @@ function getAudioDuration(filePath) {
  * Uses LongRunningRecognize with GCS URI for long audio files (>60s or when GCS URI available)
  * Falls back to sync recognize for short audio files
  */
-async function googleTranscribeAudioService(filePath, fileUrl, recordingId, gcsUriOrObjectName = null) {
+async function googleTranscribeAudioService(filePath, fileUrl, recordingId, gcsUriOrObjectName = null, languageCode = 'auto') {
   const fileExt = path.extname(filePath).toLowerCase();
   const encodingMap = TRANSCRIPTION_CONFIG.google.constraints?.encodings || {};
   let encoding = encodingMap[fileExt] || 'LINEAR16';
@@ -1246,6 +1252,9 @@ async function googleTranscribeAudioService(filePath, fileUrl, recordingId, gcsU
     model: 'latest_long',
   };
   
+  if (languageCode && languageCode != 'auto' && languageCode != 'en') {
+    recognitionConfig.alternativeLanguageCodes = [languageCode];
+  }
   if (useLongRunning && gcsUri) {
     console.log(`[Google] Using LongRunningRecognize with GCS URI: ${gcsUri}`);
     
@@ -1376,7 +1385,7 @@ async function googleFormat(transcriptData) {
  * @param {Array<string>} [speakerNames=[]] - Optional array of known speaker names.
  * @returns {Promise<Object>} The transcription result from OpenAI.
  */
-const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUrl = null, recordingId) => {
+const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUrl = null, recordingId, languageCode = 'auto') => {
     let modelName = "gpt-4o-transcribe-diarize"; // Default model name
   
     // Verify file exists
@@ -1400,13 +1409,16 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
     try {
         // Use fsSync.createReadStream() - fs is the promises version which doesn't have createReadStream
         const fileStream = fsSync.createReadStream(audioFile);
-        
-        const transcript = await openAIClient.audio.transcriptions.create({
-            file: fileStream,
-            model: modelName,
-            response_format: "diarized_json",
-            chunking_strategy: "auto",
-        });
+        let payload = {
+          file: fileStream,
+          model: modelName,
+          response_format: "diarized_json",
+          chunking_strategy: "auto"
+        }
+      if (languageCode && languageCode != "auto") {
+        payload.language = languageCode;
+      }
+        const transcript = await openAIClient.audio.transcriptions.create(payload);
 
         console.log(`[OpenAI] Transcription completed for recording ${recordingId || 'unknown'}`);
         return transcript;
@@ -1803,7 +1815,7 @@ const openaiTranscribeAudioService = async (audioFile, speakerNames = [], fileUr
 /**
  * Salad transcription service - creates async job and returns job ID
  */
-const saladTranscribeAudioService = async (fileUrl, recordingId) => {
+const saladTranscribeAudioService = async (fileUrl, recordingId, languageCode = 'auto') => {
   const apiKey = TRANSCRIPTION_CONFIG.salad.apiKey;
   const timeout = TRANSCRIPTION_CONFIG.salad.timeout;
   
@@ -1824,7 +1836,8 @@ const saladTranscribeAudioService = async (fileUrl, recordingId) => {
       SALAD_API_URL,
       {
         audio_url: fileUrl,
-        webhook_url: WEBHOOK_URL
+        webhook_url: WEBHOOK_URL,
+        // language_code: languageCode
       },
       {
         headers: {
@@ -1875,7 +1888,7 @@ const saladTranscribeAudioService = async (fileUrl, recordingId) => {
 /**
  * Sarvam transcription service
  */
-const sarvamTranscribeAudioService = async (filePath, recordingId, languageCode = 'en-IN') => {
+const sarvamTranscribeAudioService = async (filePath, recordingId, languageCode = 'auto') => {
   if (!sarvamClient) {
     throw new Error('Sarvam API key is not configured');
   }
@@ -1905,7 +1918,7 @@ const sarvamTranscribeAudioService = async (filePath, recordingId, languageCode 
     
     // Map language codes to Sarvam format
     // Sarvam uses format like "en-IN", "hi-IN", etc.
-    let sarvamLanguageCode = 'en-IN';
+    let sarvamLanguageCode = 'unknown';
     if (languageCode) {
       const langMap = {
         'ml': 'ml-IN',
@@ -1913,7 +1926,8 @@ const sarvamTranscribeAudioService = async (filePath, recordingId, languageCode 
         'ta': 'ta-IN',
         'te': 'te-IN',
         'hi': 'hi-IN',
-        'en': 'en-IN'
+        'en': 'en-IN',
+        'auto': 'unknown'
       };
       sarvamLanguageCode = langMap[languageCode.toLowerCase()] || 'en-IN';
     }

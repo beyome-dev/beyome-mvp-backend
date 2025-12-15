@@ -1,10 +1,11 @@
 // services/organizationService.js
-const Organization = require('../models/organization');
-const User = require('../models/user');
+const { Organization, User, Session, Note, Client, Booking, Prompt } = require('../models');
 
 async function createOrganization(data) {
   const organization = new Organization(data);
-  return organization.save();
+  await organization.save();
+  await attachOrganizationToUser(organization._id.toString(), 'org_admin', data.admin);
+  return organization;
 }
 
 async function getOrganizationById(id) {
@@ -49,6 +50,12 @@ async function deleteOrganization(id) {
   const organization = await Organization.findById(id);
   if (!organization) throw new Error('Organization not found');
 
+  await User.updateMany({ organization: id }, { $unset: { organization: 1 } });
+  await Session.deleteMany({ organization: id });
+  await Note.deleteMany({ organization: id });
+  await Client.deleteMany({ organization: id });
+  await Booking.deleteMany({ organization: id });
+  await Prompt.deleteMany({ organization: id });
   return organization.deleteOne();
 }
 
