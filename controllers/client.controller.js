@@ -93,7 +93,7 @@ module.exports.getClientNames = async (req, res) => {
         let filter = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
-        filter.therapistId = req.user._id;
+        filter.handler = req.user._id;
         // filter.organization = req.user.organization;
         // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
         //     delete filter.therapistId;
@@ -112,7 +112,7 @@ module.exports.getClientsWithInfo = async (req, res) => {
         let filter = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
-        filter.therapistId = req.user._id;
+        filter.handler = req.user._id;
         // filter.organization = req.user.organization;
         // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
         //     delete filter.therapistId;
