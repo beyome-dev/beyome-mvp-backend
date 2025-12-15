@@ -99,22 +99,23 @@ app.use(helmet(helmetConfig));
 
 // HTTPS enforcement middleware (for production)
 if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1); // Trust nginx proxy
+  app.set('trust proxy', 1); // Trust nginx
   
   app.use((req, res, next) => {
-    // Check if request came through HTTPS (via nginx)
+    // With trust proxy, req.secure will correctly read X-Forwarded-Proto
     const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
     
-    // Only enforce HTTPS for external requests (not from nginx proxy)
-    if (!isSecure && req.hostname !== 'localhost') {
+    // Skip localhost (internal nginx proxy requests)
+    if (req.hostname === 'localhost') {
+      return next();
+    }
+    
+    if (!isSecure) {
       return res.redirect(301, `https://${req.headers.host}${req.url}`);
     }
     
     // Set HSTS header
-    if (isSecure) {
-      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-    }
-    
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     next();
   });
 }
