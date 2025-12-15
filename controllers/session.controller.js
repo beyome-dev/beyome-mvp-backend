@@ -22,7 +22,7 @@ async function getAllSessions(req, res) {
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
         filter.therapistId = req.user._id;
-        filter.organization = req.user.organization;
+        // filter.organization = req.user.organization;
         // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
         //     delete filter.therapistId;
         // }

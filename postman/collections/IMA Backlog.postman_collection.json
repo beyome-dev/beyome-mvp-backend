@@ -1,0 +1,462 @@
+{
+  "info": {
+    "_postman_id": "1cac997f-0563-4399-af6c-38d186c6b3fd",
+    "name": "IMA Backlog",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "id": "efda5204-1538-4230-9f2e-7d6f504259b8",
+            "exec": [
+              "const accessToken = pm.response.json().data.token;",
+              "pm.collectionVariables.set('accessToken', accessToken);"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "id": "54f93375-5523-4b31-9393-e4310b54601c",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "your-api-key-here",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"parnal.kohbragade@ima360.com\",\n    \"password\": \"Ima@360!!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{host}}/auth/login",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update user",
+      "id": "891a9b19-e85c-49b5-82ef-169fbec901ab",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "your-api-key-here",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Parnal Kohbragade\",\n    \"email\": \"parnal.kohbragade@ima360.com\",\n    \"phone\": \"\",\n    \"language\": \"en\",\n    \"collaboration_id\": \"internal\",\n    \"security_role\": \"admin\",\n    \"user_status\": \"Not Validated\",\n    \"timezone\": \"\",\n    \"country\": \"IN\",\n    \"is_external\": false,\n    \"team\": \"Global\",\n    \"job_position\": \"Developer\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{host}}/users/:id",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "users",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "31db4347-aa3b-433b-907c-34621c4bf2b4"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fetch user",
+      "id": "9dee53f5-69c3-44c4-a0a2-33548d0c6c32",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "your-api-key-here",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/users",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "users"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fetch users",
+      "id": "c6694445-7fbb-4799-ab82-60222466f8a0",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "your-api-key-here",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/users",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "users"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fetch user by id",
+      "id": "c8cccfb8-293d-4717-84fb-8a9cb3f73ae2",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "your-api-key-here",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/users/:id",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "users",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fetch categories",
+      "id": "971ed2dc-10d0-45d2-b426-1753f07fadea",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "dev-api-key-12345",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/story-config/category/:category",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "story-config",
+            "category",
+            ":category"
+          ],
+          "variable": [
+            {
+              "key": "category",
+              "value": "customers"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fetch stories",
+      "id": "947f15b1-3d40-478a-978c-1a2ea132daff",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "dev-api-key-12345",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/stories?_t=1765535818639",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "stories"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "_t",
+              "value": "1765535818639"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fetch kanban stories",
+      "id": "cfd40a67-9f7e-421a-b426-c088affb7ea4",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "dev-api-key-12345",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/kanban/active-sprint-stories?_t=1765535818639",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "kanban",
+            "active-sprint-stories"
+          ],
+          "query": [
+            {
+              "key": "_t",
+              "value": "1765535818639"
+            },
+            {
+              "key": "limit",
+              "value": "",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Export stories",
+      "id": "eb14db70-a736-4ecd-883d-8e38c1ece1d7",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "dev-api-key-12345",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/backlog/export",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "backlog",
+            "export"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fetch columns",
+      "id": "68a0b4e6-30cb-448d-acaf-e51cda29cbb8",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "dev-api-key-12345",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/backlog/export",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "backlog",
+            "export"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Trigger notification",
+      "id": "cdabc385-6654-4c2a-a4a9-ed25a0d3b64d",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "dev-api-key-12345",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{host}}/backlog/export",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "backlog",
+            "export"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "id": "d742712a-3642-4ee7-9deb-ed24eb3839f5",
+      "key": "accessToken",
+      "value": ""
+    }
+  ]
+}

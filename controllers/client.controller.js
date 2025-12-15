@@ -23,16 +23,16 @@ module.exports.createClient = async (req, res) => {
 module.exports.getClients = async (req, res) => {
     try {
         let { page, limit } = req.query;
-        let filters = req.mongoQuery
+        let filter = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
         filter.therapistId = req.user._id;
-        filter.organization = req.user.organization;
+        // filter.organization = req.user.organization;
         // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
         //     delete filter.therapistId;
         // }
 
-        const clients = await clientService.getClients(filters, page, limit, req.user);
+        const clients = await clientService.getClients(filter, page, limit, req.user);
         res.status(200).send(clients);
     } catch (error) {
         res.status(400).send({ message: error.message });
@@ -90,16 +90,16 @@ module.exports.deleteClient = async (req, res) => {
 module.exports.getClientNames = async (req, res) => {
     try {
         let { page, limit } = req.query;
-        let filters = req.mongoQuery
+        let filter = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
         filter.therapistId = req.user._id;
-        filter.organization = req.user.organization;
+        // filter.organization = req.user.organization;
         // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
         //     delete filter.therapistId;
         // }
 
-        const client = await clientService.getClientNames(filters, page, limit);
+        const client = await clientService.getClientNames(filter, page, limit);
         res.status(201).json(client);
     } catch (error) {
         res.status(400).json({ message: error.message });
@@ -109,16 +109,16 @@ module.exports.getClientNames = async (req, res) => {
 module.exports.getClientsWithInfo = async (req, res) => {
     try {
         let { page, limit } = req.query;
-        let filters = req.mongoQuery
+        let filter = req.mongoQuery
         page = parseInt(page) || 1;
         limit = parseInt(limit) || 10;
         filter.therapistId = req.user._id;
-        filter.organization = req.user.organization;
+        // filter.organization = req.user.organization;
         // if (req.user.userType === "receptionist" || req.user.userType === "org_admin") {
         //     delete filter.therapistId;
         // }
-        
-        const client = await clientService.getClientsWithData(filters, page, limit, req.user);
+
+        const client = await clientService.getClientsWithData(filter, page, limit, req.user);
         res.status(201).json(client);
     } catch (error) {
         res.status(400).json({ message: error.message });

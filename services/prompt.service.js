@@ -25,7 +25,14 @@ const getPrompts = async ({ page = 1, limit = 10, filter = {}, fields = null } =
         // If user has no organization, exclude prompts with any organization (only show prompts without organization)
         filter.organization = null;
     }
-    
+    if (filter.roles) {
+        filter.roles = { $in: filter.roles };
+    } else {
+        filter.$or = [
+            { roles: 'all-users' },
+            { roles: { $in: [null, []] } }
+        ]
+    }
     let query = Prompt.find(filter).skip(skip).limit(limit);
     if (fields) {
         query = query.select(fields);
@@ -53,7 +60,14 @@ const getEnabledPrompts = async ({ page = 1, limit = 10, filter = {}, fields = n
 
     const config = await configService.GetUserConfig(user._id);
     filter._id = { $in: config.promptIds }
-
+    if (filter.roles) {
+        filter.roles = { $in: filter.roles };
+    } else {
+        filter.$or = [
+            { roles: 'all-users' },
+            { roles: { $in: [null, []] } }
+        ]
+    }
     let query = Prompt.find(filter).skip(skip).limit(limit);
     if (fields) {
         query = query.select(fields);

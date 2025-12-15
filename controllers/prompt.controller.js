@@ -27,7 +27,7 @@ exports.getPrompts = async (req, res) => {
         let fields = null;
         if (!req.user.isAdmin) {
             filter = { approved: true, ...filter };
-            fields = 'formatName shortDescription categories'; // Only return the name field for non-admins
+            fields = 'formatName shortDescription categories roles specialtyTypes'; // Only return the name field for non-admins
         }
         const result = await getPrompts({
             page: Number(page) || 1,
