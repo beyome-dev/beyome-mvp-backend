@@ -688,7 +688,7 @@ function wrapHTMLForPDF(innerHTML, headerInfo, userLogoUrl) {
                     font-size: 11pt;
                     line-height: 1.6;
                     color: #222;
-                    padding: 60px 50px 120px 50px;
+                    padding: 0 0 0 0;
                     position: relative;
                 }
                 
@@ -696,6 +696,7 @@ function wrapHTMLForPDF(innerHTML, headerInfo, userLogoUrl) {
                 .header {
                     text-align: center;
                     margin-bottom: 30px;
+                    margin-top: 0;
                     padding-bottom: 20px;
                     border-bottom: 2px solid #4A90E2;
                 }
@@ -733,7 +734,7 @@ function wrapHTMLForPDF(innerHTML, headerInfo, userLogoUrl) {
                 /* Content styling */
                 .content {
                     margin-bottom: 0;
-                    min-height: calc(100vh - 280px);
+                    min-height: 200px;
                 }
                 
                 .content h1 {
@@ -789,10 +790,10 @@ function wrapHTMLForPDF(innerHTML, headerInfo, userLogoUrl) {
                 .footer {
                     position: fixed;
                     bottom: 20px;
-                    left: 50px;
-                    right: 50px;
-                    height: 40px;
-                    padding: 10px 0;
+                    left: 0;
+                    right: 0;
+                    height: 50px;
+                    padding: 12px 50px;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
@@ -877,6 +878,7 @@ function wrapHTMLForPDF(innerHTML, headerInfo, userLogoUrl) {
                     <span>Generated on ${new Date().toLocaleDateString('en-GB')}</span>
                 </div>
                 <div class="footer-right">
+                    <span>Powered by</span>
                     <img src="https://recapp.beyome.in/Recapp-Green.png" alt="Recapp" class="footer-logo" />
                 </div>
             </div>

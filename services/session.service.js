@@ -131,6 +131,8 @@ async function getAllSessions(filter = {}, page = 1, limit = 10) {
 async function updateSession(id, data, user) {
     let session = await Session.findById(id);
     if (data.clientId && data.clientId !== session.clientId.toString()) {
+        // Update the client in the notes
+        await Note.updateMany({ sessionId: session._id }, { $set: { client: data.clientId } });
         const client = await Client.findById(session.clientId);
         if (client && client.status === 'unknown') {
             await Client.findByIdAndDelete(session.clientId);
