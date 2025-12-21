@@ -688,8 +688,9 @@ function wrapHTMLForPDF(innerHTML, headerInfo, userLogoUrl) {
                     font-size: 11pt;
                     line-height: 1.6;
                     color: #222;
-                    padding: 0 0 0 0;
+                    padding: 60px 50px 100px 50px;
                     position: relative;
+                    min-height: 100vh;
                 }
                 
                 /* Header with logo */
